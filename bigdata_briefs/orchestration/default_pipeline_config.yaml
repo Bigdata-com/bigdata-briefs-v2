@@ -1,0 +1,13 @@
+topics:
+  - "{entity}"
+source_filter: null
+categories:
+  - news
+source_rank_boost: 10
+freshness_boost: 1
+headline_search: false
+rerank_concept_sources: true
+consolidate_points: true
+consolidation_mode: loose
+concept_workflow_modes:
+  - iterative_sequential_with_thematic_chunks

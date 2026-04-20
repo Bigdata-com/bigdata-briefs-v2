@@ -1,0 +1,97 @@
+TOTAL mixed: 20
+
+=== CASE 11 [D64C6D / run 6d7ff7d0] ===
+TEXT: NIKE Inc.'s All Conditions Gear division is expanding its performance footwear lineup with new silhouettes like the Zegama Hike, aiming to set a new standard for modern hiking footwear by blending running and hiking technologies.
+overall=mixed  rewrite=keep
+reason: Evidence documents new ACG silhouettes (ACG Zegama, Pegasus Trail) and a relaunch focused on trail running/hiking, but does not mention a distinct “Zegama Hike” model or the explicit goal of “setting a new standard.” The sentence therefore adds concrete new product naming and evaluative framing, so it contains novel information and should be kept.
+CLAIMS (1) / VERDICTS (1):
+  [0] partially_novel: {'text': "NIKE Inc.'s All Conditions Gear (ACG) division is expanding its performance footwear lineup with new silhouettes such as the Zegama Hike that blend running and hiking technologies to set a new standard for modern hiking footwear."}
+       reasoning: The general idea—that Nike ACG is expanding its performance footwear lineup and blending road/running and trail/hiking technologies—is supported by the evidence: D2 describes new ACG running silhouettes (including the rugged ACG Zegama and the new Pegasus Trail) and explicitly notes the Pegasus Trail pairs Pegasus road performance with trail-specific innovations (D2-C3, D2-C7). D3 also notes the ACG relaunch focused on trail running and hiking (D3-C2). However, the specific mention of a new silhouette named the “Zegama Hike” is not present in the provided evidence (the evidence references an ACG Zegama but not a distinct “Zegama Hike” model), and the claim’s phrasing about “setting a new standard for modern hiking footwear” is an evaluative goal not directly stated in the cited passages. Because the claim adds a new concrete model name and a new framing beyond what's in the evidence, it is partially_novel.
+       evidence_ids: ['D2-C7', 'D2-C3', 'D3-C2']
+
+=== CASE 12 [C44D01 / run 75103766] ===
+TEXT: Enphase Energy Inc. reported revenues of $343.3 million for the most recent quarter, representing a 10.3% year-over-year decrease but exceeding analyst expectations by 1.9%, and also delivered an adjusted operating income beat and revenue guidance for the next quarter above consensus.
+overall=mixed  rewrite=keep
+reason: Most of the sentence is supported by the evidence (Q4 revenue ~$343.3M, ~10% y/y decline, and guidance above analyst estimates). However, the precise '1.9%' beat figure and the claim of an 'adjusted operating income beat' are not clearly present in the provided sources, so the sentence contains novel specifics and should be kept as adding new information.
+CLAIMS (1) / VERDICTS (1):
+  [0] partially_novel: {'text': 'Enphase Energy Inc. reported revenues of $343.3 million for the most recent quarter (a 10.3% year-over-year decrease) that exceeded analyst expectations by 1.9%, and also delivered an adjusted operating income beat and gave revenue guidance for the next quarter above consensus.'}
+       reasoning: Most elements of the claim are already in the evidence: multiple reports show Q4 revenue of about $343.3M and a ~10% year-over-year decline (D6-C2, D3-C5, D14-C5), and consensus-beating revenue/guidance is documented (revenue beat vs FactSet/consensus in D4-C1, D5-C3, D7-C1; Q1 revenue guidance above analyst estimate in D5-C4). However, the specific figure that revenue exceeded analyst expectations by '1.9%' does not appear in the cited pieces (the evidence shows various beats but with slightly different deltas), and the claim’s wording that the company “delivered an adjusted operating income beat” is not clearly stated in the evidence (the reports explicitly note adjusted EPS/earnings beats and margins but do not plainly state an adjusted operating income beat). Because the claim mixes documented facts with a specific numeric percentage and a phrasing about adjusted operating income that are not directly supported, the claim is partially novel.
+       evidence_ids: ['D4-C1', 'D5-C3', 'D5-C4', 'D6-C2', 'D7-C1']
+
+=== CASE 13 [0157B1 / run e8bf3838] ===
+TEXT: Amazon.com Inc. is partnering with Q2 Holdings to integrate Amazon Bedrock into Q2's digital banking platform, enabling financial institutions to build and scale generative AI applications with enhanced security and scalability.
+overall=mixed  rewrite=keep
+reason: The evidence shows an expanded Q2–AWS partnership and use of AWS generative AI, but does not mention Amazon Bedrock specifically or the claim about enabling institutions to build/scale generative AI with enhanced security and scalability. Those are new, concrete details, so the sentence adds novel information.
+CLAIMS (1) / VERDICTS (1):
+  [0] partially_novel: {'text': "Amazon.com Inc. is partnering with Q2 Holdings to integrate Amazon Bedrock into Q2's digital banking platform so financial institutions can build and scale generative AI applications with enhanced security and scalability."}
+       reasoning: The evidence (D1-C1) shows an expanded strategic partnership between Q2 and Amazon Web Services and says Q2 will leverage AWS innovation, including generative AI, to power its digital banking products. However, the claim adds a specific new detail — that Amazon Bedrock will be integrated into Q2’s digital banking platform and that this will enable financial institutions to build and scale generative AI applications with enhanced security and scalability — which is not mentioned in the cited evidence. Therefore this is a development/added concrete detail beyond the provided evidence (partially_novel).
+       evidence_ids: ['D1-C1']
+
+=== CASE 14 [0157B1 / run e8bf3838] ===
+TEXT: Amazon.com Inc. has launched its first smart warehouse in Shenzhen, China, designed to help cross-border sellers reduce storage costs by up to 45% and streamline logistics processes including local storage, customs clearance, and cross-border shipping.
+overall=mixed  rewrite=keep
+reason: Existing evidence confirms Amazon opened its first smart hub/warehouse in Shenzhen, but does not include the specific claimed benefits (up to 45% storage-cost reduction and the detailed logistics functions). Those details are new, so the sentence adds information and should be kept.
+CLAIMS (1) / VERDICTS (1):
+  [0] partially_novel: {'text': 'Amazon.com Inc. has launched its first smart warehouse in Shenzhen, China, designed to help cross-border sellers reduce storage costs by up to 45% and streamline logistics processes including local storage, customs clearance, and cross-border shipping.'}
+       reasoning: D1-C6 states Amazon opened its first global smart hub warehouse in Shenzhen, matching the core claim that Amazon launched its first smart warehouse there. However, the evidence does not mention the specific benefits asserted in the claim — the up-to-45% reduction in storage costs or the detailed list of streamlined logistics processes (local storage, customs clearance, cross-border shipping). Those concrete details are new and therefore represent a partial addition to the information in the evidence.
+       evidence_ids: ['D1-C6']
+
+=== CASE 15 [D64C6D / run 0abda709] ===
+TEXT: NIKE Inc.'s women's basketball business expanded 50% in 2025, but analysts caution that overall market share gains may be limited as the athleisure market becomes saturated and growth shifts toward emerging brands rather than legacy players.
+overall=mixed  rewrite=keep
+reason: The 50% expansion in Nike's women's basketball business is new information not present in the evidence (novel), while the analysts' caution about a saturated athleisure market and shift toward emerging brands is already documented (old). Because the sentence contains genuine new factual data, keep it unchanged.
+CLAIMS (2) / VERDICTS (2):
+  [0] novel: {'text': "NIKE Inc.'s women's basketball business expanded 50% in 2025."}
+       reasoning: No evidence items were provided that report or corroborate the specific claim that Nike's women's basketball business expanded 50% in 2025. Because this concrete numeric development (50% growth in 2025) does not appear in the supplied evidence, the claim is novel.
+       evidence_ids: []
+  [1] old: {'text': "Analysts caution that NIKE Inc.'s overall market share gains may be limited as the athleisure market becomes saturated and growth shifts toward emerging brands rather than legacy players."}
+       reasoning: The claim paraphrases analyst warnings already present in the evidence. Piper Sandler’s note explicitly said the athleisure market is becoming saturated and expressed concern about peak frequency metrics (D1-C1). Andreeva’s report likewise warned the market is maturing, with demand driven by new entrants (e.g., Salomon) rather than legacy players and that tighter competition could hurt Nike’s market share (D2-C3). This is a restatement of those points, not a new development.
+       evidence_ids: ['D1-C1', 'D2-C3']
+
+=== CASE 16 [D64C6D / run 0abda709] ===
+TEXT: NIKE Inc. contributes to Challenged Athletes Foundation grant programs that reach athletes in 36 countries.
+overall=mixed  rewrite=rewrite
+reason: Existing evidence already establishes Nike as the foundation's official apparel partner and that it funds CAF grants, but it does not state the geographic reach (36 countries). The only genuinely new fact is the grants reaching athletes in 36 countries, so the sentence should be pared down to that novel detail.
+CLAIMS (1) / VERDICTS (1):
+  [0] partially_novel: {'text': "NIKE Inc. is the official apparel partner of the Challenged Athletes Foundation and contributes to the foundation's grant programs that reach athletes in 36 countries."}
+       reasoning: The evidence (D1-C15) explicitly states Nike is the official apparel partner of the Challenged Athletes Foundation and has helped fund grants for adaptive equipment, training, and competition—covering the partnership and contribution to grant programs. However, the specific detail that those grant programs "reach athletes in 36 countries" is not mentioned in the provided evidence, so that numeric/geographic detail is new.
+       evidence_ids: ['D1-C15']
+
+=== CASE 17 [DCAC9F / run 8f338992] ===
+TEXT: Oatly Group AB's ongoing commitment to sustainability is reflected in its Canadian expansion, with the company explicitly linking its brand growth and product launches to consumer demand for environmentally responsible choices.
+overall=mixed  rewrite=keep
+reason: Evidence documents Oatly's strong sustainability credentials and strategic brand growth but does not mention a Canadian expansion or the company's explicit linking of brand growth/product launches to Canadian consumer demand for environmentally responsible choices. Those details are new, so the sentence adds information and should be kept.
+CLAIMS (1) / VERDICTS (1):
+  [0] partially_novel: {'text': "Oatly Group AB's commitment to sustainability is reflected in its Canadian expansion, and the company explicitly links its brand growth and product launches to consumer demand for environmentally responsible choices."}
+       reasoning: Evidence shows Oatly's emphasis on sustainability and climate credentials (D1-C10 notes product carbon labeling and ramping up climate credentials; D3-C1 documents its Climate Solutions designation and sustainability plan). D2-C13 describes strategic brand growth to reach broader consumers (including environmentally conscious groups). However, none of the provided evidence mentions a Canadian expansion or explicitly ties brand growth and product launches to consumer demand for environmentally responsible choices in the specific way the claim does. Therefore the sustainability theme is supported by the evidence, but the specific claim about Canadian expansion and that explicit linkage is a new detail — making the claim partially novel.
+       evidence_ids: ['D1-C10', 'D2-C13', 'D3-C1']
+
+=== CASE 18 [C3FCCB / run 1d80ee36] ===
+TEXT: Similarweb Ltd. is expanding to serve institutional investors by offering stock intelligence solutions.
+overall=mixed  rewrite=rewrite
+reason: Most elements (web/app, sales/retail intelligence; serving multiple industries including retail) are already present in the evidence. The novel element is the targeting of institutional investors and the specific 'stock intelligence' product, so the sentence is rewritten to retain only that new development.
+CLAIMS (1) / VERDICTS (1):
+  [0] partially_novel: {'text': 'SimilarWeb Ltd. is expanding its digital intelligence offerings across multiple industries, including retail and institutional investors, by providing web and app intelligence, sales intelligence, and stock intelligence solutions.'}
+       reasoning: D1-C7 and D2-C4 already state Similarweb offers a comprehensive suite of digital intelligence (web and app intelligence, sales/retail intelligence) and serves multiple industries (including retail and consumer finance). However, the claim’s specific addition that SimilarWeb is targeting 'institutional investors' and providing 'stock intelligence' is not present in the cited evidence. Because the core offerings and multi-industry expansion are covered but the new client segment (institutional investors) and the distinct 'stock intelligence' product represent new concrete details, the claim is partially novel.
+       evidence_ids: ['D1-C7', 'D2-C4']
+
+=== CASE 19 [C44D01 / run 2753492c] ===
+TEXT: Enphase Energy Inc. reported that after previously assuring investors of disciplined channel inventory management, it reversed course in late 2025 and began actively reducing shipments to the channel to address elevated inventory levels.
+overall=mixed  rewrite=rewrite
+reason: Most of the sentence is supported by the evidence (management assurances, late-2025 reversal, and reduced shipments to destock elevated channel inventory). The claim that this action impacted Enphase’s competitive positioning is not supported in the provided evidence, so the sentence should be rewritten to drop that unsupported consequence.
+CLAIMS (1) / VERDICTS (1):
+  [0] partially_novel: {'text': 'Enphase Energy Inc. reversed a prior assurance about disciplined channel inventory management in late 2025 and began actively reducing shipments to the channel to address elevated inventory levels, which impacted its competitive positioning in the residential solar market.'}
+       reasoning: The evidence shows the prior assurances and later need to destock elevated channel inventory and reduced shipments in late 2025: D1 notes management had characterized conditions as “normal” while alleging a breach of inventory targets and that the company disclosed it needed to destock elevated channel inventory; D2 and D3 (Oct. 28, 2025 disclosure) state elevated channel inventory would result in lower battery shipments in Q4 2025. Those items cover the reversal of prior assurances and active reduction in shipments. However, the claim’s additional assertion that this action "impacted its competitive positioning in the residential solar market" is not stated or supported in the provided evidence. Because the core operational reversal and shipment reduction are in the evidence but the competitive-positioning consequence is a new development, the claim is partially novel.
+       evidence_ids: ['D1-C2', 'D2-C3', 'D3-C2']
+
+=== CASE 20 [0157B1 / run 52da4dba] ===
+TEXT: Amazon.com Inc. has been actively lobbying for streamlined permitting processes to accelerate data center development in Spain.
+overall=mixed  rewrite=rewrite
+reason: The investment figure and AI/cloud plans (EUR33.7B) are already documented in the evidence, while the claim about Amazon actively lobbying for streamlined permitting is new information not present in the cited sources. Therefore retain only the new lobbying detail.
+CLAIMS (2) / VERDICTS (2):
+  [0] old: {'text': 'Amazon.com Inc. is investing EUR33 billion in artificial intelligence and cloud infrastructure in Spain.'}
+       reasoning: The evidence shows Amazon announced a EUR33.7 billion investment in Spain to expand data center, cloud and AI infrastructure (e.g. D1-C1, D2-C1, D4-C1, D7-C1). The claim’s EUR33 billion figure and description (investment in AI and cloud infrastructure in Spain) refer to the same announced commitment and do not introduce a new phase or new concrete detail, so it is already covered by the evidence.
+       evidence_ids: ['D1-C1', 'D2-C1', 'D4-C1', 'D7-C1']
+  [1] novel: {'text': 'Amazon.com Inc. has been actively lobbying for streamlined permitting processes to accelerate data center development in the region (Spain).'}
+       reasoning: The provided evidence (D1-C6) discusses Amazon's increased investment in Spain and its AWS region but makes no mention of lobbying activity or efforts to streamline permitting for data centers. The claim that Amazon has been actively lobbying for streamlined permitting is therefore a new detail not present in the evidence.
+       evidence_ids: ['D1-C6']

@@ -1,0 +1,78 @@
+{
+  "timestamp": "2026-04-16T11:00:27.418966",
+  "entity": "Amazon.com Inc.",
+  "retrieved_chunk_pool_note": "rank_distribution, sources, and total_unique_chunks cover every deduplicated chunk passed through concept search (after optional hash filter), before bullets cite a subset.",
+  "total_unique_chunks": 21,
+  "rank_distribution": {
+    "RANK_1": {
+      "count": 3,
+      "percentage": 14.3
+    },
+    "RANK_2": {
+      "count": 3,
+      "percentage": 14.3
+    },
+    "RANK_3": {
+      "count": 15,
+      "percentage": 71.4
+    }
+  },
+  "sources": {
+    "Yahoo! News": {
+      "rank": 3,
+      "count": 4
+    },
+    "VAR India": {
+      "rank": 3,
+      "count": 2
+    },
+    "Trend Hunter": {
+      "rank": 3,
+      "count": 2
+    },
+    "PubT": {
+      "rank": 1,
+      "count": 2
+    },
+    "AOL.com": {
+      "rank": 2,
+      "count": 2
+    },
+    "Benzinga": {
+      "rank": 1,
+      "count": 1
+    },
+    "The Star Online": {
+      "rank": 3,
+      "count": 1
+    },
+    "IndexBox": {
+      "rank": 3,
+      "count": 1
+    },
+    "Ecofin Agency": {
+      "rank": 3,
+      "count": 1
+    },
+    "Macao News": {
+      "rank": 3,
+      "count": 1
+    },
+    "AJ Bell Youinvest Corporate Website": {
+      "rank": 3,
+      "count": 1
+    },
+    "Moneycontrol.com": {
+      "rank": 3,
+      "count": 1
+    },
+    "PV Magazine Australia": {
+      "rank": 3,
+      "count": 1
+    },
+    "Yahoo! Finance": {
+      "rank": 2,
+      "count": 1
+    }
+  }
+}

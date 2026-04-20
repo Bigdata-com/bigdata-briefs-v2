@@ -1,0 +1,14 @@
+{% for chunk in merged_chunks %}
+---
+Reference ID: {{ chunk.merged_ref_id }}
+{% if chunk.headlines|length > 1 %}
+{% for headline in chunk.headlines %}
+Title {{ loop.index }}: {{ headline }}
+{% endfor %}
+{% else %}
+Title: {{ chunk.headlines[0] }}
+{% endif %}
+Text: {{ chunk.text }}
+
+{% endfor %}
+

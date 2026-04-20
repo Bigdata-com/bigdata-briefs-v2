@@ -1,0 +1,62 @@
+{
+  "timestamp": "2026-04-16T11:02:15.749224",
+  "entity": "NIKE Inc.",
+  "retrieved_chunk_pool_note": "rank_distribution, sources, and total_unique_chunks cover every deduplicated chunk passed through concept search (after optional hash filter), before bullets cite a subset.",
+  "total_unique_chunks": 16,
+  "rank_distribution": {
+    "RANK_2": {
+      "count": 3,
+      "percentage": 18.8
+    },
+    "RANK_3": {
+      "count": 5,
+      "percentage": 31.2
+    },
+    "RANK_4": {
+      "count": 8,
+      "percentage": 50.0
+    }
+  },
+  "sources": {
+    "IndexBox": {
+      "rank": 3,
+      "count": 3
+    },
+    "Women's Wear Daily": {
+      "rank": 4,
+      "count": 3
+    },
+    "Yahoo! Finance": {
+      "rank": 2,
+      "count": 2
+    },
+    "NewsBytes": {
+      "rank": 3,
+      "count": 2
+    },
+    "AOL.com": {
+      "rank": 2,
+      "count": 1
+    },
+    "KETV": {
+      "rank": 4,
+      "count": 1
+    },
+    "Toledo - Spectrum News": {
+      "rank": 4,
+      "count": 1
+    },
+    "Northwest Arkansas Democrat Gazette": {
+      "rank": 4,
+      "count": 1
+    },
+    "LEX 18": {
+      "rank": 4,
+      "count": 1
+    },
+    "MSN": {
+      "rank": 4,
+      "count": 1
+    }
+  }
+}

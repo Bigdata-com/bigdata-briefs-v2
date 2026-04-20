@@ -1,0 +1,2 @@
+class TooManyAPIRetriesError(Exception):
+    """TooManyAPIRetriesError"""

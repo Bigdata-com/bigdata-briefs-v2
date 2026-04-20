@@ -1,0 +1,1244 @@
+# =============================================================================
+# Chat models (OpenAI): default is gpt-4.1-mini for every prompt block below EXCEPT
+# the two explicit overrides (full gpt-4.1). See bigdata_briefs/prompts/prompt_loader.py
+# for BRIEFS_DEFAULT_MODEL / BRIEFS_RUN_MODEL_PROMPTS (env can override the two RUN prompts).
+#
+# Prompt key (YAML section)              | Model
+# ---------------------------------------+------------------
+# entity_update_iterative_by_theme       | gpt-4.1
+# novelty_embedding_evaluation_prompt    | gpt-4.1  (shared LLM judge for all novelty evaluators)
+# (all other sections)                   | gpt-4.1-mini  (default_model)
+#
+# Other code paths: concept_extraction, relevance_check, entity_grounding_check,
+# validator_rewrite / validator_merge, novelty_embedding_rewrite_prompt, redundancy_*,
+# thematic_clustering*, standalone_*, novelty_check, novelty_checkv_0 — all use
+# default_model unless a per-section "model:" is added.
+#
+# Embeddings (not chat): settings.NOVELTY_MODEL, default text-embedding-3-large.
+# Reasoning chat models: gpt-5-mini — use reasoning_effort in model_kwargs, omit temperature.
+# =============================================================================
+default_model: "gpt-4.1-mini"
+
+entity_update_iterative_by_theme:
+  model: "gpt-4.1"  # full 4.1 for bullet generation (iterative-by-theme)
+  model_kwargs:
+    temperature: 0.0
+    max_tokens: 1500
+  system_prompt: "You are a financial analyst writing concise market intelligence updates."
+  user_template: |
+    Generate a market-focused update on **{{entity_info}}** based on the recent information below. You must focus EXCLUSIVELY on the specified theme. Today is {{current_datetime}}.
+
+    <theme_focus>
+    **FOCUS ON THIS THEME ONLY**: {{theme}}
+    
+    Example topics that may be relevant for this theme (use as guidance, not as strict requirements):
+    {{concepts}}
+    </theme_focus>
+
+    <themes_to_exclude>
+    **DO NOT generate bullet points about these themes** (they will be covered separately):
+    {% for t in other_themes %}
+    - {{t}}
+    {% endfor %}
+    </themes_to_exclude>
+
+    <context_structure>
+    The context below contains text excerpts from news articles. Each excerpt has:
+    - **Reference ID**: A unique identifier to cite in your response
+    - **Title**: The headline of the source article
+    - **Text**: The actual content excerpt
+    
+    Note: Multiple excerpts may share the same Title (they come from the same article).
+    </context_structure>
+
+    <context>
+    {{rendered_results}}
+    </context>
+    
+    <instructions>
+      - Your objective is to analyze and summarize ONLY information related to the theme "{{theme}}"
+      - All bullet points should be written from {{entity_info}}'s perspective.
+      - Product-related bullets are fine; focus on announcements, withdrawals, launches, and developments that can move the market. Do not include non-important product specs—include technical specifications only when they are material or market-moving.
+      - Use the example topics ({{concepts}}) as guidance for what belongs to this theme
+      - **CRITICAL**: Do NOT generate bullet points about the excluded themes listed above
+      - **CRITICAL**: Do NOT repeat information already covered in previous bullets
+      - Your summary must contain specific details (e.g. numbers, dates, etc.)
+      - Each paragraph must be distinct, self-contained, and capture a unique development within this theme
+    {{ date_instructions }}
+      - Do not include any information related to news about **stock prices**
+      - If there is no relevant information for this specific theme, or all relevant information has already been covered, respond with an empty collection:
+        ```json 
+        {% raw %}
+        {"collection":[]}
+        {% endraw %}
+        ```
+    </instructions>
+
+    <style>
+      - Write like a seasoned Wall Street desk analyst.
+      - Should read like a quick "morning desk note": direct, no fluff, concise, and confident.
+      - Only use the information present in the <context>. Do NOT infer from outside knowledge.
+      - Generate a list of short paragraphs: **one short paragraph covers one specific topic or theme**.
+      - Each paragraph starts with a bullet point.
+      - **CRITICAL - Bullet format**: Every bullet point MUST start with the full entity/company name (e.g. Apple Inc. or Tesla). All information must be from the entity's perspective. Do NOT include stock tickers (e.g. no AAPL, NVDA) anywhere in the bullets. Do NOT use double asterisks or other markdown in the bullet text.
+      - All bullets must be complete sentences - concise, direct, and grammatically correct. Use simple language when technical jargon is not needed.
+      - Do NOT use acronyms unless the referent is genuinely unclear from context; when in doubt, spell out the term.
+      - Accurately report dates and figures when mentioned in the source text.
+      - Do not report the same date in multiples paragraphs of the same entity.
+      - Do not use colons to separate short paragraphs from details.
+      - Avoid unnecessary sentences that link questions and answers. Only summarize the answer text.
+      - Do NOT add interpretations, implications, or editorial commentary. Report ONLY what happened, not why it matters or what it enables.
+      - Every bullet MUST contain at least one specific detail: a number, a date, a name, or a concrete metric. Do NOT generate bullets that contain only qualitative statements.
+      - Keep bullets to ONE sentence. If a bullet needs two sentences, it is covering too much — split it or cut the unnecessary part.
+      - Do NOT include the current reporting date in the bullets just to add a date reference. The reader already knows when the report was generated. Only include dates that add information: future events, deadlines, launch dates, or dates different from the reporting period.   
+    </style>
+
+    <source_citation>
+      - When you use information from a specific chunk in your paragraphs, you must cite it using the metadata provided in the context.
+      - The citations should be reported for each paragraph where the information is used.
+      - For every text used, report the Reference ID. The citation format should be an array constructed as follows: [X,Y,...], where X and Y are the Reference IDs.
+      - If there are multiple sources for a particular piece of information, cite ALL the relevant sources in the array.
+    </source_citation>
+
+    <response_format>
+      Your response should be a JSON object that matches the following schema:
+      {{response_format}}
+      
+      You should return a collection of topics with their source citation as follows
+      {% raw %}
+      ```json
+      {"collection":[{
+        "topic": "topic_1",
+        "source_citation":[ref_id_X, ref_id_Y, ...]},
+        {"topic": "topic_2",
+        "source_citation":[doc_id_Z, doc_id_W, ...]},
+        ...]}
+      ```
+      {% endraw %}
+    </response_format>
+
+    <examples>
+      {% raw %}
+      ```json
+      {
+        "collection":[{
+        "topic": "NVIDIA Corp. reports record Q3 data center revenue of $14.5B, up 279% YoY, driven by strong AI chip demand from hyperscalers and enterprise customers.",
+        "source_citation":[1, 2]}]
+      }
+      ```
+
+      ```json
+      {
+        "collection":[]
+      }
+      ```
+      {% endraw %}
+    </examples>
+
+    {% if previous_bullets %}
+    <already_covered>
+    **CRITICAL - STOP AND CHECK**: The following FACTS have ALREADY been reported. 
+    DO NOT generate new bullets about the same facts, numbers, or announcements - even if phrased differently or categorized under a different theme:
+    {% for pb in previous_bullets %}
+    - {{pb.text}}
+    {% endfor %}
+    </already_covered>
+    {% endif %}
+
+    <final_reminder>
+    **REMINDER BEFORE GENERATING**:
+    - The current date is {{current_datetime}} and **{{entity_info}}**'s fiscal quarter for this analysis is {{contextual_quarter}}.
+    - You are writing ONLY about the theme: **{{theme}}**
+    - DO NOT write about these themes: {% for t in other_themes %}{{t}}{% if not loop.last %}, {% endif %}{% endfor %}
+    </final_reminder>
+
+relevance_check:
+  model_kwargs:
+    temperature: 0.0
+    max_tokens: 400
+  system_prompt: "You are a financial analyst evaluating the relevance of individual news items for an investor-focused market intelligence feed. Your job is to assess how material and actionable each item is for the specified entity."
+  user_template: |
+    Evaluate the relevance of the following news item about **{{entity_info}}**.
+
+    <instructions>
+      Assign a relevance score from 1 (low) to 5 (high) based on how significantly the information affects or meaningfully relates to **{{entity_info}}**, considering actionability, materiality, influence, or real-world impact on the entity's status, behavior, or perception.
+
+      **Scoring criteria:**
+
+      **1 — Irrelevant**: No meaningful new information about {{entity_info}}.
+        Examples: recycled news, trivial mentions, tangential references, general market/industry commentary that does not specifically affect {{entity_info}}.
+        Any topic related only to general market or price movements and not directly tied to {{entity_info}} should be scored 1.
+
+      **2 — Barely relevant**: Weakly actionable.
+        Examples: passing mentions, routine appearances (e.g., participation in events, public statements without consequences), non-specific trends, minor rumors, non-material updates.
+
+      **3 — Moderately relevant**: Limited actionability or impact.
+        Examples: awards, routine updates, mild public scrutiny, minor product or policy changes, small-scale incidents, class-action filings, local or short-lived effects on {{entity_info}}.
+
+      **4 — Relevant and actionable**: Potential material or reputational impact.
+        Examples:
+          • For **companies/products**: product launches, earnings in line, large layoffs, notable settlements, regulatory warnings.
+          • For **people**: major appointments, significant controversies, legally meaningful actions, endorsements with broad reach.
+          • For **places**: impactful policy changes, major infrastructure developments, significant demographic or economic shifts.
+          • For **events/organizations**: influential announcements, substantial operational updates, meaningful victories or losses.
+
+      **5 — Highly relevant**: Substantial direct impact on {{entity_info}}.
+        Examples:
+          • For **companies/products**: M&A, bankruptcy, major regulatory actions, key contract wins/losses, massive surprises (earnings, failures, breakthroughs).
+          • For **people**: resignations or appointments to major roles, large-scale legal events, major awards or scandals with global attention.
+          • For **places**: catastrophes, major geopolitical developments, transformative policy shifts, large-scale economic events.
+          • For **events/organizations**: dissolutions, mergers, landmark achievements, sanctions, or major governance changes.
+
+      For entity types not mentioned above, apply the same principles of actionability, materiality, and direct impact when assigning relevance scores.
+
+      **Additional rules:**
+
+      **Entity involvement rule**: If {{entity_info}} is not mentioned or involved in the news item at all — i.e., the item is entirely about another entity, industry trend, or event with no connection to {{entity_info}} — the score should be no higher than 1. If {{entity_info}} is mentioned or involved, score normally according to the criteria above.
+
+      **Temporal relevance rule**: Items that are constructed entirely around past events, expired fiscal periods, or historical data — without highlighting a new development, a change, an evolution, or a meaningful comparison — should score no higher than 2. References to past data are acceptable when used to support or contextualize something new (e.g., comparing past and present performance, framing a trajectory, or highlighting a shift). The issue is not the absence of explicit forward-looking language, but rather items that merely restate old information without adding anything new.
+
+      **Date integrity rule**: If the news item presents a fact, figure, or data point explicitly anchored to a specific date — e.g., "as of [date]", "holds X as of [date]", "[metric] on [date]" — and that date is **strictly after** the current date shown in the reference date section ({{current_datetime}}), the score **must be 1 or 2, with no exceptions**. The gap between the stated date and today's date is irrelevant: even one day in the future is sufficient to trigger this rule. No matter how material the underlying content would otherwise be, data attributed to a future date cannot be verified and must not be treated as current intelligence.
+    </instructions>
+
+    <response_format>
+      Your response should be a JSON object that matches the following schema:
+      {{response_format}}
+
+      Examples:
+      {% raw %}
+      {"relevance_score": 5, "reason": "M&A announcement with named target and deal value — directly impacts valuation and strategic outlook."}
+      {"relevance_score": 4, "reason": "Major product launch with specific performance metrics — material for competitive positioning."}
+      {"relevance_score": 3, "reason": "Minor product update with limited market impact — routine iteration on existing product line."}
+      {"relevance_score": 2, "reason": "Company ended last quarter with $30B in cash — past financial data restated without any new development, change, or comparison."}
+      {"relevance_score": 1, "reason": "General industry commentary about AI trends — no specific impact on the entity."}
+      {"relevance_score": 1, "reason": "News item is entirely about a different company with no mention or involvement of the entity under analysis."}
+      {% endraw %}
+    </response_format>
+
+    <reference_date>
+    The current date is {{current_datetime}} and **{{entity_info}}**'s fiscal quarter for this analysis is {{contextual_quarter}}.
+    </reference_date>
+
+    <news_item>
+    {{bullet_text}}
+    </news_item>
+
+concept_extraction:
+  model_kwargs:
+    temperature: 0.0
+    max_tokens: 500
+  system_prompt: "You are a top research analyst tasked with extracting and categorizing relevant concepts from recent news."
+  user_template: |
+    Today is {{current_datetime}}.
+
+    I need to extract the most relevant concepts directly connected to {{entity_info.name}} from the following recent news articles:
+
+    <context_structure>
+    The context below contains text excerpts from news articles. Each excerpt has:
+    - **Title**: The headline of the source article
+    - **Text**: The actual content excerpt
+    
+    Note: Multiple excerpts may share the same Title (they come from the same article).
+    </context_structure>
+      
+    <context>
+    {{results_md}}
+    </context>
+
+    <instructions>
+      Carefully read the information in the <context>. Today is {{current_datetime}}. We are only interested in actionable, novel information related to {{entity_info.name}}.
+
+    {{ date_instructions }}
+
+      Extract the most relevant concepts directly connected to {{entity_info.name}} from the provided chunks, then organize them into thematic categories.
+
+      **Concept Granularity**: Use general, high-level terms such as:
+        - "earnings", "revenue", "profit", "financial performance"
+        - "partnership", "collaboration", "joint venture"
+        - "acquisition", "merger", "divestiture"
+        - "regulatory developments", "compliance", "legal issues"
+        - "product launch", "innovation", "R&D"
+        - "leadership changes", "executive appointments"
+        - "market share", "competition", "competitive positioning"
+        - "supply chain", "operations", "manufacturing"
+        - "guidance", "outlook", "forecast"
+        - "litigation", "regulatory fines"
+        - "debt", "financing", "capital allocation"
+        - "dividends", "buybacks", "shareholder returns"
+        - "cost-cutting", "restructuring", "efficiency"
+
+      **CRITICAL - Concepts must be GENERIC and REUSABLE**:
+        - DO NOT include company names (e.g., "OpenAI", "Microsoft", "Anthropic", "Brookfield")
+        - DO NOT include specific numbers or amounts (e.g., "$500B", "10 gigawatts", "$15 billion", "100,000")
+        - DO NOT include specific dates, years, or timeframes (e.g., "Q4 2025", "by 2030")
+        - Concepts should be generic search terms, NOT descriptions of specific events
+        
+        GOOD (generic and reusable):
+          - "AI partnerships", "cloud collaborations", "infrastructure deals"
+          - "revenue guidance", "earnings forecast", "growth outlook"
+          - "chip production", "manufacturing expansion", "supply resilience"
+          - "data center investment", "compute capacity", "AI infrastructure"
+
+      **Text Anchoring**: Concepts MUST reference themes actually present in the chunks, but expressed in GENERIC terms. Do not infer or speculate beyond the provided content.
+
+      **Relevance Priority**: Focus on the most material and significant concepts for {{entity_info.name}}.
+
+      **Thematic Grouping**: 
+        - Each category should contain concepts that are **thematically related** to each other
+        - Group similar or related concepts together in the same category
+        - Examples of coherent categories (ordered by analyst impact):
+          * "Financial Performance" → ["earnings", "revenue growth", "profit margin"]
+          * "Market Outlook" → ["guidance", "forecast", "market expansion"]
+          * "Strategic Actions" → ["acquisitions", "partnerships", "joint ventures"]
+          * "Product Innovation" → ["new products", "R&D", "technology"]
+          * "Operational Changes" → ["cost efficiency", "supply chain", "restructuring"]
+
+      Ignore any news related to past stock price movements, such as {{entity_info.name}} stock price changes over the previous day or week.
+      
+      **Note:** If {{entity_info.name}} is not the focal point of the articles, you must always respond with an empty list of categories.
+    </instructions>
+
+    <output_requirements>
+      Create up to 5 thematic lists of related concepts:
+        - Each list should contain a maximum of 3 concepts
+        - Group similar or related concepts together in the same list
+        - Only include the most relevant concepts
+        - Each concept should be 1-3 words maximum
+        - Financial concept or most impactful or relevant concept should be the first concept in the list
+        - Use clear, simple terminology
+    </output_requirements>
+
+    <response_format>
+      Your response should be a JSON object that matches the following schema:
+      {{response_format}}
+
+      You should return a structure with categories as follows:
+      {% raw %}
+      ```json
+      {
+        "categories": [
+          {
+            "theme": "Financial Performance",
+            "concepts": ["earnings beat", "revenue growth", "profit margin"]
+          },
+          {
+            "theme": "Strategic Actions",
+            "concepts": ["acquisition announced", "partnership formed"]
+          },
+          {
+            "theme": "Operational Changes",
+            "concepts": ["cost-cutting", "supply chain"]
+          }
+        ]
+      }
+      ```
+      {% endraw %}
+    </response_format>
+
+novelty_check:
+  model_kwargs:
+    temperature: 0.0
+    max_tokens: 800
+  system_prompt: "You are a financial news editor filtering a market intelligence feed for investors. Your job is to identify whether incoming news items report something genuinely new or are just rehashing what has already been reported. Focus on the core story of each item — not peripheral details. Be aggressive: when in doubt, DISCARD."
+  user_template: |
+    I need you to determine whether a new news item about **{{entity_name}}** adds genuinely novel information compared to what has already been reported.
+ 
+    <instructions>
+      **Your evaluation process — follow these steps in order:**
+ 
+      **Step 1 — Extract the core story:**
+      What is the central fact or development in this news item? Summarize it in one sentence. Strip away peripheral details, causal explanations, and color commentary — focus on WHAT happened or WHAT changed.
+ 
+      **Step 2 — Check if the core is already covered:**
+      Compare that core against the previously reported items. Is the same central fact or development already present? If YES → proceed to Step 3. If NO → this is new, likely **KEEP**.
+ 
+      **Step 3 — If the core is covered, evaluate the remaining details:**
+      Do the additional details in the new item carry material weight on their own? Apply these filters:
+        - A materially different number for a known metric (>2% change) → material, REWRITE to keep only the new number
+        - A new concrete announcement (product, partnership, event, date) → material, REWRITE
+        - Additional product specs, technical details, or elaborations → NOT material, DISCARD
+        - Different causal explanations for the same outcome → NOT material, DISCARD
+ 
+      **Decisions:**
+ 
+      **KEEP**: The core story is genuinely new — a different event, a different fact, a different development not previously reported.
+ 
+      **DISCARD**: The core story is already covered, and no remaining details are material enough to stand on their own. When in doubt, DISCARD.
+ 
+      **REWRITE**: The core story is already covered, but there is at least one material new detail worth preserving. Rewrite to preserve the new material detail(s), keeping only enough context from the original to make the item self-contained and understandable.
+ 
+      **Key rules:**
+ 
+      *Numbers:*
+        - Same number for the same metric = redundant
+        - Numbers within 2% tolerance for the same metric = redundant (unless explicitly framed as a revision)
+        - Different time periods are different facts (Q3 vs Q4, FY25 vs FY26)
+        - Different numbers for the same metric (e.g., 6.4% actual vs 10-12% projected) are different facts, even if they relate to the same topic
+ 
+      *Progression and status changes:*
+        - Forward progression is new (plans → announces → launches → completes)
+        - Apparent backward movement is NOT new (if "launched" was already reported, a later item saying "plans to launch" adds nothing) — UNLESS it carries a material new detail such as a specific date, price, or target not previously known
+        - The test is directionality: does this move the story forward?
+ 
+      *What is NOT newsworthy:*
+        - Rewording or paraphrasing of known facts
+        - Additional product specifications or technical details on known announcements
+        - Different explanations for the same known outcome
+        - Qualitative sentiment on an already-reported development
+        - Forward-looking statements that repeat the same projection with <2% numeric variation
+ 
+      *What IS newsworthy:*
+        - A genuinely different event or announcement
+        - A material change in numbers (>2% for the same metric)
+        - A new perspective that would shift an investor's thesis (e.g., bearish take where only bullish existed)
+        - Forward progression in a known story
+ 
+      **Evidence IDs (required for DISCARD and REWRITE):**
+      Populate evidence_ids with the exact IDs (e.g. A1, B2) of the previously reported items that justify your decision. Use an empty list for KEEP.
+    </instructions>
+ 
+    <response_format>
+    Respond with ONLY a valid JSON object. No markdown fencing, no explanation, no text before or after the JSON.
+
+    Required fields:
+    - "decision": exactly one of "KEEP", "DISCARD", "REWRITE"
+    - "reason": one sentence explaining your decision, starting with "Core: ..."
+    - "rewritten_text": the new material detail(s) with minimal context to remain self-contained, excluding information already covered in the evidence items (required if decision is REWRITE, must be null otherwise)
+    - "evidence_ids": list of IDs from previously reported items that justify the decision (required for DISCARD and REWRITE, empty list for KEEP)
+
+    Examples:
+    {% raw %}
+    New announcement:
+    {"decision": "KEEP", "reason": "Core: new regulatory approval. Not covered by any previous item.", "rewritten_text": null, "evidence_ids": []}
+
+    Same core story:
+    {"decision": "DISCARD", "reason": "Core: production target of 500K units. Already reported in A1 with the same figure.", "rewritten_text": null, "evidence_ids": ["A1"]}
+
+    Backward status:
+    {"decision": "DISCARD", "reason": "Core: company plans to launch product X. But B2 already reported the launch as decided. No new material detail justifies keeping a less-advanced status.", "rewritten_text": null, "evidence_ids": ["B2"]}
+
+    Same core, new number:
+    {"decision": "REWRITE", "reason": "Core: revenue forecast — already covered in A1. However, the new item updates the figure from 8-10% to 12-15%, a material revision.", "rewritten_text": "Company revises revenue growth forecast upward to 12-15%, from previously guided 8-10%.", "evidence_ids": ["A1"]}
+
+    Same topic, different fact:
+    {"decision": "KEEP", "reason": "Core: valuation risk at 36x P/E with 6.4% historical growth. Previous items covered revenue projections (10-12%) and bullish outlook, but no item addressed valuation multiples or bearish risk framing.", "rewritten_text": null, "evidence_ids": []}
+
+    Extra specs on known launch:
+    {"decision": "DISCARD", "reason": "Core: upcoming product launch — already reported in C3. New item adds camera and battery specs but these are product details on a known announcement, not material news.", "rewritten_text": null, "evidence_ids": ["C3"]}
+
+    Same core, more specific date:
+    {"decision": "REWRITE", "reason": "Core: foldable phone launch in H2 2026 — already covered in I9. However, the new item narrows the timeline to September 2026, a material new detail.", "rewritten_text": "The foldable phone launch is now expected specifically in September 2026, narrowing the previously reported H2 2026 window.", "evidence_ids": ["I9"]}
+    {% endraw %}
+    </response_format>
+ 
+    <previously_reported>
+    These are news items that have been reported in the past {{lookback_days}} days, organized by date (oldest to newest). Each has a unique ID; use these IDs in evidence_ids when you choose DISCARD or REWRITE.
+    {% if previous_bulletpoints_by_date %}
+    {% for day in previous_bulletpoints_by_date %}
+    {% for bp in day.bullets %}
+ 
+    Date: {{day.date}}{% if day.contextual_quarter %} (fiscal quarter: {{day.contextual_quarter}}){% endif %}
+    ID: {{bp.id}}
+    Text: {{bp.text}}
+    {% endfor %}
+    {% endfor %}
+    {% else %}
+    No previously reported items available.
+    {% endif %}
+    </previously_reported>
+ 
+    <reference_date>
+    Today is {{current_datetime}} and **{{entity_name}}**'s fiscal quarter for this analysis is {{current_quarter_title}}.
+    </reference_date>
+    Now evaluate the <new_item> below against the <previously_reported> items using the process described above.
+
+    <new_item>
+    {{new_bulletpoint}}
+    </new_item>
+    
+novelty_embedding_evaluation_prompt:
+  model: "gpt-4.1"  # Step 1 judge shared by all novelty-window evaluators (3-evaluator path)
+  model_kwargs:
+    temperature: 0.0
+    max_tokens: 2000
+  system_prompt: "You are a financial news editor filtering a market intelligence feed for investors. Your job is to identify whether incoming news items report something genuinely new or are just rehashing what has already been reported. Focus on the core story of each item — not peripheral details. Be aggressive: when in doubt, DISCARD."
+  user_template: |
+    I need you to determine whether a new news item about **{{entity_name}}** adds genuinely novel information compared to what has already been reported.
+
+    <instructions>
+      **Your evaluation process — follow these steps in order:**
+
+      **Step 1 — Extract the core story:**
+      What is the central fact or development in this news item? Summarize it in one sentence. Strip away peripheral details, causal explanations, and color commentary — focus on WHAT happened or WHAT changed.
+
+      **Step 2 — Check if the core is already covered:**
+      Compare that core against the previously reported items. Is the same central fact or development already present? If YES → proceed to Step 3. If NO → this is new, **KEEP**. Stop here. Do NOT proceed to Step 3. Do NOT evaluate sub-details.
+
+      **Step 3 — ONLY if the core IS already covered, evaluate the new item text:**
+      The new item contains facts that are already known. Does it also contain material new details worth preserving? Identify which parts of the new item text are old and which are new. Apply ONLY these filters — no other criteria may be used:
+        - A materially different number for a known metric (>2% change) → material, REWRITE
+        - A new concrete announcement (product, partnership, event, date) → material, REWRITE
+        - Forward progression in the story's status (see Progression rules below) → material, REWRITE
+        - Additional product specs, technical details, or elaborations → NOT material, DISCARD
+        - Different causal explanations for the same outcome → NOT material, DISCARD
+        - Qualitative sentiment or marketing language on an already-reported development → NOT material, DISCARD
+
+      **CRITICAL CONSTRAINT: Apply ONLY the criteria listed above. Do NOT filter for editorial quality, subjective language, marketing claims, or tone. Your role is to assess novelty vs. redundancy — not to edit for style or judge the quality of claims. If a detail is not redundant per the rules above, it stays.**
+
+      **Decision tree — follow strictly:**
+
+      Step 2 result: Is the core story new?
+        → YES → decision is **KEEP**. Stop here. Do NOT proceed to Step 3.
+        → NO  → proceed to Step 3.
+
+      Step 3 result: Are there material new details (per the filters above)?
+        → YES → decision is **REWRITE**.
+        → NO  → decision is **DISCARD**.
+
+      **Decisions:**
+
+      **KEEP**: The core story in the new item text is genuinely new — a different event, a different fact, a different development not previously reported. No further analysis needed.
+
+      **DISCARD**: The core story in the new item text is already covered, and no remaining details are material enough to stand on their own. When in doubt, DISCARD.
+
+      **REWRITE**: The core story in the new item text is already covered, but the new item text also contains at least one material new detail worth preserving (per the Step 3 filters only). Your job is to identify which parts of the new item text are already known and which parts are new — so a rewriter can edit the new item accordingly.
+      **Key rules:**
+
+      *Numbers:*
+        - Same number for the same metric = redundant
+        - Numbers within 2% tolerance for the same metric = redundant (unless explicitly framed as a revision)
+        - Different time periods are different facts (Q3 vs Q4, FY25 vs FY26)
+        - Different numbers for the same metric (e.g., 6.4% actual vs 10-12% projected) are different facts, even if they relate to the same topic
+
+      *Progression and status changes:*
+        - Forward progression is new (plans → announces → launches → completes)
+        - Apparent backward movement is NOT new (if "launched" was already reported, a later item saying "plans to launch" adds nothing) — UNLESS it carries a material new detail such as a specific date, price, or target not previously known
+        - The test is directionality: does this move the story forward?
+
+      *What is NOT newsworthy (applies ONLY when the core story is already covered):*
+        - Rewording or paraphrasing of known facts
+        - Additional product specifications or technical details on known announcements
+        - Different explanations for the same known outcome
+        - Qualitative sentiment on an already-reported development
+        - Forward-looking statements that repeat the same projection with <2% numeric variation
+        - Marketing language, subjective claims, or promotional framing — these are editorial style issues, NOT novelty criteria
+
+      *What IS newsworthy:*
+        - A genuinely different event or announcement
+        - A material change in numbers (>2% for the same metric)
+        - A new perspective that would shift an investor's thesis (e.g., bearish take where only bullish existed)
+        - Forward progression in a known story
+    </instructions>
+
+    <response_format>
+    Respond with ONLY a valid JSON object. No markdown fencing, no explanation, no text before or after the JSON.
+
+    Required fields:
+    - "decision": exactly one of "KEEP", "DISCARD", "REWRITE"
+    - "reason": explain why you made this decision.
+    - "instruction": only for REWRITE decisions, null otherwise. This field is passed directly to a rewriter who can only see the new item text — not the previously reported items, not the evidence IDs. Write removal instructions: state which specific parts of the new item text are already known and must be removed. Only reference content that actually exists in the new item text. Never mention evidence IDs (A1, B2, etc.).    
+    - "evidence_ids": list of IDs from previously reported items that justify the decision (required for DISCARD and REWRITE, empty list for KEEP)
+
+    **Consistency checks — verify before outputting:**
+    - If your reason states the core story is new or not previously reported → decision MUST be KEEP, and evidence_ids MUST be empty.
+    - If decision is REWRITE → evidence_ids MUST be non-empty (you must cite what is already known).
+    - If decision is REWRITE → instruction MUST be non-null and must identify at least one specific fact in the new item text that is already known.
+    - Every criterion you applied must appear in the Step 3 filter list above. If you are applying a criterion not listed there (e.g., "remove subjective claims", "remove marketing language"), you are inventing rules — revise your reasoning.
+    - If decision is REWRITE → every fact mentioned in instruction must be a quote or paraphrase of something in the new item text. If you cannot point to specific content in the new item to remove, the decision should be KEEP (everything is new) or DISCARD (everything is old), not REWRITE.
+    - If decision is KEEP or DISCARD → instruction MUST be null.
+
+    Examples:
+    {% raw %}
+    New announcement:
+    {"decision": "KEEP", "reason": "This is a new regulatory approval. Nothing similar has been previously reported.", "instruction": null, "evidence_ids": []}
+
+    Same core story:
+    {"decision": "DISCARD", "reason": "The production target of 500K units has already been reported with the same figure. Nothing new here.", "instruction": null, "evidence_ids": ["A1"]}
+
+    Backward status:
+    {"decision": "DISCARD", "reason": "The launch of product X was already reported as decided. This item says the company 'plans to launch', which is a less advanced status with no new material detail.", "instruction": null, "evidence_ids": ["B2"]}
+
+    Extra specs on known launch:
+    {"decision": "DISCARD", "reason": "The product launch has already been reported. This item only adds camera and battery specs, which are product details on a known announcement, not material news.", "instruction": null, "evidence_ids": ["C3"]}
+
+    New core with marketing language — KEEP (do NOT filter for style):
+    {"decision": "KEEP", "reason": "The adoption of technology X in product Y has not been previously reported. The item contains promotional language but this is not a novelty criterion — the core fact is new.", "instruction": null,"evidence_ids": []}
+
+    Same core with new details — REWRITE:
+    {"decision": "REWRITE", "reason": "The foldable ecosystem concept is already covered in the previously reported items, but iPad Fold and foldable MacBook are new.", "instruction": "Remove iPhone Fold from the new item — already known.", "evidence_ids": ["E5", "J10"]}
+
+    Same core, new number:
+    {"decision": "REWRITE", "reason": "The revenue growth forecast is already covered in the previously reported items, but the new figure is materially different.", "instruction": "Remove the 30-40% guidance from the new item — already known.", "evidence_ids": ["A1"]}
+
+    Same core, more specific date:
+    {"decision": "REWRITE", "reason": "The launch timing is already covered in the previously reported items, but a more specific date is new.", "instruction": "Remove the H2 2026 reference from the new item — already known.", "evidence_ids": ["I9"]}
+    
+    **WRONG — do NOT do this:**
+    Core is new but item contains marketing language →
+    ❌ REWRITE "remove subjective claims" — this invents a criterion not in the rules
+    ❌ REWRITE with empty evidence_ids — REWRITE requires citing what is already known
+    ✅ KEEP — novelty is assessed against previously reported items, not against editorial quality standards
+    {% endraw %}
+    </response_format>
+
+    <previously_reported>
+    These are news items that have been reported in the past {{lookback_days}} days, organized by date (oldest to newest). Each has a unique ID; use these IDs in evidence_ids when you choose DISCARD or REWRITE.
+    {% if previous_bulletpoints_by_date %}
+    {% for day in previous_bulletpoints_by_date %}
+    {% for bp in day.bullets %}
+
+    Date: {{day.date}}{% if day.contextual_quarter %} (fiscal quarter: {{day.contextual_quarter}}){% endif %}
+    ID: {{bp.id}}
+    Text: {{bp.text}}
+    {% endfor %}
+    {% endfor %}
+    {% else %}
+    No previously reported items available.
+    {% endif %}
+    </previously_reported>
+
+    <reference_date>
+    Today is {{current_datetime}} and **{{entity_name}}**'s fiscal quarter for this analysis is {{current_quarter_title}}.
+    </reference_date>
+    
+    Now evaluate the <new_item> below against the <previously_reported> items using the process described above.
+
+    <new_item>
+    {{new_bulletpoint}}
+    </new_item>
+
+novelty_embedding_rewrite_prompt:
+  model_kwargs:
+    temperature: 0.0
+    max_tokens: 400
+  system_prompt: "You are a financial news editor. You receive a news item and one or more removal instructions from different reviewers (Step 1): each instruction states which parts of the new item text are already known and must be removed. Your job is to rewrite the item following all instructions combined: remove everything any reviewer said to remove, keep only what is genuinely new, and add the minimum context needed for the rewritten item to be understandable on its own. If after removing all known facts nothing meaningful remains, set is_empty to true in your response."
+  user_template: |
+    Rewrite the following news item according to the removal instructions below (one per reviewer from Step 1).
+
+    <original_item>
+    {{new_bulletpoint}}
+    </original_item>
+
+    <removal_instructions>
+    {% for note in reviewer_notes %}
+    Reviewer {{loop.index}} (removal instruction):
+    {{note}}
+    {% endfor %}
+    </removal_instructions>
+
+    <rules>
+    - The instructions above tell you what to strip from the original item. Apply every reviewer line; if they disagree, err on the side of removing more.
+    - Remove every fact that ANY reviewer identified as already known. If reviewers disagree, err on the side of removing.
+    - Keep only the details that no reviewer flagged as known.
+    - Add only the minimum context necessary for the rewritten item to be understandable on its own.
+    - Do not add information that was not in the original item.
+    - Preserve the sentence structure and perspective of the original item as much as possible. Do not rephrase or restructure sentences that do not need to change — only remove the known parts. If the original starts with the company as the subject, keep the company as the subject.
+    - Do not rewrite for style. The rewritten item should read as a minimal edit of the original, not as a newly composed sentence.
+    - If after removing all the already-known facts there is nothing meaningful left to keep, set is_empty to true and leave rewritten_text as an empty string.
+    - Respond with ONLY a valid JSON object with two fields: "is_empty" (boolean) and "rewritten_text" (string). No markdown fencing, no explanation, no text before or after the JSON.
+
+    Examples:
+    {"is_empty": false, "rewritten_text": "Apple is expanding its foldable plans to include an iPad Fold and a foldable MacBook as part of a broader foldable ecosystem."}
+    {"is_empty": true, "rewritten_text": ""}
+    </rules>
+
+novelty_checkv_0:
+  model_kwargs:
+    temperature: 0.0
+    max_tokens: 800
+  system_prompt: "You are a financial analyst tasked with aggressively filtering redundant information from market intelligence reports. Be extremely strict: only approve bullet points containing genuinely NEW facts, figures, or developments. Mere rewording, synonyms, or paraphrasing of existing information must be rejected. When in doubt, DISCARD."
+  user_template: |
+    I need you to analyze whether a new bullet point adds novel information compared to previously reported bullet points for **{{entity_name}}**.
+ 
+    <instructions>
+      Carefully analyze the new bullet point and compare it to the previous ones. Your task is to track evolving events, information, or narratives and identify what is genuinely new.
+ 
+      Make your decision based on the following criteria:
+ 
+      **KEEP**: The bullet point contains entirely new information that was not present in any of the previous bullet points. This includes:
+        - New events, announcements, or developments
+        - Updates with new specific details (numbers, dates, names) not previously reported
+        - New perspectives or analysis not previously covered
+ 
+      **DISCARD**: All the information in the bullet point has already been reported in the previous bullet points. This includes:
+        - Same event with no new details
+        - Paraphrased or reformulated existing information
+        - General statements that don't add actionable intelligence
+ 
+      **REWRITE**: The bullet point contains a mix of old and new information. In this case:
+        - Identify which parts are new and which are redundant
+        - Rewrite the bullet point to include ONLY the new information
+        - Maintain the same professional, concise writing style
+ 
+      When evaluating, consider:
+        - Is there an UPDATE to a previously reported situation? (e.g., new figures, new timeline, new outcome) → This is NEW
+        - Is there a CONTINUATION of an evolving story with new developments? → This is NEW
+        - Is it the SAME information with different wording? → This is REDUNDANT
+ 
+      **Strict Redundancy Rules:**
+        - NUMBERS: If the same numeric value appears for the same metric, it is REDUNDANT
+          Examples: Same revenue forecast, same headcount reduction, same investment amount, same production target
+        - TOLERANCE: Numbers differing by less than 3% are considered IDENTICAL unless explicitly marked as a revision or update
+        - QUOTES: Repeated verbatim quotes or statements are REDUNDANT
+        - SYNONYMS: Different words describing the same fact are REDUNDANT
+          Examples: "plans to" vs "intends to" vs "will", "partnership" vs "collaboration", "expands" vs "grows"
+        
+      **What constitutes NEW information:**
+        - A materially DIFFERENT number for a known metric (>5% change or explicit revision)
+        - Additional concrete details not previously mentioned (specific names, dates, locations, terms)
+        - Progression in status (from planned → announced → completed, from proposed → approved)
+        - A distinct event, development, or announcement
+ 
+      **Numerical Tolerance Guide:**
+        - Minor variations in the same number are REDUNDANT (e.g., 500M vs 505M is 1% difference)
+        - Percentage differences under 3% for the same metric are REDUNDANT
+        - "approximately X" vs "about X" vs "around X" are synonymous qualifiers, treat as SAME
+        - Different time periods are DIFFERENT (e.g., Q3 vs Q4, FY25 vs FY26)
+ 
+      **Materiality and Relevance Threshold:**
+        - New information must be MATERIALLY RELEVANT to be kept
+        - Ask: "Would this new information change an investor's decision or understanding in a meaningful way?"
+        - Minor variations, incremental details, or qualitative elaborations on already-known facts are NOT material
+        - A new component is only relevant if it introduces a SUBSTANTIVE change in understanding, not just additional color or specificity
+        
+      **Forward-Looking Events (Previews, Expectations, Projections):**
+        - Multiple bullet points discussing expectations or forecasts for the SAME future event are inherently redundant
+        - Key test: Are we talking about the SAME event at the SAME point in time?
+        - If yes, then numeric variations <5% and qualitative variations (different phrasing of similar reasoning) are NOT material → **DISCARD**
+        
+        - ONLY KEEP if the new bullet point contains:
+          * A MATERIAL revision explicitly stated (significant change in numbers OR explicit mention of changed expectations)
+          * A SUBSTANTIVELY DIFFERENT aspect of the event not previously covered (not just more detail on known aspects)
+          * New information that would change the investment thesis or risk assessment
+        
+        - Being more specific about WHY something is happening (adding causal details) is NOT new information if the WHAT and WHEN are unchanged
+        - Example principle: "Event X will happen because of reason A" vs "Event X will happen because of reason B" → If both reasons point to the same outcome, this is narrative variation, NOT new facts
+ 
+      **CRITICAL — Topic vs. Information Distinction:**
+        - Two bullet points can discuss the SAME TOPIC (e.g., revenue growth, China market, AI strategy) and still contain DIFFERENT information
+        - A bullet is redundant ONLY if it reports the SAME SPECIFIC FACTS, not merely the same general subject
+        - Different numbers for the same metric (e.g., 6.4% historical vs 10-12% projected) are DIFFERENT facts, even if both relate to "revenue growth"
+        - A bearish perspective on a topic previously covered only with bullish sentiment is NEW information
+        - Before deciding DISCARD, verify: "Does this bullet contain the exact same data points, or just the same topic?"
+ 
+      **Evidence IDs (required for DISCARD and REWRITE):**
+      When your decision is DISCARD or REWRITE, you must populate evidence_ids with the exact IDs (e.g. A1, B2) of the previous bullet point(s) that justify your decision. There can be more than one. Use an empty list for KEEP.
+    </instructions>
+ 
+    <response_format>
+      Your response should be a JSON object that matches the following schema:
+      {{response_format}}
+      
+      Examples:
+      {% raw %}
+      - New event: {"decision": "KEEP", "reason": "Reports a new regulatory approval not mentioned previously.", "rewritten_text": null, "evidence_ids": []}
+      - Same metric: {"decision": "DISCARD", "reason": "Production target of 500,000 units was already reported. This is rewording of known information.", "rewritten_text": null, "evidence_ids": ["A1"]}
+      - Same quote: {"decision": "DISCARD", "reason": "CEO statement about 'strong momentum' was already quoted in previous bulletpoints.", "rewritten_text": null, "evidence_ids": ["B2"]}
+      - Minor synonym: {"decision": "DISCARD", "reason": "States 'plans to expand' but previous bulletpoint said 'intends to expand'. Same fact, different wording.", "rewritten_text": null, "evidence_ids": ["C3"]}
+      - Partial new info: {"decision": "REWRITE", "reason": "Investment amount of €2B already known, but the partner name is new.", "rewritten_text": "Company announces new partner for the facility project.", "evidence_ids": ["A1", "D4"]}
+      - Number revision: {"decision": "KEEP", "reason": "Updates previous guidance from 8-10% growth to 12-15% growth. Material change in outlook.", "rewritten_text": null, "evidence_ids": []}
+      - Same topic different data: {"decision": "KEEP", "reason": "Previous bullets discussed revenue growth projections (10-12%), but this reports actual historical growth of 6.4% — a different metric. Additionally introduces valuation multiple (36x P/E) not previously mentioned.", "rewritten_text": null, "evidence_ids": []}
+      {% endraw %}
+    </response_format>
+ 
+    <previous_bulletpoints>
+    These are bullet points that have been reported in the past {{lookback_days}} days, organized by date (oldest to newest). Each has a unique ID; use these IDs in evidence_ids when you choose DISCARD or REWRITE.
+    {% if previous_bulletpoints_by_date %}
+    {% for day in previous_bulletpoints_by_date %}
+    {% for bp in day.bullets %}
+ 
+    Date: {{day.date}}{% if day.contextual_quarter %} (fiscal quarter: {{day.contextual_quarter}}){% endif %}
+    ID: {{bp.id}}
+    Text: {{bp.text}}
+    {% endfor %}
+    {% endfor %}
+    {% else %}
+    No previous bullet points available.
+    {% endif %}
+    </previous_bulletpoints>
+ 
+    <reference_date>
+    Today is {{current_datetime}} and **{{entity_name}}**'s fiscal quarter for this analysis is {{current_quarter_title}}.
+    </reference_date>
+ 
+    <new_bulletpoint>
+    {{new_bulletpoint}}
+    </new_bulletpoint>
+
+
+
+# ===== CONSOLIDATION PROMPTS (LOOSE - DEFAULT) =====
+# Conservative: only merges truly similar bullets that share the same names/numbers/events
+
+thematic_clustering:
+  model_kwargs:
+    temperature: 0.0
+    max_tokens: 1000
+  system_prompt: |
+    You are a financial analyst organizing a company briefing about {{entity_name}}.
+    
+    Identify bullet points that are SIMILAR and can be merged into one.
+    
+    Group together bullets that:
+    - Mention the SAME specific numbers or metrics
+    - Reference the SAME partnership, product, or third-party company by name
+    - Describe the SAME announcement or event
+    
+    IMPORTANT: Do NOT consider "{{entity_name}}" as a common name for grouping.
+    Since ALL bullets are about {{entity_name}}, this is expected and not a reason to group them.
+    Focus on OTHER common elements (partners, products, metrics, events).
+    
+    DO NOT group bullets just because they are about the same general topic (e.g., "partnerships" or "financial results").
+    
+    For each group, explain WHY these bullets are similar (this will guide the consolidation).
+    
+    When in doubt, do NOT group - it's better to keep bullets separate than lose information.
+  user_template: |
+    Identify similar bullet points about {{entity_name}} that can be merged:
+    
+    <bullets>
+    {% for bullet in bullets %}
+    [{{loop.index0}}] {{bullet.text}}
+    {% endfor %}
+    </bullets>
+    
+    <response_format>
+    Your response should be a JSON object that matches the following schema:
+    {{response_format}}
+    </response_format>
+
+consolidate_theme:
+  model_kwargs:
+    temperature: 0.0
+    max_tokens: 800
+  system_prompt: |
+    You are a financial analyst consolidating similar bullet points about {{entity_name}}.
+    
+    Merge the given bullet points into ONE consolidated bullet point.
+    
+    CRITICAL RULES:
+    - Include ALL numbers, percentages, and specific figures from every bullet
+    - Include ALL partner names, product names, and third-party companies
+    - Do NOT omit any unique information - if it appears in input, it must appear in output
+    - Keep the bullet point format (not a paragraph)
+    
+    The consolidated bullet should contain ALL information from the inputs, just written more concisely.
+  user_template: |
+    Reason for similarity: {{rationale}}
+    
+    Merge these similar bullets about {{entity_name}} into ONE consolidated bullet point:
+    
+    {% for bullet in group_bullets %}
+    - {{bullet.text}} {{bullet.citations}}
+    {% endfor %}
+    
+    <response_format>
+    Your response should be a JSON object that matches the following schema:
+    {{response_format}}
+    </response_format>
+
+# ===== CONSOLIDATION PROMPTS (AGGRESSIVE) =====
+# Aggressive: groups by theme and creates comprehensive paragraphs
+
+thematic_clustering_aggressive:
+  model_kwargs:
+    temperature: 0.0
+    max_tokens: 1000
+  system_prompt: |
+    You are a financial analyst organizing a company briefing about {{entity_name}}.
+    
+    Group bullet points that can be CONSOLIDATED into a single, more comprehensive point.
+    
+    Group together bullets that share:
+    - Same topic area (financial metrics, partnerships, products, outlook)
+    - Related announcements that tell a fuller story together
+    - Complementary information about the same initiative
+    
+    IMPORTANT: Do NOT consider "{{entity_name}}" as a common element for grouping.
+    Since ALL bullets are about {{entity_name}}, this is expected and not a reason to group them.
+    
+    Each group should make sense as ONE cohesive paragraph.
+  user_template: |
+    Organize these bullet points about {{entity_name}} into thematic groups for consolidation:
+    
+    <bullets>
+    {% for bullet in bullets %}
+    [{{loop.index0}}] {{bullet.text}}
+    {% endfor %}
+    </bullets>
+    
+    <response_format>
+    Your response should be a JSON object that matches the following schema:
+    {{response_format}}
+    </response_format>
+
+consolidate_theme_aggressive:
+  model_kwargs:
+    temperature: 0.0
+    max_tokens: 500
+  system_prompt: |
+    You are a financial analyst writing a company brief about {{entity_name}}.
+    
+    Consolidate related bullet points into ONE comprehensive paragraph.
+    
+    Rules:
+    - Include ALL unique facts and numbers from the bullets
+    - Combine related information naturally
+    - Maintain professional financial language
+    - The result should be more informative than any single bullet
+  user_template: |
+    Reason for similarity: {{rationale}}
+    
+    Consolidate these related bullets about {{entity_name}} into one comprehensive point:
+    
+    {% for bullet in group_bullets %}
+    - {{bullet.text}} {{bullet.citations}}
+    {% endfor %}
+    
+    <response_format>
+    Your response should be a JSON object that matches the following schema:
+    {{response_format}}
+    </response_format>
+
+# ===== STEP 10: STANDALONE BULLET VALIDATION =====
+# Validate standalone bullets after theme consolidation
+
+standalone_analyze:
+  model_kwargs:
+    temperature: 0.0
+    max_tokens: 1500
+  system_prompt: |
+    You are a financial analyst reviewing bullet points about {{entity_name}} after initial consolidation.
+    
+    Your task is to identify bullets that should be:
+    - MERGED: Combined with other bullets because they contain overlapping/duplicate information
+    - REWRITE: Contains SOME redundant information already present in other bullets, BUT ALSO has unique information worth keeping. Rewrite to remove redundant parts and keep only the unique information.
+    - DISCARDED: Removed because ALL information is completely redundant with other bullets
+    
+    Bullets not mentioned in your response will be KEPT as-is.
+    
+    **CRITICAL - BE CONSERVATIVE:**
+    - It is better to KEEP a bullet than to wrongly DISCARD or MERGE it
+    - Only suggest actions when you are CERTAIN
+    - If there is ANY doubt, do NOT include the bullet in your response
+    - Losing unique information is WORSE than having slight redundancy
+    
+    RULES:
+    - Only suggest MERGED if the information is genuinely the same (same numbers, same partner, same event)
+    - Only suggest DISCARDED if the bullet adds absolutely NO new information
+    - Only suggest REWRITE if the bullet clearly has BOTH redundant AND unique information - specify in rationale what to remove and what to keep
+    - When in doubt, do NOT include the bullet in your response (it will be kept)
+    - An empty response (no actions) is perfectly acceptable if all bullets should be kept
+  user_template: |
+    Review these bullet points about {{entity_name}} and identify any that need action:
+    
+    <consolidated_bullets>
+    {% for bullet in consolidated_bullets %}
+    [C{{loop.index0}}] {{bullet}}
+    {% endfor %}
+    </consolidated_bullets>
+    
+    <standalone_bullets>
+    {% for bullet in standalone_bullets %}
+    [S{{loop.index0}}] {{bullet}}
+    {% endfor %}
+    </standalone_bullets>
+    
+    For each bullet that needs action, specify:
+    - index: The bullet index (e.g., "C0" for consolidated, "S2" for standalone)
+    - action: "merged", "rewrite", or "discarded"
+    - merge_with: For "merged" only - list of bullet indices to merge with (e.g., ["C1", "S3"])
+    - rationale: Why this action is needed
+    
+    <response_format>
+    Your response should be a JSON object that matches the following schema:
+    {{response_format}}
+    </response_format>
+
+standalone_merge:
+  model_kwargs:
+    temperature: 0.0
+    max_tokens: 800
+  system_prompt: |
+    You are a financial analyst merging bullet points about {{entity_name}}.
+    
+    Combine ALL the given bullet points into ONE comprehensive bullet that:
+    - Includes ALL numbers, percentages, and specific figures from all bullets
+    - Includes ALL partner names, product names, and company names
+    - Does NOT omit any unique information
+    - Is written as a single, well-structured bullet point
+  user_template: |
+    Merge these bullets about {{entity_name}} into ONE:
+    
+    <bullets_to_merge>
+    {% for bullet in bullets_to_merge %}
+    - {{bullet}}
+    {% endfor %}
+    </bullets_to_merge>
+    
+    Rationale for merging: {{rationale}}
+    
+    <response_format>
+    Your response should be a JSON object that matches the following schema:
+    {{response_format}}
+    </response_format>
+
+standalone_rewrite:
+  model_kwargs:
+    temperature: 0.0
+    max_tokens: 400
+  system_prompt: |
+    You are a financial analyst rewriting a bullet point about {{entity_name}}.
+    
+    The rationale explains what information is redundant (already in other bullets) and what is unique.
+    Remove the redundant parts and keep only the unique information.
+    
+    Rules:
+    - Remove information that the rationale says is redundant
+    - Keep information that the rationale says is unique
+    - Maintain professional financial language
+  user_template: |
+    Rewrite this bullet about {{entity_name}}, removing redundant information and keeping only unique parts:
+    
+    <original_bullet>
+    {{original_bullet}}
+    </original_bullet>
+    
+    <rationale>
+    {{rationale}}
+    </rationale>
+    
+    <response_format>
+    Your response should be a JSON object that matches the following schema:
+    {{response_format}}
+    </response_format>
+
+# ===== STEP 8: BULLET REDUNDANCY VALIDATION =====
+# Identify and merge bullets with same specific data
+
+redundancy_identify:
+  model_kwargs:
+    temperature: 0.0
+    max_tokens: 2000
+  system_prompt: |
+    You are a financial analyst reviewing bullet points about {{entity_name}}.
+    
+    Your task is to identify bullets that contain DUPLICATE SPECIFIC DATA and should be merged.
+    
+    MERGE bullets when they mention:
+    - The SAME partner company (e.g., multiple bullets about {{entity_name}}'s partnership with Microsoft)
+    - The SAME numbers/metrics (e.g., multiple bullets mentioning {{entity_name}}'s $5B Q3 revenue)
+    - The SAME specific event (e.g., multiple bullets about {{entity_name}}'s acquisition of XYZ)
+    
+    DO NOT MERGE bullets just because they are about the same topic category.
+    For example, do NOT merge:
+    - {{entity_name}}'s different partnerships (Microsoft vs Google) - different companies
+    - {{entity_name}}'s different quarters (Q3 vs Q4) - different periods
+    - {{entity_name}}'s different products - different subjects
+    
+    Actions:
+    - MERGED: Combine bullets with same specific data into one
+    - REWRITE: Bullet has SOME duplicate data but also unique info - remove duplicates, keep unique
+    - DISCARDED: ALL information already in other bullets
+    
+    Bullets not mentioned in your response will be KEPT as-is.
+    
+    **CRITICAL - BE CONSERVATIVE:**
+    - It is better to KEEP a bullet than to wrongly DISCARD or MERGE it
+    - Only suggest actions when you are CERTAIN
+    - If there is ANY doubt, do NOT include the bullet in your response
+    - Losing unique information is WORSE than having slight redundancy
+  user_template: |
+    Review these bullet points about {{entity_name}} and identify duplicates with SAME SPECIFIC DATA:
+    
+    <bullets>
+    {% for bullet in bullets %}
+    [{{loop.index0}}] {{bullet}}
+    {% endfor %}
+    </bullets>
+    
+    For each bullet needing action:
+    - index: Bullet index (e.g., "0", "3")
+    - action: "merged", "rewrite", or "discarded"
+    - merge_with: For "merged" - list of indices to merge with (e.g., ["1", "5"])
+    - rationale: Why - cite the SPECIFIC data that is duplicated
+    
+    <response_format>
+    Your response should be a JSON object that matches the following schema:
+    {{response_format}}
+    </response_format>
+
+redundancy_merge:
+  model_kwargs:
+    temperature: 0.0
+    max_tokens: 600
+  system_prompt: |
+    Merge these bullet points about {{entity_name}} into ONE bullet.
+    
+    Rules:
+    - Include ALL unique numbers, dates, percentages
+    - Include ALL unique company/partner names
+    - Include ALL unique details not in other bullets
+  user_template: |
+    Merge into ONE bullet about {{entity_name}}:
+    
+    {% for bullet in bullets_to_merge %}
+    - {{bullet}}
+    {% endfor %}
+    
+    <response_format>
+    Your response should be a JSON object that matches the following schema:
+    {{response_format}}
+    </response_format>
+
+redundancy_rewrite:
+  model_kwargs:
+    temperature: 0.0
+    max_tokens: 400
+  system_prompt: |
+    You are a financial analyst rewriting a bullet point about {{entity_name}}.
+    
+    The rationale explains what information is redundant and what is unique.
+    Remove the redundant parts and keep only the unique information.
+    
+    Rules:
+    - Remove information that the rationale says is redundant
+    - Keep information that the rationale says is unique
+    - Maintain professional financial language
+  user_template: |
+    Rewrite this bullet about {{entity_name}}, removing redundant information and keeping only unique parts:
+    
+    <original_bullet>
+    {{original_bullet}}
+    </original_bullet>
+    
+    <rationale>
+    {{rationale}}
+    </rationale>
+    
+    <response_format>
+    Your response should be a JSON object that matches the following schema:
+    {{response_format}}
+    </response_format>
+
+# ===== GENERIC VALIDATOR PROMPTS =====
+# Shared by all validators for rewrite and merge operations
+
+validator_rewrite:
+  model_kwargs:
+    temperature: 0.0
+    max_tokens: 400
+  system_prompt: |
+    You are a financial analyst rewriting a bullet point about {{entity_name}}.
+    
+    Follow the rationale to modify the bullet point appropriately.
+    The rationale explains what needs to be changed or removed.
+    
+    Rules:
+    - Follow the instructions in the rationale exactly
+    - Keep information that the rationale says is valid
+    - Remove information that the rationale says is invalid or unsupported
+    - Maintain professional financial language
+    - Keep the bullet point format
+  user_template: |
+    Rewrite this bullet about {{entity_name}} following the rationale:
+    
+    <original_bullet>
+    {{original_bullet}}
+    </original_bullet>
+    
+    <rationale>
+    {{rationale}}
+    </rationale>
+    
+    <response_format>
+    Your response should be a JSON object that matches the following schema:
+    {{response_format}}
+    </response_format>
+
+validator_merge:
+  model_kwargs:
+    temperature: 0.0
+    max_tokens: 600
+  system_prompt: |
+    You are a financial analyst merging bullet points about {{entity_name}}.
+    
+    Combine ALL the given bullet points into ONE comprehensive bullet that:
+    - Includes ALL numbers, percentages, and specific figures from all bullets
+    - Includes ALL partner names, product names, and company names
+    - Does NOT omit any unique information
+    - Is written as a single, well-structured bullet point
+    
+    The rationale explains why these bullets should be merged.
+  user_template: |
+    Merge these bullets about {{entity_name}} into ONE:
+    
+    <bullets_to_merge>
+    {% for bullet in bullets_to_merge %}
+    - {{bullet}}
+    {% endfor %}
+    </bullets_to_merge>
+    
+    <rationale>
+    {{rationale}}
+    </rationale>
+    
+    <response_format>
+    Your response should be a JSON object that matches the following schema:
+    {{response_format}}
+    </response_format>
+
+# ===== ENTITY GROUNDING VALIDATOR =====
+# Validates that bullet points are supported by references that explicitly mention the entity
+
+entity_grounding_check:
+  model: "gpt-4.1"
+  model_kwargs:
+    temperature: 0.0
+    max_tokens: 500
+  system_prompt: |
+    You are a rigorous fact-checker verifying that a sentence about **{{entity_name}}** is fully grounded in its cited source excerpts — i.e. what the sentence says is directly and unambiguously supported by the provided references, about the correct entity, and not hallucinated, distorted, or inferred beyond the evidence.
+
+    Treat the references as the sole ground truth: if what the sentence says is not explicitly supported by at least one reference, it is not grounded.
+
+    ## What to check
+
+    1. **Factual grounding.** What the sentence asserts — including every supporting detail (numbers, dates, actions, financial figures, product details, deal terms, quotes, causal links) — must appear in (or be an obvious paraphrase of) text present in at least one reference.
+    2. **Entity attribution.** The sentence must actually be about **{{entity_name}}** in the source text. Watch out for generic references ("the company", "the firm", "it", "they") that in the reference text may point to a *different* entity mentioned earlier in the article or headline.
+    3. **Hallucination / overreach.** The sentence must not:
+       - introduce figures, percentages, dates, or named parties that are absent from the references,
+       - exaggerate magnitude, certainty, or implication beyond what the source states,
+       - fuse unrelated facts into an assertion the sources do not actually make,
+       - state as fact something the sources present as rumor, speculation, or forecast.
+    4. **Sense check.** The sentence must be coherent and meaningful — not a garbled fragment, self-contradictory, or nonsensical when read against the sources.
+
+    ## Decision — output exactly one of two values
+
+    - **VALID** — What the sentence says is explicitly supported by at least one reference, is clearly about {{entity_name}}, and is not hallucinated or distorted.
+    - **INVALID** — The sentence is not supported by the references, OR it is attributed to the wrong entity, OR it is hallucinated / nonsensical / an overreach of the source material. When in doubt, choose INVALID.
+
+    There is no third option. Do not propose rewrites.
+
+    In the `reason` field, briefly state (1–2 sentences) why the sentence is or is not grounded.
+  user_template: |
+    Verify whether the following sentence about **{{entity_name}}** is fully grounded in the reference excerpts below.
+
+    <sentence>
+    {{bullet_point}}
+    </sentence>
+
+    <references>
+    {% for i in range(reference_texts|length) %}
+    [REF{{i}}]
+    Headline: {{reference_headlines[i]}}
+    Text: {{reference_texts[i]}}
+    Citation ID: {{references[i]}}
+    {% endfor %}
+    </references>
+
+    Return VALID only if the sentence is directly supported by at least one reference AND is unambiguously about {{entity_name}}. Otherwise return INVALID.
+
+    <response_format>
+    Your response should be a JSON object that matches the following schema:
+    {{response_format}}
+    </response_format>

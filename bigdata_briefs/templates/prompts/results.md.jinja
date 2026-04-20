@@ -1,0 +1,9 @@
+{% for result in results %}
+---
+{% for chunk in result.chunks -%}
+
+Title: {{ result.headline }}
+Text: {{ chunk.text }}
+
+{% endfor -%}
+{% endfor -%}

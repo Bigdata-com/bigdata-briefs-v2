@@ -1,0 +1,42 @@
+{
+  "timestamp": "2026-04-16T10:59:59.840442",
+  "step": "initial_check",
+  "entity_id": "7255D2",
+  "endpoint": "/v1/search",
+  "method": "POST",
+  "payload": {
+    "query": {
+      "auto_enrich_filters": false,
+      "filters": {
+        "timestamp": {
+          "start": "2026-04-16T00:00:00+00:00",
+          "end": "2026-04-16T08:59:57.031195+00:00"
+        },
+        "entity": {
+          "any_of": [
+            "7255D2"
+          ]
+        }
+      },
+      "ranking_params": {
+        "source_boost": 10,
+        "freshness_boost": 8,
+        "reranker": {
+          "enabled": false
+        }
+      },
+      "max_chunks": 1
+    }
+  },
+  "response": {
+    "results": [],
+    "metadata": {
+      "request_id": "18dd2c40-182f-4117-872a-85fb695002d6",
+      "timestamp": "2026-04-16T08:59:57.425864+00:00"
+    },
+    "usage": {
+      "api_query_units": 0.0
+    }
+  },
+  "status_code": 200
+}

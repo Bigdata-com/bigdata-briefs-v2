@@ -1,0 +1,16 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+*.db
+.pytest_cache/
+.ruff_cache/
+coverage-reports/
+.coverage
+.vscode/
+debug_logs/
+docs/test_workflow/
+# Local workflow runs / analytics (large artifacts; not versioned)
+docs/test_wflow_py/
+old_metadata_runs/
+*.md

@@ -1,0 +1,226 @@
+{
+  "timestamp": "2026-04-16T11:00:07.632823",
+  "step": "initial_check",
+  "entity_id": "0157B1",
+  "endpoint": "/v1/search",
+  "method": "POST",
+  "payload": {
+    "query": {
+      "auto_enrich_filters": false,
+      "filters": {
+        "timestamp": {
+          "start": "2026-04-16T00:00:00+00:00",
+          "end": "2026-04-16T09:00:05.480730+00:00"
+        },
+        "entity": {
+          "any_of": [
+            "0157B1"
+          ]
+        }
+      },
+      "ranking_params": {
+        "source_boost": 10,
+        "freshness_boost": 8,
+        "reranker": {
+          "enabled": false
+        }
+      },
+      "max_chunks": 1
+    }
+  },
+  "response": {
+    "results": [
+      {
+        "id": "B18302C7323BB55E60338FE49FEDB33B",
+        "headline": "Amazon.com Inc. - What you need to know about Amazon today: April 16, 2026",
+        "timestamp": "2026-04-16T00:00:00",
+        "source": {
+          "id": "DFF004",
+          "name": "PubT",
+          "rank": "RANK_1"
+        },
+        "url": "https://www.aboutamazon.com/news/company-news/amazon-news-today-top-stories-company",
+        "chunks": [
+          {
+            "cnum": 1,
+            "text": "Amazon launches its slimmest ever streaming device, the Fire TV Stick HD\nAmazon has launched its slimmest streaming device, the Fire TV Stick HD, priced at $34.99 USD. The device is 30% slimmer than previous models and can be powered through a TV's USB port, eliminating the need for a wall adapter. It features a redesigned Fire TV interface, Alexa+ built-in for personalized recommendations, and delivers 30% faster performance than the previous HD generation. With Wi-Fi 6 and Bluetooth 5.3 support, the portable device is ideal for home and travel use. Pre-orders begin today, with shipping starting April 29 across more than a dozen countries including the U.S., Canada, UK, and Japan.\nAmazon Ember Artline is now available for preorder with more than 2,000 free art pieces",
+            "relevance": 0.5862699326975309,
+            "sentiment": 0.39,
+            "detections": [
+              {
+                "id": "912D5E",
+                "start": 586,
+                "end": 594,
+                "type": "entity"
+              },
+              {
+                "id": "CB9798",
+                "start": 253,
+                "end": 257,
+                "type": "entity"
+              },
+              {
+                "id": "E48C32",
+                "start": 249,
+                "end": 252,
+                "type": "entity"
+              },
+              {
+                "id": "FE1757",
+                "start": 156,
+                "end": 157,
+                "type": "entity"
+              },
+              {
+                "id": "FE1757",
+                "start": 163,
+                "end": 166,
+                "type": "entity"
+              },
+              {
+                "id": "0AB77A",
+                "start": 56,
+                "end": 69,
+                "type": "entity"
+              },
+              {
+                "id": "0AB77A",
+                "start": 128,
+                "end": 141,
+                "type": "entity"
+              },
+              {
+                "id": "C6A466",
+                "start": 668,
+                "end": 674,
+                "type": "entity"
+              },
+              {
+                "id": "06CA45",
+                "start": 344,
+                "end": 349,
+                "type": "entity"
+              },
+              {
+                "id": "609489",
+                "start": 676,
+                "end": 678,
+                "type": "entity"
+              },
+              {
+                "id": "0157B1",
+                "start": 0,
+                "end": 6,
+                "type": "entity"
+              },
+              {
+                "id": "0157B1",
+                "start": 73,
+                "end": 79,
+                "type": "entity"
+              },
+              {
+                "id": "0157B1",
+                "start": 691,
+                "end": 697,
+                "type": "entity"
+              },
+              {
+                "id": "business,products-services,product-release,,",
+                "start": 0,
+                "end": 69,
+                "type": "topic"
+              },
+              {
+                "id": "business,products-services,product-release,,",
+                "start": 73,
+                "end": 141,
+                "type": "topic"
+              },
+              {
+                "id": "3725B9",
+                "start": 684,
+                "end": 689,
+                "type": "entity"
+              },
+              {
+                "id": "3DF9FA",
+                "start": 557,
+                "end": 567,
+                "type": "entity"
+              },
+              {
+                "id": "F92D84",
+                "start": 468,
+                "end": 473,
+                "type": "entity"
+              },
+              {
+                "id": "9FD79D",
+                "start": 325,
+                "end": 332,
+                "type": "entity"
+              },
+              {
+                "id": "3D4567",
+                "start": 662,
+                "end": 666,
+                "type": "entity"
+              },
+              {
+                "id": "236CD2",
+                "start": 480,
+                "end": 489,
+                "type": "entity"
+              },
+              {
+                "id": "5D70BB",
+                "start": 364,
+                "end": 376,
+                "type": "entity"
+              }
+            ],
+            "text_locations": [
+              {
+                "paragraph_num": 1,
+                "sentence_num": 1
+              },
+              {
+                "paragraph_num": 2,
+                "sentence_num": 1
+              },
+              {
+                "paragraph_num": 2,
+                "sentence_num": 2
+              },
+              {
+                "paragraph_num": 2,
+                "sentence_num": 3
+              },
+              {
+                "paragraph_num": 2,
+                "sentence_num": 4
+              },
+              {
+                "paragraph_num": 2,
+                "sentence_num": 5
+              },
+              {
+                "paragraph_num": 3,
+                "sentence_num": 1
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "metadata": {
+      "request_id": "a63ab369-6442-4795-b279-619292b6c105",
+      "timestamp": "2026-04-16T09:00:05.206584+00:00"
+    },
+    "usage": {
+      "api_query_units": 0.1
+    }
+  },
+  "status_code": 200
+}

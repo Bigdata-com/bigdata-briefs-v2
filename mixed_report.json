@@ -1,0 +1,1140 @@
+[
+  {
+    "run_id": "a7cd62cda71c4e0ab282fda652dae763",
+    "entity_id": "B5734D",
+    "ts": "2026-04-17 11:01:36.133475",
+    "bullet": {
+      "trace_id": "624c1633-91d4-45cb-b75d-95adda4ec7b7",
+      "theme": "Financial Performance",
+      "citations": [
+        "CQS:C3ACB15A91C9EB3181B5723AF2390E0A-2"
+      ],
+      "text": "FuelCell Energy Inc. anticipates quarterly revenues of $40.07 million, representing a 7.1% increase from the same period last year.",
+      "is_active": true,
+      "generation": {
+        "original_text": "FuelCell Energy Inc. anticipates quarterly revenues of $40.07 million, representing a 7.1% increase from the same period last year.",
+        "model": "gpt-4.1",
+        "timestamp": "2026-04-17T11:01:47.225393+00:00",
+        "theme_index": 0,
+        "theme_name": "Financial Performance"
+      },
+      "relevance_scoring": {
+        "score": 4,
+        "reason": "The news provides a forward-looking revenue forecast for FuelCell Energy Inc. for the current quarter, indicating growth compared to the prior year. This is material and actionable information relevant to investors and stakeholders assessing the company's near-term performance.",
+        "passed": true
+      },
+      "entity_grounding": {
+        "check": {
+          "decision": "valid",
+          "reason": "The sentence is directly supported by REF0, which states that FuelCell Energy is expected to post quarterly revenues of $40.07 million, up 7.1% from the year-ago quarter. The entity and all details match exactly."
+        }
+      },
+      "novelty_embedding": {
+        "judgment": {
+          "decision": "keep",
+          "reason": "llm_full_history: No similar previous bulletpoints found in lookback window; llm_novelty_window: No similar previous bulletpoints found in lookback window; llm_remaining_window: No similar previous bulletpoints found in lookback window",
+          "evaluator_details": [
+            {
+              "evaluator_name": "llm_full_history",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            },
+            {
+              "evaluator_name": "llm_novelty_window",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            },
+            {
+              "evaluator_name": "llm_remaining_window",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            }
+          ]
+        },
+        "rewrite": null,
+        "relevance_check": null
+      },
+      "novelty_search": {
+        "search": {
+          "verdict": "keep",
+          "rewritten_text": null,
+          "duration_seconds": 0.0,
+          "reason": "The specific forecast figure ($40.07M) and the 7.1% year‑over‑year increase are not present in the provided evidence (which shows different analyst estimates and an actual reported figure of ~$30.5M). This sentence therefore adds new information and should be kept.",
+          "details": {
+            "rewrite_action": "keep",
+            "rewritten_sentence": "FuelCell Energy Inc. anticipates quarterly revenues of $40.07 million, representing a 7.1% increase from the same period last year.",
+            "overall_verdict": "mixed",
+            "reason": "The specific forecast figure ($40.07M) and the 7.1% year‑over‑year increase are not present in the provided evidence (which shows different analyst estimates and an actual reported figure of ~$30.5M). This sentence therefore adds new information and should be kept.",
+            "verdict_reason": "The specific forecast figure ($40.07M) and the 7.1% year‑over‑year increase are not present in the provided evidence (which shows different analyst estimates and an actual reported figure of ~$30.5M). This sentence therefore adds new information and should be kept.",
+            "overall_verdict_reason": "The specific forecast figure ($40.07M) and the 7.1% year‑over‑year increase are not present in the provided evidence (which shows different analyst estimates and an actual reported figure of ~$30.5M). This sentence therefore adds new information and should be kept.",
+            "search_queries": [
+              "FuelCell Energy Inc. anticipates quarterly revenues $40.07 million 7.1% increase year-over-year guidance quarter"
+            ],
+            "results_count": 20,
+            "claims": [
+              {
+                "text": "FuelCell Energy Inc. anticipates quarterly revenues of $40.07 million, a 7.1% increase year-over-year."
+              }
+            ],
+            "claim_verdicts": [
+              {
+                "claim_index": 0,
+                "novelty": "partially_novel",
+                "evidence_ids": [
+                  "D6-C1",
+                  "D10-C2",
+                  "D15-C1"
+                ],
+                "reasoning": "The topic (quarterly revenue expectations/results) is covered in the evidence, but the specific anticipated figure of $40.07 million and the 7.1% year-over-year increase are not present. Evidence shows other forecasts (e.g., analysts expected $42.21M in D6-C1) and the actual reported quarter was ~$30.5M (D10-C2, D15-C1). Therefore the claim adds a new, specific forecast and percent change not found in the provided sources."
+              }
+            ]
+          },
+          "overall_verdict": "mixed"
+        },
+        "relevance_check": null
+      },
+      "failure": null
+    }
+  },
+  {
+    "run_id": "60968222a6df4c5eb938cfbb5b0b8f8d",
+    "entity_id": "0157B1",
+    "ts": "2026-04-17 11:01:39.099534",
+    "bullet": {
+      "trace_id": "de82c12a-875b-492e-a34a-aa3eae94e698",
+      "theme": "Strategic Actions",
+      "citations": [
+        "CQS:3093D6083C8A48C58C1D1943F6423DD4-1"
+      ],
+      "text": "Amazon.com Inc. received approval from the Federal Communications Commission for its Globalstar acquisition, with the FCC chair highlighting the deal's alignment with the U.S. goal of leadership in satellite internet and its complementary role to traditional network operators.",
+      "is_active": true,
+      "generation": {
+        "original_text": "Amazon.com Inc. received approval from the Federal Communications Commission for its Globalstar acquisition, with the FCC chair highlighting the deal's alignment with the U.S. goal of leadership in satellite internet and its complementary role to traditional network operators.",
+        "model": "gpt-4.1",
+        "timestamp": "2026-04-17T11:01:57.650274+00:00",
+        "theme_index": 0,
+        "theme_name": "Strategic Actions"
+      },
+      "relevance_scoring": {
+        "score": 5,
+        "reason": "The news reports that Amazon.com Inc. received FCC approval for its Globalstar acquisition, a major regulatory milestone directly impacting Amazon's strategic expansion into satellite internet. This is a substantial development with significant material and operational implications for Amazon.",
+        "passed": true
+      },
+      "entity_grounding": {
+        "check": {
+          "decision": "valid",
+          "reason": "The reference explicitly states that FCC Chair Brendan Carr approved Amazon.com Inc.'s acquisition of Globalstar and highlights that the deal aligns with the U.S. goal of leadership in satellite internet and is complementary to traditional network operators. All key details in the sentence are directly supported by the reference and are clearly about Amazon.com Inc."
+        }
+      },
+      "novelty_embedding": {
+        "judgment": {
+          "decision": "keep",
+          "reason": "llm_full_history: No similar previous bulletpoints found in lookback window; llm_novelty_window: No similar previous bulletpoints found in lookback window; llm_remaining_window: No similar previous bulletpoints found in lookback window",
+          "evaluator_details": [
+            {
+              "evaluator_name": "llm_full_history",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            },
+            {
+              "evaluator_name": "llm_novelty_window",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            },
+            {
+              "evaluator_name": "llm_remaining_window",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            }
+          ]
+        },
+        "rewrite": null,
+        "relevance_check": null
+      },
+      "novelty_search": {
+        "search": {
+          "verdict": "keep",
+          "rewritten_text": null,
+          "duration_seconds": 0.0,
+          "reason": "The evidence shows the FCC chair was supportive and made the quoted points, but did not report that the FCC had actually approved the transaction. The sentence therefore contains a substantive new development (formal FCC approval) alongside background comments already in the record, so it should be kept as a novel update.",
+          "details": {
+            "rewrite_action": "keep",
+            "rewritten_sentence": "Amazon.com Inc. received approval from the Federal Communications Commission for its Globalstar acquisition, with the FCC chair highlighting the deal's alignment with the U.S. goal of leadership in satellite internet and its complementary role to traditional network operators.",
+            "overall_verdict": "mixed",
+            "reason": "The evidence shows the FCC chair was supportive and made the quoted points, but did not report that the FCC had actually approved the transaction. The sentence therefore contains a substantive new development (formal FCC approval) alongside background comments already in the record, so it should be kept as a novel update.",
+            "verdict_reason": "The evidence shows the FCC chair was supportive and made the quoted points, but did not report that the FCC had actually approved the transaction. The sentence therefore contains a substantive new development (formal FCC approval) alongside background comments already in the record, so it should be kept as a novel update.",
+            "overall_verdict_reason": "The evidence shows the FCC chair was supportive and made the quoted points, but did not report that the FCC had actually approved the transaction. The sentence therefore contains a substantive new development (formal FCC approval) alongside background comments already in the record, so it should be kept as a novel update.",
+            "search_queries": [
+              "Amazon.com Inc. FCC approval Globalstar acquisition FCC chair said aligns with U.S. leadership in satellite internet complements traditional network operators"
+            ],
+            "results_count": 17,
+            "claims": [
+              {
+                "text": "Amazon.com Inc. received FCC approval for its Globalstar acquisition, and the FCC chair said the deal aligns with the U.S. goal of leadership in satellite internet and complements traditional network operators."
+              }
+            ],
+            "claim_verdicts": [
+              {
+                "claim_index": 0,
+                "novelty": "partially_novel",
+                "evidence_ids": [
+                  "D10-C8",
+                  "D7-C3",
+                  "D8-C5"
+                ],
+                "reasoning": "The portion attributing comments to the FCC chair (that the deal aligns with a U.S. goal of leadership in next‑gen/direct‑to‑cell satellite services and is consistent with the long‑term vision, and his hope for multiple major satellite operators) is supported by the evidence (D10‑C8, D7‑C3). However, the claim that Amazon \"received FCC approval\" is not supported — the reports state the transaction \"will need\" or \"will require\" FCC approval and that the chair was \"very open‑minded\" (D8‑C5, D10‑C8). Thus the statement mixes an existing, reported chair endorsement with a new/unreported development (formal FCC approval), so the overall claim is partially novel."
+              }
+            ]
+          },
+          "overall_verdict": "mixed"
+        },
+        "relevance_check": null
+      },
+      "failure": null
+    }
+  },
+  {
+    "run_id": "60968222a6df4c5eb938cfbb5b0b8f8d",
+    "entity_id": "0157B1",
+    "ts": "2026-04-17 11:01:39.099534",
+    "bullet": {
+      "trace_id": "be7ea0aa-1088-4305-b0e5-3216dac79f72",
+      "theme": "Product Innovation",
+      "citations": [
+        "CQS:7BA8B04B87D6EB031B9AE6B408AA3879-2",
+        "CQS:7BA8B04B87D6EB031B9AE6B408AA3879-8"
+      ],
+      "text": "Amazon.com Inc. introduced Alexa+ with advanced large language models and new agentic capabilities, enabling natural conversations, real-world actions, and deep cultural localization, such as understanding Italian regional expressions and implicit requests.",
+      "is_active": true,
+      "generation": {
+        "original_text": "Amazon.com Inc. introduced Alexa+ with advanced large language models and new agentic capabilities, enabling natural conversations, real-world actions, and deep cultural localization, such as understanding Italian regional expressions and implicit requests.",
+        "model": "gpt-4.1",
+        "timestamp": "2026-04-17T11:02:07.440101+00:00",
+        "theme_index": 1,
+        "theme_name": "Product Innovation"
+      },
+      "relevance_scoring": {
+        "score": 5,
+        "reason": "The introduction of Alexa+ with advanced large language models and new agentic capabilities represents a significant product innovation for Amazon.com Inc., potentially enhancing its competitive position in AI-driven voice assistants and expanding its market reach through deep cultural localization. This development is highly material and actionable for investors and stakeholders.",
+        "passed": true
+      },
+      "entity_grounding": {
+        "check": {
+          "decision": "valid",
+          "reason": "The sentence is directly supported by REF0, which states that Amazon introduced Alexa+ with large language models, new agentic capabilities, natural conversations, real-world actions, and deep cultural localization such as understanding Italian regional expressions and implicit requests. The references are unambiguously about Amazon.com Inc."
+        }
+      },
+      "novelty_embedding": {
+        "judgment": {
+          "decision": "keep",
+          "reason": "llm_full_history: No similar previous bulletpoints found in lookback window; llm_novelty_window: No similar previous bulletpoints found in lookback window; llm_remaining_window: No similar previous bulletpoints found in lookback window",
+          "evaluator_details": [
+            {
+              "evaluator_name": "llm_full_history",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            },
+            {
+              "evaluator_name": "llm_novelty_window",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            },
+            {
+              "evaluator_name": "llm_remaining_window",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            }
+          ]
+        },
+        "rewrite": null,
+        "relevance_check": null
+      },
+      "novelty_search": {
+        "search": {
+          "verdict": "keep",
+          "rewritten_text": null,
+          "duration_seconds": 0.0,
+          "reason": "The evidence already notes Amazon introduced an upgraded, generative-AI Alexa (Alexa Plus) enabling conversational and task-oriented interactions, but does not include the specific technical and localization details in this sentence (advanced LLMs, agentic capabilities to perform real-world actions, and explicit examples of deep cultural localization). Those are genuine new details, so keep the sentence as a novel development.",
+          "details": {
+            "rewrite_action": "keep",
+            "rewritten_sentence": "Amazon.com Inc. introduced Alexa+ with advanced large language models and new agentic capabilities, enabling natural conversations, real-world actions, and deep cultural localization, such as understanding Italian regional expressions and implicit requests.",
+            "overall_verdict": "mixed",
+            "reason": "The evidence already notes Amazon introduced an upgraded, generative-AI Alexa (Alexa Plus) enabling conversational and task-oriented interactions, but does not include the specific technical and localization details in this sentence (advanced LLMs, agentic capabilities to perform real-world actions, and explicit examples of deep cultural localization). Those are genuine new details, so keep the sentence as a novel development.",
+            "verdict_reason": "The evidence already notes Amazon introduced an upgraded, generative-AI Alexa (Alexa Plus) enabling conversational and task-oriented interactions, but does not include the specific technical and localization details in this sentence (advanced LLMs, agentic capabilities to perform real-world actions, and explicit examples of deep cultural localization). Those are genuine new details, so keep the sentence as a novel development.",
+            "overall_verdict_reason": "The evidence already notes Amazon introduced an upgraded, generative-AI Alexa (Alexa Plus) enabling conversational and task-oriented interactions, but does not include the specific technical and localization details in this sentence (advanced LLMs, agentic capabilities to perform real-world actions, and explicit examples of deep cultural localization). Those are genuine new details, so keep the sentence as a novel development.",
+            "search_queries": [
+              "Amazon.com Inc. introduced Alexa+ advanced large language models agentic capabilities natural conversations real-world actions cultural localization Italian regional expressions implicit requests"
+            ],
+            "results_count": 1,
+            "claims": [
+              {
+                "text": "Amazon.com Inc. introduced Alexa+ with advanced large language models and new agentic capabilities that enable more natural conversations, perform real‑world actions, and provide deep cultural localization (e.g., understanding Italian regional expressions and implicit requests)."
+              }
+            ],
+            "claim_verdicts": [
+              {
+                "claim_index": 0,
+                "novelty": "partially_novel",
+                "evidence_ids": [
+                  "D1-C13"
+                ],
+                "reasoning": "The evidence (D1-C13) already reports that in Feb 2025 Amazon introduced 'Alexa Plus' as a next-generation, generative-AI-powered assistant to enable more conversational and task-oriented interactions — which matches the claim's core that Amazon introduced an upgraded Alexa focused on conversation and tasks. However, the claim adds specific new details not present in the evidence: that Alexa+ uses advanced large language models, includes new agentic capabilities to perform real-world actions, and provides deep cultural localization (explicitly understanding Italian regional expressions and implicit requests). Those concrete technical and localization details are not described in D1-C13, so the claim is partially novel."
+              }
+            ]
+          },
+          "overall_verdict": "mixed"
+        },
+        "relevance_check": null
+      },
+      "failure": null
+    }
+  },
+  {
+    "run_id": "60968222a6df4c5eb938cfbb5b0b8f8d",
+    "entity_id": "0157B1",
+    "ts": "2026-04-17 11:01:39.099534",
+    "bullet": {
+      "trace_id": "410614c0-0094-4ae8-b43e-d7a4653ee2f2",
+      "theme": "Product Innovation",
+      "citations": [
+        "CQS:D5B87258E905182700EA9FF529832123-1"
+      ],
+      "text": "Amazon.com Inc. introduced AI-powered discovery tools for Amazon Fashion, enabling customers to receive tailored jewelry recommendations and track price histories using the Rufus AI shopping assistant during Akshaya Tritiya.",
+      "is_active": true,
+      "generation": {
+        "original_text": "Amazon.com Inc. introduced AI-powered discovery tools for Amazon Fashion, enabling customers to receive tailored jewelry recommendations and track price histories using the Rufus AI shopping assistant during Akshaya Tritiya.",
+        "model": "gpt-4.1",
+        "timestamp": "2026-04-17T11:02:07.440101+00:00",
+        "theme_index": 1,
+        "theme_name": "Product Innovation"
+      },
+      "relevance_scoring": {
+        "score": 4,
+        "reason": "The introduction of AI-powered discovery tools for Amazon Fashion represents a notable product launch that could enhance customer experience and drive sales, thus having potential material impact on Amazon's retail operations and competitive positioning.",
+        "passed": true
+      },
+      "entity_grounding": {
+        "check": {
+          "decision": "valid",
+          "reason": "The reference explicitly states that Amazon.com Inc., through Amazon Fashion, introduced AI-powered discovery tools for Akshaya Tritiya, enabling tailored jewelry recommendations and price history tracking using the Rufus AI shopping assistant. All details in the sentence are directly supported and clearly attributed to Amazon.com Inc."
+        }
+      },
+      "novelty_embedding": {
+        "judgment": {
+          "decision": "keep",
+          "reason": "llm_full_history: No similar previous bulletpoints found in lookback window; llm_novelty_window: No similar previous bulletpoints found in lookback window; llm_remaining_window: No similar previous bulletpoints found in lookback window",
+          "evaluator_details": [
+            {
+              "evaluator_name": "llm_full_history",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            },
+            {
+              "evaluator_name": "llm_novelty_window",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            },
+            {
+              "evaluator_name": "llm_remaining_window",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            }
+          ]
+        },
+        "rewrite": null,
+        "relevance_check": null
+      },
+      "novelty_search": {
+        "search": {
+          "verdict": "keep",
+          "rewritten_text": null,
+          "duration_seconds": 0.0,
+          "reason": "Evidence already shows Amazon Fashion uses Rufus for tailored jewellery recommendations around Akshaya Tritiya, but does not mention the ability to track price histories — that is new information. Because the sentence contains this genuine additional feature, keep the full sentence.",
+          "details": {
+            "rewrite_action": "keep",
+            "rewritten_sentence": "Amazon.com Inc. introduced AI-powered discovery tools for Amazon Fashion, enabling customers to receive tailored jewelry recommendations and track price histories using the Rufus AI shopping assistant during Akshaya Tritiya.",
+            "overall_verdict": "mixed",
+            "reason": "Evidence already shows Amazon Fashion uses Rufus for tailored jewellery recommendations around Akshaya Tritiya, but does not mention the ability to track price histories — that is new information. Because the sentence contains this genuine additional feature, keep the full sentence.",
+            "verdict_reason": "Evidence already shows Amazon Fashion uses Rufus for tailored jewellery recommendations around Akshaya Tritiya, but does not mention the ability to track price histories — that is new information. Because the sentence contains this genuine additional feature, keep the full sentence.",
+            "overall_verdict_reason": "Evidence already shows Amazon Fashion uses Rufus for tailored jewellery recommendations around Akshaya Tritiya, but does not mention the ability to track price histories — that is new information. Because the sentence contains this genuine additional feature, keep the full sentence.",
+            "search_queries": [
+              "Amazon.com Inc. AI-powered discovery tools Amazon Fashion tailored jewelry recommendations track price histories Rufus AI shopping assistant Akshaya Tritiya"
+            ],
+            "results_count": 1,
+            "claims": [
+              {
+                "text": "Amazon.com Inc. introduced AI-powered discovery tools for Amazon Fashion that let customers get tailored jewelry recommendations and track price histories via the Rufus AI shopping assistant during Akshaya Tritiya."
+              }
+            ],
+            "claim_verdicts": [
+              {
+                "claim_index": 0,
+                "novelty": "partially_novel",
+                "evidence_ids": [
+                  "D1-C3"
+                ],
+                "reasoning": "The evidence (D1-C3) already says Amazon Fashion is using AI and the Rufus shopping assistant to help customers discover and get tailored jewellery recommendations (including queries for Akshaya Tritiya). However, the evidence does not mention the ability to track price histories — that detail is not present. Since part of the claim (tailored recommendations via Rufus during Akshaya Tritiya) is covered but the price-history tracking is a new specific feature, the claim is partially novel."
+              }
+            ]
+          },
+          "overall_verdict": "mixed"
+        },
+        "relevance_check": null
+      },
+      "failure": null
+    }
+  },
+  {
+    "run_id": "60968222a6df4c5eb938cfbb5b0b8f8d",
+    "entity_id": "0157B1",
+    "ts": "2026-04-17 11:01:39.099534",
+    "bullet": {
+      "trace_id": "3143e6ca-e2de-49da-a069-155b7fedfe69",
+      "theme": "Financial Performance",
+      "citations": [
+        "CQS:675E61C35649A4E592FE80CA44B9D52E-3",
+        "CQS:A5BB37FA9239065D12164B3AF522E846-2",
+        "CQS:E764C10A569DF6A4C1FB2C9953DD8601-4",
+        "CQS:E764C10A569DF6A4C1FB2C9953DD8601-5",
+        "CQS:ECF75C9DF5562C46D960699EC3539B71-2",
+        "CQS:ECF75C9DF5562C46D960699EC3539B71-5",
+        "CQS:0DFBFD9BC17B8D2BF4DE1FF379C55F8C-5",
+        "CQS:BF2C1056E19CBBD1291F3F037926DD99-3",
+        "CQS:051D5CA9E56D1997F32D82F8A36A27D2-5"
+      ],
+      "text": "The plan would position Amazon as the highest spender among global technology peers.",
+      "is_active": false,
+      "generation": {
+        "original_text": "Amazon.com Inc. is executing a $200 billion capital expenditure plan in 2026, with the majority allocated to artificial intelligence infrastructure, data centers, chips, and satellite initiatives, positioning the company as the highest spender among global technology peers.",
+        "model": "gpt-4.1",
+        "timestamp": "2026-04-17T11:02:21.663764+00:00",
+        "theme_index": 2,
+        "theme_name": "Financial Performance"
+      },
+      "relevance_scoring": {
+        "score": 5,
+        "reason": "The news reveals a substantial $200 billion capital expenditure plan by Amazon for 2026, focused on AI infrastructure, data centers, chips, and satellite initiatives. This represents a major strategic investment with significant potential impact on Amazon's competitive positioning, operational capacity, and future growth, making it highly relevant and actionable for investors.",
+        "passed": true
+      },
+      "entity_grounding": {
+        "check": {
+          "decision": "valid",
+          "reason": "Multiple references (REF1, REF2, REF4, REF5, REF6, REF7, REF8) explicitly state that Amazon.com Inc. is planning approximately $200 billion in capital expenditures in 2026, with the majority allocated to AI infrastructure, data centers, chips, and satellite initiatives. REF7 specifically notes this positions Amazon as the highest spender among global technology peers. All details in the sentence are directly supported and clearly attributed to Amazon.com Inc."
+        }
+      },
+      "novelty_embedding": {
+        "judgment": {
+          "decision": "keep",
+          "reason": "llm_full_history: No similar previous bulletpoints found in lookback window; llm_novelty_window: No similar previous bulletpoints found in lookback window; llm_remaining_window: No similar previous bulletpoints found in lookback window",
+          "evaluator_details": [
+            {
+              "evaluator_name": "llm_full_history",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            },
+            {
+              "evaluator_name": "llm_novelty_window",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            },
+            {
+              "evaluator_name": "llm_remaining_window",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            }
+          ]
+        },
+        "rewrite": null,
+        "relevance_check": null
+      },
+      "novelty_search": {
+        "search": {
+          "verdict": "rewrite",
+          "rewritten_text": "The plan would position Amazon as the highest spender among global technology peers.",
+          "duration_seconds": 0.0,
+          "reason": "Most of the original sentence (the $200bn 2026 capex and its AI/data-center/chips/satellites focus) is already documented in the evidence. The only novel element is the comparative claim that this positions Amazon as the highest spender among global tech peers, which is not supported by the cited sources. Therefore retain only that novel comparative claim.",
+          "details": {
+            "rewrite_action": "rewrite",
+            "rewritten_sentence": "The plan would position Amazon as the highest spender among global technology peers.",
+            "overall_verdict": "mixed",
+            "reason": "Most of the original sentence (the $200bn 2026 capex and its AI/data-center/chips/satellites focus) is already documented in the evidence. The only novel element is the comparative claim that this positions Amazon as the highest spender among global tech peers, which is not supported by the cited sources. Therefore retain only that novel comparative claim.",
+            "verdict_reason": "Most of the original sentence (the $200bn 2026 capex and its AI/data-center/chips/satellites focus) is already documented in the evidence. The only novel element is the comparative claim that this positions Amazon as the highest spender among global tech peers, which is not supported by the cited sources. Therefore retain only that novel comparative claim.",
+            "overall_verdict_reason": "Most of the original sentence (the $200bn 2026 capex and its AI/data-center/chips/satellites focus) is already documented in the evidence. The only novel element is the comparative claim that this positions Amazon as the highest spender among global tech peers, which is not supported by the cited sources. Therefore retain only that novel comparative claim.",
+            "search_queries": [
+              "Amazon.com Inc. $200 billion capital expenditure plan 2026 majority allocated to artificial intelligence infrastructure data centers chips satellite initiatives highest spender among global technology peers"
+            ],
+            "results_count": 12,
+            "claims": [
+              {
+                "text": "Amazon.com Inc. is executing a $200 billion capital expenditure plan in 2026, with the majority allocated to artificial intelligence infrastructure, data centers, chips, and satellite initiatives, making it the highest spender among global technology peers."
+              }
+            ],
+            "claim_verdicts": [
+              {
+                "claim_index": 0,
+                "novelty": "partially_novel",
+                "evidence_ids": [
+                  "D1-C1",
+                  "D2-C1",
+                  "D4-C5",
+                  "D5-C4",
+                  "D7-C1"
+                ],
+                "reasoning": "Most of the claim is already covered: multiple sources report Amazon expects to invest about $200 billion in capex in 2026 and that much of it is directed to AI-related infrastructure such as data centers, chips and satellites (e.g. D1-C1, D2-C1, D4-C5, D7-C1). However, the assertion that this positioning makes Amazon the highest spender among global technology peers is not supported by the provided evidence — one item notes Microsoft, Google and Oracle are on course to collectively spend nearly $400bn (D5-C4) and no source explicitly states Amazon is the single highest spender. Because the claim adds this comparative conclusion beyond the cited facts, it is partially novel."
+              }
+            ]
+          },
+          "overall_verdict": "mixed"
+        },
+        "relevance_check": {
+          "score": 3,
+          "passed": false
+        }
+      },
+      "failure": null
+    }
+  },
+  {
+    "run_id": "60968222a6df4c5eb938cfbb5b0b8f8d",
+    "entity_id": "0157B1",
+    "ts": "2026-04-17 11:01:39.099534",
+    "bullet": {
+      "trace_id": "6b3f3a54-d598-41e2-87db-6733c4e973d8",
+      "theme": "Financial Performance",
+      "citations": [
+        "CQS:F7258F627554521AD4DA464042EDE2D6-2",
+        "CQS:051D5CA9E56D1997F32D82F8A36A27D2-2"
+      ],
+      "text": "Amazon.com Inc.'s Amazon Web Services unit generated $12.5 billion in operating income in the latest reported quarter, accounting for about 57% of total operating income despite representing only 18% of full-year sales.",
+      "is_active": true,
+      "generation": {
+        "original_text": "Amazon.com Inc.'s Amazon Web Services unit generated $12.5 billion in operating income in the latest reported quarter, accounting for about 57% of total operating income despite representing only 18% of full-year sales.",
+        "model": "gpt-4.1",
+        "timestamp": "2026-04-17T11:02:21.663764+00:00",
+        "theme_index": 2,
+        "theme_name": "Financial Performance"
+      },
+      "relevance_scoring": {
+        "score": 4,
+        "reason": "The news provides a significant update on Amazon Web Services' operating income contribution relative to total operating income and sales, highlighting AWS's profitability and importance within Amazon.com Inc. This is material information that can influence investor perception and strategic analysis, though it does not indicate a new event like a surprise or change in trend.",
+        "passed": true
+      },
+      "entity_grounding": {
+        "check": {
+          "decision": "valid",
+          "reason": "Reference [REF0] explicitly states that AWS generated $12.5 billion in operating income in the quarter, accounted for about 57% of operating income, and represented just 18% of full-year sales. The sentence is directly supported and clearly about Amazon.com Inc."
+        }
+      },
+      "novelty_embedding": {
+        "judgment": {
+          "decision": "keep",
+          "reason": "llm_full_history: No similar previous bulletpoints found in lookback window; llm_novelty_window: No similar previous bulletpoints found in lookback window; llm_remaining_window: No similar previous bulletpoints found in lookback window",
+          "evaluator_details": [
+            {
+              "evaluator_name": "llm_full_history",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            },
+            {
+              "evaluator_name": "llm_novelty_window",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            },
+            {
+              "evaluator_name": "llm_remaining_window",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            }
+          ]
+        },
+        "rewrite": null,
+        "relevance_check": null
+      },
+      "novelty_search": {
+        "search": {
+          "verdict": "keep",
+          "rewritten_text": null,
+          "duration_seconds": 0.0,
+          "reason": "The sentence includes a new, specific quarterly operating‑income figure ($12.5B) that is not present in the provided evidence, even though the full‑year shares (57% of operating income, 18% of sales) are already documented. Because it adds this concrete quarterly datapoint, the sentence as a whole contains novel information and should be kept.",
+          "details": {
+            "rewrite_action": "keep",
+            "rewritten_sentence": "Amazon.com Inc.'s Amazon Web Services unit generated $12.5 billion in operating income in the latest reported quarter, accounting for about 57% of total operating income despite representing only 18% of full-year sales.",
+            "overall_verdict": "mixed",
+            "reason": "The sentence includes a new, specific quarterly operating‑income figure ($12.5B) that is not present in the provided evidence, even though the full‑year shares (57% of operating income, 18% of sales) are already documented. Because it adds this concrete quarterly datapoint, the sentence as a whole contains novel information and should be kept.",
+            "verdict_reason": "The sentence includes a new, specific quarterly operating‑income figure ($12.5B) that is not present in the provided evidence, even though the full‑year shares (57% of operating income, 18% of sales) are already documented. Because it adds this concrete quarterly datapoint, the sentence as a whole contains novel information and should be kept.",
+            "overall_verdict_reason": "The sentence includes a new, specific quarterly operating‑income figure ($12.5B) that is not present in the provided evidence, even though the full‑year shares (57% of operating income, 18% of sales) are already documented. Because it adds this concrete quarterly datapoint, the sentence as a whole contains novel information and should be kept.",
+            "search_queries": [
+              "Amazon.com Inc. Amazon Web Services $12.5 billion operating income latest quarter 57% of total operating income 18% of full-year sales"
+            ],
+            "results_count": 20,
+            "claims": [
+              {
+                "text": "Amazon Web Services generated $12.5 billion in operating income in the latest reported quarter, about 57% of Amazon.com Inc.'s total operating income, despite representing only 18% of Amazon.com's full-year sales."
+              }
+            ],
+            "claim_verdicts": [
+              {
+                "claim_index": 0,
+                "novelty": "partially_novel",
+                "evidence_ids": [
+                  "D19-C7",
+                  "D13-C28",
+                  "D1-C2",
+                  "D4-C3"
+                ],
+                "reasoning": "The topic (AWS contributing a majority of Amazon's operating income and representing a minority share of sales) is already covered in the evidence: full‑year figures show AWS sales of roughly $128.7B out of $716.9B (~18%) and total operating income of ~$80.0B with AWS operating income of $45.6B (about 57%) (D19-C7, D13-C28, D17-C1). However, the specific claim that AWS generated $12.5 billion in operating income “in the latest reported quarter” is a new, concrete quarterly figure not present in the cited evidence (quarterly AWS operating income figures in the evidence include $10.2B for Q2 2025 (D1-C2) and other quarter sales but not the $12.5B operating‑income number). Because the claim mixes established full‑year proportions with a new quarterly operating‑income figure, it is partially novel."
+              }
+            ]
+          },
+          "overall_verdict": "mixed"
+        },
+        "relevance_check": null
+      },
+      "failure": null
+    }
+  },
+  {
+    "run_id": "60968222a6df4c5eb938cfbb5b0b8f8d",
+    "entity_id": "0157B1",
+    "ts": "2026-04-17 11:01:39.099534",
+    "bullet": {
+      "trace_id": "07057a8c-e583-45af-9d5b-015b22229e3b",
+      "theme": "Market Outlook",
+      "citations": [
+        "CQS:14EEDB4C58B014562A3FBF45FE1E61B3-3"
+      ],
+      "text": "Amazon.com Inc. continues to expand its digital advertising footprint, leveraging its scale as the largest e-commerce platform with $426 billion in U.S. sales and over 200 million Prime members worldwide to drive growth in its advertising business.",
+      "is_active": true,
+      "generation": {
+        "original_text": "Amazon.com Inc. continues to expand its digital advertising footprint, leveraging its scale as the largest e-commerce platform with $426 billion in U.S. sales and over 200 million Prime members worldwide to drive growth in its advertising business.",
+        "model": "gpt-4.1",
+        "timestamp": "2026-04-17T11:02:40.461808+00:00",
+        "theme_index": 3,
+        "theme_name": "Market Outlook"
+      },
+      "relevance_scoring": {
+        "score": 4,
+        "reason": "The news highlights Amazon's ongoing expansion in digital advertising, leveraging its large e-commerce scale and Prime membership base, which is a significant and actionable strategic development with potential material impact on its business growth and competitive positioning.",
+        "passed": true
+      },
+      "entity_grounding": {
+        "check": {
+          "decision": "valid",
+          "reason": "The sentence is directly supported by the reference, which states that Amazon is expanding its digital advertising footprint, is the largest e-commerce platform with $426 billion in U.S. sales, and has over 200 million Prime members worldwide, all of which are leveraged to drive growth in its advertising business."
+        }
+      },
+      "novelty_embedding": {
+        "judgment": {
+          "decision": "keep",
+          "reason": "llm_full_history: No similar previous bulletpoints found in lookback window; llm_novelty_window: No similar previous bulletpoints found in lookback window; llm_remaining_window: No similar previous bulletpoints found in lookback window",
+          "evaluator_details": [
+            {
+              "evaluator_name": "llm_full_history",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            },
+            {
+              "evaluator_name": "llm_novelty_window",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            },
+            {
+              "evaluator_name": "llm_remaining_window",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            }
+          ]
+        },
+        "rewrite": null,
+        "relevance_check": null
+      },
+      "novelty_search": {
+        "search": {
+          "verdict": "keep",
+          "rewritten_text": null,
+          "duration_seconds": 0.0,
+          "reason": "The core claim (Amazon expanding its advertising business and leveraging Prime/commerce/Prime Video) is supported by the evidence, but the sentence adds concrete numeric details ($426B U.S. sales; 200M+ Prime members) that do not appear in the provided sources. Because those figures are new factual information, the sentence adds novel content and should be kept.",
+          "details": {
+            "rewrite_action": "keep",
+            "rewritten_sentence": "Amazon.com Inc. continues to expand its digital advertising footprint, leveraging its scale as the largest e-commerce platform with $426 billion in U.S. sales and over 200 million Prime members worldwide to drive growth in its advertising business.",
+            "overall_verdict": "mixed",
+            "reason": "The core claim (Amazon expanding its advertising business and leveraging Prime/commerce/Prime Video) is supported by the evidence, but the sentence adds concrete numeric details ($426B U.S. sales; 200M+ Prime members) that do not appear in the provided sources. Because those figures are new factual information, the sentence adds novel content and should be kept.",
+            "verdict_reason": "The core claim (Amazon expanding its advertising business and leveraging Prime/commerce/Prime Video) is supported by the evidence, but the sentence adds concrete numeric details ($426B U.S. sales; 200M+ Prime members) that do not appear in the provided sources. Because those figures are new factual information, the sentence adds novel content and should be kept.",
+            "overall_verdict_reason": "The core claim (Amazon expanding its advertising business and leveraging Prime/commerce/Prime Video) is supported by the evidence, but the sentence adds concrete numeric details ($426B U.S. sales; 200M+ Prime members) that do not appear in the provided sources. Because those figures are new factual information, the sentence adds novel content and should be kept.",
+            "search_queries": [
+              "Amazon.com Inc. expanding digital advertising footprint leveraging $426 billion U.S. sales 200 million Prime members advertising growth"
+            ],
+            "results_count": 9,
+            "claims": [
+              {
+                "text": "Amazon.com Inc. is expanding its digital advertising business by leveraging its scale as the largest e-commerce platform (with $426 billion in U.S. sales and over 200 million Prime members worldwide) to drive advertising growth."
+              }
+            ],
+            "claim_verdicts": [
+              {
+                "claim_index": 0,
+                "novelty": "partially_novel",
+                "evidence_ids": [
+                  "D1-C3",
+                  "D2-C5",
+                  "D3-C4",
+                  "D6-C29",
+                  "D7-C3"
+                ],
+                "reasoning": "The claim’s core — that Amazon is expanding its digital advertising business and leveraging its scale (Prime, Prime Video, commerce assets) to drive ad growth — is supported by multiple pieces of evidence (D1-C3 notes deepening its digital advertising footprint via Prime Video partnerships; D2-C5 and D3-C4 describe strong ad growth driven by sponsored listings, DSP expansion and Prime Video; D6-C29 says Advertising offerings continue to grow; D7-C3 documents the large, expanding ad business). However, the specific numeric details in the claim (\"$426 billion in U.S. sales\" and \"over 200 million Prime members worldwide\") do not appear in the provided evidence. Because the topic and expansion are already covered but the claim adds concrete numeric details not present in the evidence, this is partially_novel."
+              }
+            ]
+          },
+          "overall_verdict": "mixed"
+        },
+        "relevance_check": null
+      },
+      "failure": null
+    }
+  },
+  {
+    "run_id": "6d7ff7d0aabd4cdfa35af0a407b30696",
+    "entity_id": "D64C6D",
+    "ts": "2026-04-17 11:01:57.534157",
+    "bullet": {
+      "trace_id": "fbb3b206-1398-4ebb-99a3-28588cfd17e5",
+      "theme": "Market Outlook",
+      "citations": [
+        "CQS:9D8A4D89DBFB252003290AF83DB2A160-5"
+      ],
+      "text": "NIKE Inc. faces uncertainty in its market outlook as longer-term forecasts diverge, with some models projecting shares could end 2026 between $28 and $45 if current pressures persist, while more optimistic scenarios see stabilization and a return to 6% annual revenue growth by decade's end if margins recover.",
+      "is_active": true,
+      "generation": {
+        "original_text": "NIKE Inc. faces uncertainty in its market outlook as longer-term forecasts diverge, with some models projecting shares could end 2026 between $28 and $45 if current pressures persist, while more optimistic scenarios see stabilization and a return to 6% annual revenue growth by decade's end if margins recover.",
+        "model": "gpt-4.1",
+        "timestamp": "2026-04-17T11:02:42.959866+00:00",
+        "theme_index": 2,
+        "theme_name": "Market Outlook"
+      },
+      "relevance_scoring": {
+        "score": 4,
+        "reason": "The news item provides forward-looking market outlook scenarios for NIKE Inc., highlighting potential share price ranges and revenue growth projections contingent on margin recovery. This information is relevant and actionable as it affects investor expectations and strategic considerations for the company in 2026.",
+        "passed": true
+      },
+      "entity_grounding": {
+        "check": {
+          "decision": "valid",
+          "reason": "The sentence accurately reflects the reference, which states that longer-term forecasts for NIKE Inc. vary, with some models projecting shares could end 2026 between $28 and $45 if pressures persist, and more optimistic scenarios foresee stabilization and a return to 6% annual revenue growth by decade's end if margins recover. All details are directly supported and clearly about NIKE Inc."
+        }
+      },
+      "novelty_embedding": {
+        "judgment": {
+          "decision": "keep",
+          "reason": "llm_full_history: No similar previous bulletpoints found in lookback window; llm_novelty_window: No similar previous bulletpoints found in lookback window; llm_remaining_window: No similar previous bulletpoints found in lookback window",
+          "evaluator_details": [
+            {
+              "evaluator_name": "llm_full_history",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            },
+            {
+              "evaluator_name": "llm_novelty_window",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            },
+            {
+              "evaluator_name": "llm_remaining_window",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            }
+          ]
+        },
+        "rewrite": null,
+        "relevance_check": null
+      },
+      "novelty_search": {
+        "search": {
+          "verdict": "keep",
+          "rewritten_text": null,
+          "duration_seconds": 0.0,
+          "reason": "The opening clause is already supported by the evidence (old), but the sentence contains new, specific projections not present in the cited material: the explicit end‑2026 share range ($28–$45) and the specific scenario of ~6% annual revenue growth by decade's end conditional on margin recovery. Because these concrete numeric forecasts are novel developments relative to the provided evidence, the sentence as a whole adds new information and should be kept.",
+          "details": {
+            "rewrite_action": "keep",
+            "rewritten_sentence": "NIKE Inc. faces uncertainty in its market outlook as longer-term forecasts diverge, with some models projecting shares could end 2026 between $28 and $45 if current pressures persist, while more optimistic scenarios see stabilization and a return to 6% annual revenue growth by decade's end if margins recover.",
+            "overall_verdict": "mixed",
+            "reason": "The opening clause is already supported by the evidence (old), but the sentence contains new, specific projections not present in the cited material: the explicit end‑2026 share range ($28–$45) and the specific scenario of ~6% annual revenue growth by decade's end conditional on margin recovery. Because these concrete numeric forecasts are novel developments relative to the provided evidence, the sentence as a whole adds new information and should be kept.",
+            "verdict_reason": "The opening clause is already supported by the evidence (old), but the sentence contains new, specific projections not present in the cited material: the explicit end‑2026 share range ($28–$45) and the specific scenario of ~6% annual revenue growth by decade's end conditional on margin recovery. Because these concrete numeric forecasts are novel developments relative to the provided evidence, the sentence as a whole adds new information and should be kept.",
+            "overall_verdict_reason": "The opening clause is already supported by the evidence (old), but the sentence contains new, specific projections not present in the cited material: the explicit end‑2026 share range ($28–$45) and the specific scenario of ~6% annual revenue growth by decade's end conditional on margin recovery. Because these concrete numeric forecasts are novel developments relative to the provided evidence, the sentence as a whole adds new information and should be kept.",
+            "search_queries": [
+              "NIKE Inc. market outlook forecasts diverge shares $28 $45 end 2026 pessimistic models OR scenario and optimistic scenario stabilization 6% annual revenue growth by end of decade margins recover"
+            ],
+            "results_count": 20,
+            "claims": [
+              {
+                "text": "NIKE Inc. faces uncertainty in its market outlook as longer-term forecasts diverge."
+              },
+              {
+                "text": "Some models project NIKE's shares could end 2026 between $28 and $45 if current pressures persist."
+              },
+              {
+                "text": "More optimistic scenarios forecast stabilization and a return to about 6% annual revenue growth for NIKE by the end of the decade if margins recover."
+              }
+            ],
+            "claim_verdicts": [
+              {
+                "claim_index": 0,
+                "novelty": "old",
+                "evidence_ids": [
+                  "D16-C4",
+                  "D6-C1",
+                  "D7-C1",
+                  "D11-C1",
+                  "D10-C2"
+                ],
+                "reasoning": "The evidence already documents market uncertainty and divergent longer-term forecasts for Nike. Several pieces show differing analyst views and price targets (e.g., buy ratings with targets as high as $100 in D16-C4, lowered targets and neutral/discounted views at Truist, BofA and UBS in D6-C1, D7-C1 and D11-C1), and commentary notes broad analyst cuts and skepticism about the recovery timeline (D10-C2). This supports the claim that Nike faces uncertainty and that longer-term forecasts diverge, so the claim is not novel."
+              },
+              {
+                "claim_index": 1,
+                "novelty": "novel",
+                "evidence_ids": [
+                  "D16-C4",
+                  "D6-C1",
+                  "D11-C1",
+                  "D1-C2",
+                  "D13-C2"
+                ],
+                "reasoning": "The evidence contains various analyst price targets and market commentary (e.g., targets as high as $100 (D16-C4), and lowered targets to $57 (D6-C1), $54 (D11-C1), $120 (D1-C2)), and reports of current trading levels (around $45 or as low as $23.09 in one report, D13-C2). None of the cited items report that “some models project shares could end 2026 between $28 and $45 if current pressures persist.” That specific projected end-2026 range and the attribution to “some models” do not appear in the provided evidence, so the claim introduces a new, concrete numeric projection and is therefore novel."
+              },
+              {
+                "claim_index": 2,
+                "novelty": "novel",
+                "evidence_ids": [
+                  "D1-C2",
+                  "D12-C3",
+                  "D16-C4"
+                ],
+                "reasoning": "The evidence discusses divergent views and some optimism about a future recovery (e.g., brokers expect a turnaround could occur over time (D1-C2); management and analysts note potential margin inflection and that rebuilding could position the company for recovery (D12-C3); some analysts have reiterated bullish views if stabilization occurs (D16-C4)). However, none of the cited pieces state the specific scenario asserted — namely a stabilization and a return to roughly 6% annual revenue growth by the end of the decade conditional on margin recovery. The 6% growth figure and the precise timeline (by decade's end) are not present in the evidence, so this is new information."
+              }
+            ]
+          },
+          "overall_verdict": "mixed"
+        },
+        "relevance_check": null
+      },
+      "failure": null
+    }
+  },
+  {
+    "run_id": "6d7ff7d0aabd4cdfa35af0a407b30696",
+    "entity_id": "D64C6D",
+    "ts": "2026-04-17 11:01:57.534157",
+    "bullet": {
+      "trace_id": "52d9d121-9c10-463e-807f-ecb933d3971b",
+      "theme": "Product Innovation",
+      "citations": [
+        "CQS:ADD6CAB90C2D35251DBB6D621ADCFEDA-2",
+        "CQS:ADD6CAB90C2D35251DBB6D621ADCFEDA-3",
+        "CQS:ADD6CAB90C2D35251DBB6D621ADCFEDA-6"
+      ],
+      "text": "NIKE Inc. has announced the launch of the ACG Zegama Hike, a performance hiking boot debuting in July 2026 that combines the lightweight, responsive DNA of the Zegama Trail running shoe with enhanced durability, comfort, and support for demanding hikes.",
+      "is_active": true,
+      "generation": {
+        "original_text": "NIKE Inc. has announced the launch of the ACG Zegama Hike, a performance hiking boot debuting in July 2026 that combines the lightweight, responsive DNA of the Zegama Trail running shoe with enhanced durability, comfort, and support for demanding hikes.",
+        "model": "gpt-4.1",
+        "timestamp": "2026-04-17T11:02:52.526433+00:00",
+        "theme_index": 3,
+        "theme_name": "Product Innovation"
+      },
+      "relevance_scoring": {
+        "score": 4,
+        "reason": "The announcement of a new product launch (ACG Zegama Hike) by NIKE Inc. is a relevant and actionable update that could impact the company's market positioning and sales, especially as it targets a specific performance segment. Although the launch is scheduled for July 2026, which is in the future, the announcement itself is current and material.",
+        "passed": true
+      },
+      "entity_grounding": {
+        "check": {
+          "decision": "valid",
+          "reason": "The sentence is fully grounded: the references confirm that NIKE Inc.'s ACG division is launching the Zegama Hike, a performance hiking boot debuting in July 2026, which combines the lightweight, responsive DNA of the Zegama Trail running shoe with enhanced durability, comfort, and support for demanding hikes. All key details are explicitly supported in the provided excerpts."
+        }
+      },
+      "novelty_embedding": {
+        "judgment": {
+          "decision": "keep",
+          "reason": "llm_full_history: No similar previous bulletpoints found in lookback window; llm_novelty_window: No similar previous bulletpoints found in lookback window; llm_remaining_window: No similar previous bulletpoints found in lookback window",
+          "evaluator_details": [
+            {
+              "evaluator_name": "llm_full_history",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            },
+            {
+              "evaluator_name": "llm_novelty_window",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            },
+            {
+              "evaluator_name": "llm_remaining_window",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            }
+          ]
+        },
+        "rewrite": null,
+        "relevance_check": null
+      },
+      "novelty_search": {
+        "search": {
+          "verdict": "keep",
+          "rewritten_text": null,
+          "duration_seconds": 0.0,
+          "reason": "Evidence covers the Zegama lineage, tech attributes, and summer 2026 availability but does not mention the new “ACG Zegama Hike” variant, the specific July 2026 month, or its explicit positioning as a performance hiking boot with added durability/support. Those are genuine new details, so keep the full sentence.",
+          "details": {
+            "rewrite_action": "keep",
+            "rewritten_sentence": "NIKE Inc. has announced the launch of the ACG Zegama Hike, a performance hiking boot debuting in July 2026 that combines the lightweight, responsive DNA of the Zegama Trail running shoe with enhanced durability, comfort, and support for demanding hikes.",
+            "overall_verdict": "mixed",
+            "reason": "Evidence covers the Zegama lineage, tech attributes, and summer 2026 availability but does not mention the new “ACG Zegama Hike” variant, the specific July 2026 month, or its explicit positioning as a performance hiking boot with added durability/support. Those are genuine new details, so keep the full sentence.",
+            "verdict_reason": "Evidence covers the Zegama lineage, tech attributes, and summer 2026 availability but does not mention the new “ACG Zegama Hike” variant, the specific July 2026 month, or its explicit positioning as a performance hiking boot with added durability/support. Those are genuine new details, so keep the full sentence.",
+            "overall_verdict_reason": "Evidence covers the Zegama lineage, tech attributes, and summer 2026 availability but does not mention the new “ACG Zegama Hike” variant, the specific July 2026 month, or its explicit positioning as a performance hiking boot with added durability/support. Those are genuine new details, so keep the full sentence.",
+            "search_queries": [
+              "NIKE Inc. ACG Zegama Hike launch July 2026 Zegama Trail DNA lightweight responsive enhanced durability comfort support performance hiking boot"
+            ],
+            "results_count": 4,
+            "claims": [
+              {
+                "text": "NIKE Inc. announced the launch of the ACG Zegama Hike, a performance hiking boot debuting in July 2026 that combines the lightweight, responsive DNA of the Zegama Trail running shoe with enhanced durability, comfort, and support for demanding hikes."
+              }
+            ],
+            "claim_verdicts": [
+              {
+                "claim_index": 0,
+                "novelty": "partially_novel",
+                "evidence_ids": [
+                  "D1-C1",
+                  "D1-C4",
+                  "D1-C11"
+                ],
+                "reasoning": "The evidence already documents the ACG Zegama lineage and its summer 2026 availability and technical attributes (D1-C1 notes the ACG Zegama silhouette and D1-C4/D1-C11 describe its ZoomX cushioning, responsiveness and summer 2026 availability). However, the claim introduces a new variant/name — the “ACG Zegama Hike” — and a specific debut month (July 2026) plus the framing that it is a performance hiking boot that combines the Zegama Trail DNA with enhanced durability/support. Those specific details (the Hike variant name and July date and the hiking-boot positioning) are not present in the provided evidence, so this is a partial novelty: the topic and technical lineage are covered, but the new model/name, exact month and positioning are new information."
+              }
+            ]
+          },
+          "overall_verdict": "mixed"
+        },
+        "relevance_check": null
+      },
+      "failure": null
+    }
+  },
+  {
+    "run_id": "6d7ff7d0aabd4cdfa35af0a407b30696",
+    "entity_id": "D64C6D",
+    "ts": "2026-04-17 11:01:57.534157",
+    "bullet": {
+      "trace_id": "70671310-f937-4248-98f8-8fc5102033b7",
+      "theme": "Product Innovation",
+      "citations": [
+        "CQS:ADD6CAB90C2D35251DBB6D621ADCFEDA-4",
+        "CQS:ADD6CAB90C2D35251DBB6D621ADCFEDA-5",
+        "CQS:ADD6CAB90C2D35251DBB6D621ADCFEDA-6"
+      ],
+      "text": "NIKE Inc. developed the ACG Zegama Hike with direct input from outdoor athletes and extensive global prototype testing, incorporating features such as a trail-specific last, stacked foam construction with trail-tuned ZoomX foam, and a Vibram Megagrip outsole for traction on wet and dry surfaces.",
+      "is_active": true,
+      "generation": {
+        "original_text": "NIKE Inc. developed the ACG Zegama Hike with direct input from outdoor athletes and extensive global prototype testing, incorporating features such as a trail-specific last, stacked foam construction with trail-tuned ZoomX foam, and a Vibram Megagrip outsole for traction on wet and dry surfaces.",
+        "model": "gpt-4.1",
+        "timestamp": "2026-04-17T11:02:52.526433+00:00",
+        "theme_index": 3,
+        "theme_name": "Product Innovation"
+      },
+      "relevance_scoring": {
+        "score": 4,
+        "reason": "The news details a new product development by NIKE Inc. with specific features and athlete input, indicating a relevant and actionable update that could impact NIKE's product lineup and market positioning in outdoor footwear.",
+        "passed": true
+      },
+      "entity_grounding": {
+        "check": {
+          "decision": "valid",
+          "reason": "The sentence is fully grounded: the references confirm that NIKE Inc.'s ACG developed the Zegama Hike with direct input from outdoor athletes and extensive global prototype testing (REF2), and describe features such as a trail-specific last, stacked foam construction with trail-tuned ZoomX foam (REF0), and a Vibram Megagrip outsole for traction on wet and dry surfaces (REF1). All details are explicitly supported and attributed to NIKE Inc."
+        }
+      },
+      "novelty_embedding": {
+        "judgment": {
+          "decision": "keep",
+          "reason": "llm_full_history: No similar previous bulletpoints found in lookback window; llm_novelty_window: No similar previous bulletpoints found in lookback window; llm_remaining_window: No similar previous bulletpoints found in lookback window",
+          "evaluator_details": [
+            {
+              "evaluator_name": "llm_full_history",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            },
+            {
+              "evaluator_name": "llm_novelty_window",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            },
+            {
+              "evaluator_name": "llm_remaining_window",
+              "decision": "keep",
+              "reason": "No similar previous bulletpoints found in lookback window",
+              "rewritten_text": null,
+              "evidence_ids": [],
+              "instruction": null,
+              "retrieved_bullets": []
+            }
+          ]
+        },
+        "rewrite": null,
+        "relevance_check": null
+      },
+      "novelty_search": {
+        "search": {
+          "verdict": "keep",
+          "rewritten_text": null,
+          "duration_seconds": 0.0,
+          "reason": "Evidence already documents athlete-led global testing and trail-tuned ZoomX cushioning, but the sentence adds specific product details not present in the evidence (a trail-specific last, stacked-foam construction, and Vibram Megagrip outsole). Because it contains genuine new product information, keep the sentence as a whole.",
+          "details": {
+            "rewrite_action": "keep",
+            "rewritten_sentence": "NIKE Inc. developed the ACG Zegama Hike with direct input from outdoor athletes and extensive global prototype testing, incorporating features such as a trail-specific last, stacked foam construction with trail-tuned ZoomX foam, and a Vibram Megagrip outsole for traction on wet and dry surfaces.",
+            "overall_verdict": "mixed",
+            "reason": "Evidence already documents athlete-led global testing and trail-tuned ZoomX cushioning, but the sentence adds specific product details not present in the evidence (a trail-specific last, stacked-foam construction, and Vibram Megagrip outsole). Because it contains genuine new product information, keep the sentence as a whole.",
+            "verdict_reason": "Evidence already documents athlete-led global testing and trail-tuned ZoomX cushioning, but the sentence adds specific product details not present in the evidence (a trail-specific last, stacked-foam construction, and Vibram Megagrip outsole). Because it contains genuine new product information, keep the sentence as a whole.",
+            "overall_verdict_reason": "Evidence already documents athlete-led global testing and trail-tuned ZoomX cushioning, but the sentence adds specific product details not present in the evidence (a trail-specific last, stacked-foam construction, and Vibram Megagrip outsole). Because it contains genuine new product information, keep the sentence as a whole.",
+            "search_queries": [
+              "NIKE Inc. ACG Zegama Hike developed with outdoor athletes input global prototype testing trail-specific last stacked foam ZoomX Vibram Megagrip traction wet dry"
+            ],
+            "results_count": 3,
+            "claims": [
+              {
+                "text": "NIKE Inc. developed the ACG Zegama Hike with direct input from outdoor athletes and extensive global prototype testing, and the product incorporates a trail-specific last, stacked foam construction with trail-tuned ZoomX foam, and a Vibram Megagrip outsole designed for traction on wet and dry surfaces."
+              }
+            ],
+            "claim_verdicts": [
+              {
+                "claim_index": 0,
+                "novelty": "partially_novel",
+                "evidence_ids": [
+                  "D1-C8",
+                  "D1-C3",
+                  "D1-C1"
+                ],
+                "reasoning": "The claim repeats facts already in the evidence that the ACG Zegama was developed with athlete input and global/extended prototype testing and that it uses trail-tuned ZoomX foam and is engineered for max cushioning (D1-C8, D1-C3, D1-C1). However, the claim also specifies additional product details not present in the evidence: a ‘trail-specific last’ and a ‘stacked foam construction’ and the use of a Vibram Megagrip outsole for wet/dry traction. Those specific features (stacked-foam construction, explicit ‘trail-specific last’ phrasing, and Vibram Megagrip outsole) are not mentioned in the provided evidence, so the claim is partially novel."
+              }
+            ]
+          },
+          "overall_verdict": "mixed"
+        },
+        "relevance_check": null
+      },
+      "failure": null
+    }
+  }
+]
