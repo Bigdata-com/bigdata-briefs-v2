@@ -16,7 +16,7 @@ from pathlib import Path
 from threading import Semaphore
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import desc
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, select
@@ -166,6 +166,39 @@ def _resolve_state_dir(state_dir: str | None) -> Path:
     return Path.cwd() / ".brief_pipeline_state"
 
 
+def _assert_no_running_entities(entity_ids: list[str]) -> None:
+    """Raise HTTP 409 if any entity in the list has an active (status=running) run.
+
+    This is a pre-flight guard checked before queuing any background work.
+    It prevents accidentally launching a second batch while a previous one is
+    still in progress for the same entities.
+    """
+    with Session(get_engine()) as session:
+        busy: list[str] = []
+        for entity_id in entity_ids:
+            row = session.exec(
+                select(SQLEntityPipelineRunLog)
+                .where(SQLEntityPipelineRunLog.entity_id == entity_id)
+                .where(SQLEntityPipelineRunLog.status == "running")
+                .order_by(desc(SQLEntityPipelineRunLog.process_started_at_utc))
+            ).first()
+            if row is not None:
+                busy.append(entity_id)
+
+    if busy:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "entities_busy",
+                "message": (
+                    f"{len(busy)} entity/entities already have an active run. "
+                    "Wait for them to complete or check /api/v1/batch/status."
+                ),
+                "busy_entity_ids": busy,
+            },
+        )
+
+
 def _run_entities_sequentially(
     *,
     run_ids: list[uuid.UUID],
@@ -226,6 +259,8 @@ def batch_run(
 ) -> BatchRunResponse:
     if not body.entity_ids:
         return BatchRunResponse(submitted=[], total=0)
+
+    _assert_no_running_entities(body.entity_ids)
 
     cfg_path = resolve_config_path(None)
     pipeline_config = (
@@ -341,6 +376,8 @@ def batch_run_parallel(
 ) -> BatchRunResponse:
     if not body.entity_ids:
         return BatchRunResponse(submitted=[], total=0)
+
+    _assert_no_running_entities(body.entity_ids)
 
     cfg_path = resolve_config_path(None)
     pipeline_config = (
