@@ -30,8 +30,11 @@ from bigdata_briefs.graph.nodes.novelty_search._search_impl import (
     _NSClaim,
     _NSClaimVerdict,
     _NSRewriteResponse,
+    _NSRewriteResponseMixed,
+    _NSRewriteResponseMixedWeak,
     _NSSearchResult,
-    _REWRITE_PROMPT,
+    _REWRITE_PROMPT_MIXED,
+    _REWRITE_PROMPT_MIXED_WEAK,
     _ns_build_rewrite_prompt_sections,
 )
 from bigdata_briefs.graph.state import (
@@ -114,27 +117,85 @@ def rewrite_search_bullets(
     max_workers = max(1, settings.NOVELTY_SEARCH_MAX_CONCURRENT)
 
     def _rewrite_one(bullet_idx: int, trace_id: str, sentence: str) -> dict:
-        """Rewrite one bullet; returns result dict."""
+        """Rewrite one bullet; returns result dict.
+
+        Determined verdicts (novel, discard_unsupported, discard_not_new) bypass
+        the LLM entirely. Only mixed and mixed_weak reach the LLM, each with a
+        verdict-specific prompt and schema.
+        """
         claims: list[_NSClaim] = deps.get_search_data(trace_id, "claims")
         claim_verdicts: list[_NSClaimVerdict] = deps.get_search_data(trace_id, "claim_verdicts")
         overall_verdict: str = deps.get_search_data(trace_id, "overall_verdict") or "old"
         merged_results: list[_NSSearchResult] = deps.get_search_data(trace_id, "merged_results") or []
+
+        base_result = {
+            "overall_verdict": overall_verdict,
+            "search_queries": [p.search_query for p in (deps.get_search_data(trace_id, "sentence_parts") or [])],
+            "results_count": len(merged_results),
+            "claims": [c.model_dump() for c in (claims or [])],
+            "claim_verdicts": [v.model_dump() for v in (claim_verdicts or [])],
+        }
+
+        # --- Python-level bypass for determined verdicts ---
+
+        if overall_verdict == "novel":
+            logger.info(
+                "[novelty_search_rewrite] bullet=%d action=keep overall_verdict=novel (bypass)",
+                bullet_idx,
+            )
+            return {
+                **base_result,
+                "rewrite_action": "keep",
+                "rewritten_sentence": sentence,
+                "reason": "All claims fully novel — published as-is.",
+                "verdict_reason": "All claims fully novel — published as-is.",
+                "overall_verdict_reason": "All claims fully novel — published as-is.",
+            }
+
+        if overall_verdict in ("discard_unsupported", "discard_not_new"):
+            reason = (
+                "Bullet discarded: contains unsupported inference or opinion."
+                if overall_verdict == "discard_unsupported"
+                else "Bullet discarded: no materially new information."
+            )
+            logger.info(
+                "[novelty_search_rewrite] bullet=%d action=discard overall_verdict=%r (bypass)",
+                bullet_idx,
+                overall_verdict,
+            )
+            return {
+                **base_result,
+                "rewrite_action": "discard",
+                "rewritten_sentence": None,
+                "reason": reason,
+                "verdict_reason": reason,
+                "overall_verdict_reason": reason,
+            }
+
+        # --- LLM path for mixed and mixed_weak ---
 
         id_to_chunk = {r.simple_id: r for r in merged_results}
         claims_and_verdicts_text, all_evidence_text, reasonings_text = (
             _ns_build_rewrite_prompt_sections(claims, claim_verdicts, id_to_chunk)
         )
 
-        user_content = _REWRITE_PROMPT.format(
+        if overall_verdict == "mixed_weak":
+            prompt_template = _REWRITE_PROMPT_MIXED_WEAK
+            response_schema = _NSRewriteResponseMixedWeak
+        else:
+            prompt_template = _REWRITE_PROMPT_MIXED
+            response_schema = _NSRewriteResponseMixed
+
+        user_content = prompt_template.format(
             sentence=sentence,
             claims_and_verdicts=claims_and_verdicts_text,
             all_evidence=all_evidence_text,
             reasonings_per_claim=reasonings_text,
         )
-        rewrite_response: _NSRewriteResponse | None = deps.llm_client.call_with_response_format(
+        rewrite_response = deps.llm_client.call_with_response_format(
             system=[],
             messages=[{"role": "user", "content": user_content}],
-            text_format=_NSRewriteResponse,
+            text_format=response_schema,
             model=_NS_MODEL,
             max_tokens=_NS_MAX_TOKENS,
             reasoning_effort=_NS_REASONING_EFFORT,
@@ -143,15 +204,11 @@ def rewrite_search_bullets(
             entity_metrics=deps.entity_metrics,
         )
         if rewrite_response is None:
-            raise RuntimeError(
-                f"rewrite returned None for bullet {bullet_idx}"
-            )
+            raise RuntimeError(f"rewrite returned None for bullet {bullet_idx}")
 
         action = rewrite_response.action
         rewritten_sentence = rewrite_response.rewritten_sentence
-        if action == "keep":
-            rewritten_sentence = sentence
-        elif action == "discard":
+        if action == "discard":
             rewritten_sentence = None
 
         logger.info(
@@ -161,16 +218,12 @@ def rewrite_search_bullets(
             overall_verdict,
         )
         return {
+            **base_result,
             "rewrite_action": action,
             "rewritten_sentence": rewritten_sentence,
-            "overall_verdict": overall_verdict,
             "reason": rewrite_response.reasoning,
             "verdict_reason": rewrite_response.reasoning,
             "overall_verdict_reason": rewrite_response.reasoning,
-            "search_queries": [p.search_query for p in (deps.get_search_data(trace_id, "sentence_parts") or [])],
-            "results_count": len(merged_results),
-            "claims": [c.model_dump() for c in claims],
-            "claim_verdicts": [v.model_dump() for v in claim_verdicts],
         }
 
     with ThreadPoolExecutor(
@@ -289,7 +342,7 @@ def rewrite_search_bullets(
         started_at=started_at,
         ended_at=datetime.now(timezone.utc).isoformat(),
         wall_time_ms=wall_ms,
-        llm_calls=keep_count + discard_count + rewrite_count,
+        llm_calls=rewrite_count,  # only mixed/mixed_weak bullets reach the LLM
         extra={
             "keep": keep_count,
             "discard": discard_count,

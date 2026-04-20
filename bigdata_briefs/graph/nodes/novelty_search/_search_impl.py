@@ -74,7 +74,7 @@ class _NSSearchResult(BaseModel):
 
 class _NSClaimVerdict(BaseModel):
     claim_index: int
-    novelty: Literal["novel", "old", "partially_novel"]
+    novelty: Literal["novel", "old", "partially_novel", "novel_trivial", "novel_unsupported"]
     evidence_ids: list[str] = Field(default_factory=list)
     reasoning: str
 
@@ -88,7 +88,7 @@ class _NSParseAndPlanResponse(BaseModel):
 
 
 class _NSSingleClaimVerdictResponse(BaseModel):
-    novelty: Literal["novel", "old", "partially_novel"]
+    novelty: Literal["novel", "old", "partially_novel", "novel_trivial", "novel_unsupported"]
     evidence_ids: list[str] = Field(default_factory=list)
     reasoning: str
 
@@ -96,6 +96,18 @@ class _NSSingleClaimVerdictResponse(BaseModel):
 class _NSRewriteResponse(BaseModel):
     rewritten_sentence: str | None
     action: Literal["keep", "rewrite", "discard"]
+    reasoning: str
+
+
+class _NSRewriteResponseMixed(BaseModel):
+    rewritten_sentence: str | None
+    action: Literal["rewrite", "discard"]
+    reasoning: str
+
+
+class _NSRewriteResponseMixedWeak(BaseModel):
+    rewritten_sentence: str | None
+    action: Literal["rewrite", "discard"]
     reasoning: str
 
 
@@ -204,13 +216,7 @@ Return JSON:
 
 
 _SINGLE_CLAIM_NOVELTY_PROMPT = """\
-You are an expert at judging novelty in news. Determine whether a claim contains genuinely new information versus what is already covered in the evidence.
-
-**What counts as novelty:** Novel or partially_novel means there is a **passage or evolution of state** — something has moved forward: a new phase (e.g. from talks to concluded, from considering to announced), or a new concrete detail that advances the story (a number, date, name, or event that was not in the evidence). It does NOT mean the same situation stated with different wording or a different degree of certainty.
-**Figures/numbers:**
-- For "old": figures do not need to match exactly; they can be **similar** (same event, comparable numbers).
-- Different figures may refer to a **different event** (new phase, new round); do not mark "old" or "contradicted" solely because the numbers differ.
-- Do **not** perform a logical or plausibility check on the numbers.
+You are a careful evaluator of financial intelligence. Your task is to decide whether a single atomic claim adds verifiable new information relative to a body of evidence.
 
 The claim you will evaluate is one of the claims extracted from the following sentence. The sentence is given so you can interpret the claim in context.
 
@@ -231,47 +237,47 @@ EVIDENCE (oldest to newest):
 
 ---
 
-VERDICTS:
+VERDICT DEFINITIONS:
 
-- "novel": The claim describes a concrete fact or development that does NOT appear in any evidence. There is a genuine new state or event (verifiable: numbers, dates, names, events), not a vague characterization.
+- "novel": The claim describes a concrete fact, event, decision, figure, transaction, or change that is attributable to a specific source, and neither the claim nor its substance appears in the evidence.
 
-- "old": The substance of this claim is already covered in the evidence. Includes:
+- "partially_novel": The topic appears in the evidence, but the claim adds a materially new element. A new element is material if it meaningfully changes what a reader would know about the situation — for example a concrete figure that is not a trivial restatement, a newly named action or entity, a specific date, a decision that advances the story to a new phase.
+
+- "old": The claim is equivalent in substance to what the evidence already reports, including rephrasings and restatements that carry no new information. This includes:
   - Exact matches, rewordings or paraphrases of the same information
-  - Vague generalizations of facts already present in evidence
-  - **Same state or situation, only a different degree of certainty or framing** (e.g. evidence says "in talks" or "in advanced negotiations"; the claim presents the same situation as certain or done, with no new fact — mark "old")
-  - **Figures or facts similar to those in the evidence** referring to the same event or situation (same deal, same phase) — mark "old" even if the numbers are not identical
+  - Same state or situation presented with a different degree of certainty or framing
+  - Figures or facts similar to those in the evidence referring to the same event or situation — mark "old" even if the numbers are not identical
 
-- "partially_novel": The topic appears in evidence, but the claim adds a **development or evolution**: a new phase (e.g. talks → deal signed), or a SPECIFIC NEW DETAIL that advances the story (concrete numbers, dates, names, or events not in the evidence).
+- "novel_trivial": The claim is not literally present in the evidence, but the element that is "new" is not materially informative. Indicators include: scope or coverage statistics (counts of countries, cities, customers, partners) without accompanying material context; small numeric deltas on figures whose direction and magnitude are already reported; evaluative, comparative, or promotional language not grounded in a sourced fact; general statistics of the entity used as scene-setting.
+
+- "novel_unsupported": The claim is not in the evidence because it appears to be an inference, opinion, comparative judgment, forward-looking projection, or downstream consequence that is not reported by any source and cannot be verified against the evidence. Use this label also when the evidence actively contradicts the claim.
 
 ---
 
-CRITICAL DISTINCTION:
+DECISION PROCEDURE (follow in order):
 
-"Novel" or "partially_novel" requires a **passage or evolution of state** — new phase, new concrete detail that advances the story. Not the same facts with stronger wording or certainty.
+1. Is the substance of the claim already present in the evidence (including rephrasings, similar figures for the same event, or the same situation with different framing)? → "old"
+2. Is the claim a sourced factual assertion, or does it appear to be an interpretation, inference, or consequence not reported by any source? → if interpretation without a sourced basis: "novel_unsupported"
+3. Is the new element material by the definition above? → if not material: "novel_trivial"
+4. Does the topic appear in the evidence at all? → if no overlap: "novel"; if topic present but material new element added: "partially_novel"
 
-Mark as "old" if the claim is:
-- A rewording of existing facts (same substance, different words)
-- The same situation as in the evidence, only presented with greater certainty or as a done deal
-- The evidence clearly refers to the **same** event or situation (same deal, same phase, same timeframe) and either already covers the claim or contradicts it.
-- Figures or facts **similar** to those in the evidence and referring to the same event or situation — mark "old" even if the numbers are not identical
-- A vague framing or interpretation without new concrete details
-- A generalization that summarizes covered facts
+**Figures/numbers:**
+- Figures do not need to match exactly to be "old"; they can be similar (same event, comparable numbers).
+- Different figures may refer to a different event (new phase, new round); do not mark "old" solely because numbers differ.
+- Do not perform a logical or plausibility check on the numbers.
 
-Be conservative: when in doubt, mark "old".
+When the claim's substance does not clearly meet the "novel" or "partially_novel" bar, prefer the more conservative label.
 
 Cite evidence IDs (e.g. D1-C1) that support your determination.
 
 ---
 
-
-
 Return JSON:
 {{
-  "novelty": "novel" | "old" | "partially_novel",
+  "novelty": "novel" | "old" | "partially_novel" | "novel_trivial" | "novel_unsupported",
   "evidence_ids": ["D1-C1", "D3-C2"],
   "reasoning": "Explanation citing specific evidence."
 }}
-
 
 ---
 REMINDER — What you are judging:
@@ -282,27 +288,30 @@ In the context of the original sentence: {sentence}
 """
 
 
-_REWRITE_PROMPT = """\
-You are an expert at understanding novelty and development in news: what counts as new information versus repetition, and what counts as a genuine development of a story (e.g. a new phase, decision, or outcome) versus the same facts rephrased.
+_REWRITE_PROMPT_MIXED = """\
+You are an expert editor of financial intelligence. The bullet-level verdict is "mixed": the sentence contains at least one fully novel claim plus previously known context.
 
-You are given:
+You must rewrite the sentence keeping the same house format as the input: the rewritten sentence must open with the entity name, exactly as the original does. Immediately after the entity name, preserve the already-known context (claims labeled "old") as an appositive, relative clause, or prepositional clause — in readable form, so the reader has a clear reference to what the update is about. Then introduce the novel material via one of the allowed pivot markers, followed by exactly the content labeled "novel" in the original.
 
-1) **A news sentence** — the text to evaluate.
-2) **Claims and verdicts** — factual claims drawn from that sentence, each with a verdict (novel / old / partially_novel).
-3) **Evidence** — text chunks that support or contradict those verdicts. Each chunk has an ID (e.g. D1-C1) so you can match it to the reasonings.
-4) **Reasoning per claim** — why each claim received its verdict.
+ALLOWED PIVOT MARKERS (use exactly one, no alternatives):
+- has now <verb> / have now <verb>
+- has just <verb>
+- has confirmed
+- has disclosed
+- has reported
 
-Your task: decide whether the sentence as a whole adds new information or a development given that evidence. You must choose one of:
-
-- **keep** — The sentence adds information or a development not already in the evidence; leave it unchanged.
-- **rewrite** — Only part of the sentence is new or is a development; output a version that retains only that part. If the only difference is wording, choose discard instead.
-- **discard** — The sentence adds nothing new; everything is already in the evidence. Output null.
-
-Decide on substance (new information or development), not on whether the wording is new.
+RULES:
+1. The rewritten sentence must open with the entity name, exactly as the original does.
+2. Claims labeled "novel_trivial" or "novel_unsupported" are eliminated entirely — not preserved, not paraphrased, not compressed.
+3. Do not add any information beyond what the original sentence contains: no qualifiers, no superlatives, no comparatives, no inferred consequences, no forward-looking framing.
+4. Paraphrase only where grammatically required by the restructuring.
+5. The claim-level and bullet-level verdicts are inputs, not subjects of revision. Do not overturn the judge's classification.
+6. "keep" is not an allowed action. The sentence is mixed by definition and must be restructured.
+7. Use "discard" only when the novel material, once isolated and framed with the preserved context, would not justify publishing an update (e.g. the novel element is a bare scope statistic, an unnamed location, a detail without magnitude).
 
 ---
 
-1) SENTENCE (the news item):
+1) SENTENCE:
 
 {sentence}
 
@@ -316,7 +325,54 @@ Decide on substance (new information or development), not on whether the wording
 
 3) ALL EVIDENCE:
 
-Chunks cited by the claims above. Use the IDs (e.g. D1-C1) to link with the reasonings below.
+{all_evidence}
+
+---
+
+4) REASONING PER CLAIM:
+
+{reasonings_per_claim}
+
+---
+
+5) OUTPUT (JSON):
+
+{{
+  "action": "rewrite" | "discard",
+  "rewritten_sentence": "..." or null,
+  "reasoning": "Brief explanation."
+}}
+"""
+
+
+_REWRITE_PROMPT_MIXED_WEAK = """\
+You are an expert editor of financial intelligence. The bullet-level verdict is "mixed_weak": the sentence contains no fully novel claim — only partially novel material. The judge has already determined that nothing in this sentence is fully new.
+
+Your task is a materiality check: are the material elements within the partially novel claims informative enough to justify publishing a reduced bullet, once the already-known framing is removed?
+
+RULES:
+1. "keep" is not an allowed action.
+2. Choose "rewrite" only if the material element inside the partially novel claims is concretely informative as a standalone update — a specific figure, a named decision, a transaction detail, a regulatory step that meaningfully advances what a reader would know.
+3. Choose "discard" when the remaining substance would be a bare fragment, a scope statistic, a micro-delta on an already-known figure, or evaluative language without a sourced fact.
+4. Bias toward "discard": the threshold for publishing a "mixed_weak" bullet is high.
+5. Any rewritten output must be grounded strictly in the original sentence — no fabrication, no paraphrase beyond what is required for grammaticality.
+6. The claim-level and bullet-level verdicts are inputs, not subjects of revision. Do not overturn the judge's classification.
+
+---
+
+1) SENTENCE:
+
+{sentence}
+
+---
+
+2) CLAIMS AND VERDICTS:
+
+{claims_and_verdicts}
+
+---
+
+3) ALL EVIDENCE:
 
 {all_evidence}
 
@@ -326,28 +382,14 @@ Chunks cited by the claims above. Use the IDs (e.g. D1-C1) to link with the reas
 
 {reasonings_per_claim}
 
-Use the verdicts and reasonings as input to your judgment; you decide for the whole sentence. When figures or facts in the sentence differ from the evidence, the sentence may refer to a different event or new phase — do not choose discard solely for that reason. If the evidence already covers everything in the sentence, choose discard. If there is genuine new information or a development, choose keep or rewrite.
-
 ---
 
-5) YOUR TASK:
-
-Decide: **keep**, **rewrite**, or **discard** for the sentence above. Then output the chosen action, the rewritten sentence (or null if discard), and a short reasoning.
-
----
-
-6) SENTENCE (repeated):
-
-{sentence}
-
----
-
-7) OUTPUT (JSON):
+5) OUTPUT (JSON):
 
 {{
-  "action": "keep" | "rewrite" | "discard",
+  "action": "rewrite" | "discard",
   "rewritten_sentence": "..." or null,
-  "reasoning": "Brief explanation of why you chose this action for the whole item."
+  "reasoning": "Brief explanation."
 }}
 """
 
@@ -449,15 +491,28 @@ def _ns_validate_parse_and_plan_response(
 
 
 def _ns_compute_overall_verdict(verdicts: list[_NSClaimVerdict]) -> str:
-    """Compute overall verdict from per-claim verdicts."""
+    """Compute bullet-level verdict from per-claim verdicts (5-label conservative aggregator).
+
+    Verdicts: novel | mixed | mixed_weak | discard_not_new | discard_unsupported
+    """
     if not verdicts:
         return "old"
-    novelties = [v.novelty for v in verdicts]
-    if any(n == "novel" for n in novelties):
-        return "novel" if all(n == "novel" for n in novelties) else "mixed"
-    if any(n == "partially_novel" for n in novelties):
-        return "mixed"
-    return "old"
+    labels = [v.novelty for v in verdicts]
+
+    # Rule 1 — at least one fully novel claim
+    if any(l == "novel" for l in labels):
+        if all(l == "novel" for l in labels):
+            return "novel"
+        return "mixed"  # rewriter strips old/trivial/unsupported, keeps novel substance
+
+    # Rule 2 — no fully novel, but at least one partially_novel
+    if any(l == "partially_novel" for l in labels):
+        return "mixed_weak"  # rewriter performs materiality check
+
+    # Rule 3 — only old / novel_trivial / novel_unsupported
+    if any(l == "novel_unsupported" for l in labels):
+        return "discard_unsupported"
+    return "discard_not_new"
 
 
 def _ns_find_part_for_claim(

@@ -92,11 +92,17 @@ class SearchNoveltyMetadata(BaseModel):
     # Full raw output dict from the external subgraph (minus large fields),
     # preserved for debugging and the discarded-bullets trace endpoint.
     details: dict | None = None
-    # Aggregate novelty verdict across all claims: "novel" | "mixed" | "old".
-    # "mixed" means at least one claim is novel and at least one is old/partially_novel.
+    # Aggregate novelty verdict across all claims.
+    # novel            — all claims fully novel; published as-is
+    # mixed            — at least one novel claim + old/trivial/unsupported context; rewriter ran
+    # mixed_weak       — only partially_novel claims; rewriter performed materiality check
+    # discard_not_new  — all claims old or trivial; discarded
+    # discard_unsupported — at least one unsupported inference; discarded
     # Populated by rewrite_search_bullets; used by save_novel_bullets to flag
-    # not_fully_novel bullets (verdict=="keep" but overall_verdict=="mixed").
-    overall_verdict: str | None = None
+    # not_fully_novel bullets (overall_verdict in {"mixed", "mixed_weak"} and not discarded).
+    overall_verdict: Literal[
+        "novel", "mixed", "mixed_weak", "discard_not_new", "discard_unsupported", "old"
+    ] | None = None
 
 
 class SearchRelevanceMetadata(BaseModel):
