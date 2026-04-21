@@ -48,12 +48,12 @@ def _run_relevance_check_on_rewrite(
     entity_metrics: "EntityStepMetrics | None",
     *,
     step_name_override: str | None = None,
-) -> int:
+) -> tuple[int, str | None]:
     """Run a single relevance check LLM call on a rewritten bullet.
 
-    Returns the relevance score (1–5). On any failure, returns a safe default
-    (INTRO_SECTION_MIN_RELEVANCE_SCORE + 1) so the bullet is kept rather than
-    silently dropped due to an LLM error.
+    Returns ``(score, reasoning)`` where ``reasoning`` is the LLM's justification.
+    On any failure, returns a safe default score (INTRO_SECTION_MIN_RELEVANCE_SCORE + 1)
+    so the bullet is kept rather than silently dropped due to an LLM error.
     """
     from bigdata_briefs.prompts.prompt_loader import get_prompt_keys
     default_score = settings.INTRO_SECTION_MIN_RELEVANCE_SCORE + 1
@@ -79,7 +79,7 @@ def _run_relevance_check_on_rewrite(
             entity_metrics=entity_metrics,
             **relevance_prompt.llm_kwargs,
         )
-        return result.relevance_score
+        return result.relevance_score, result.reason
     except Exception as e:
         logger.warning(
             "[novelty] Post-rewrite relevance check failed for bullet_index=%s; "
@@ -87,7 +87,7 @@ def _run_relevance_check_on_rewrite(
             bullet_index,
             e,
         )
-        return default_score
+        return default_score, None
 
 
 def run_relevance_check_for_bullet_text(
@@ -102,7 +102,7 @@ def run_relevance_check_for_bullet_text(
     *,
     step_name: str,
     bullet_index: int | None = None,
-) -> int:
+) -> tuple[int, str | None]:
     """Run ``relevance_check`` with an explicit ``step_name`` (e.g. Bigdata mixed path)."""
     return _run_relevance_check_on_rewrite(
         rewritten_text,

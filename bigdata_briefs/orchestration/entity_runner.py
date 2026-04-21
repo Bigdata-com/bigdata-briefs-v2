@@ -494,13 +494,17 @@ def run_entity_incremental(
         import json as _json
         try:
             bullet_trace_json = _json.dumps(
-                final_state.get("bullet_points") or [], default=str
+                {
+                    "bullet_points": final_state.get("bullet_points") or [],
+                    "source_references": final_state.get("source_references") or {},
+                },
+                default=str,
             )
         except Exception:
             bullet_trace_json = None
 
     with Session(eng) as session:
-        log = session.get(SQLEntityPipelineRunLog, run_log.run_id)
+        log = session.get(SQLEntityPipelineRunLog, run_log.run_id) or session.merge(run_log)
         orch = _get_or_create_orch_row(session, entity_id)
         if pipeline_ok:
             _update_run_log_end(

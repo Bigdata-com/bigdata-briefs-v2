@@ -94,14 +94,15 @@ class SearchNoveltyMetadata(BaseModel):
     details: dict | None = None
     # Aggregate novelty verdict across all claims.
     # novel            — all claims fully novel; published as-is
-    # mixed            — at least one novel claim + old/trivial/unsupported context; rewriter ran
-    # mixed_weak       — only partially_novel claims; rewriter performed materiality check
+    # mixed            — novel + old/partially_novel context; rewriter restructures with old clause + pivot marker
+    # mixed_noise      — novel + only trivial/unsupported noise; rewriter strips noise, keeps novel text
+    # mixed_weak       — only partially_novel claims; discarded
     # discard_not_new  — all claims old or trivial; discarded
     # discard_unsupported — at least one unsupported inference; discarded
     # Populated by rewrite_search_bullets; used by save_novel_bullets to flag
-    # not_fully_novel bullets (overall_verdict in {"mixed", "mixed_weak"} and not discarded).
+    # not_fully_novel bullets (overall_verdict == "mixed" and not discarded).
     overall_verdict: Literal[
-        "novel", "mixed", "mixed_weak", "discard_not_new", "discard_unsupported", "old"
+        "novel", "mixed", "mixed_noise", "mixed_weak", "discard_not_new", "discard_unsupported", "old"
     ] | None = None
 
 
@@ -110,6 +111,7 @@ class SearchRelevanceMetadata(BaseModel):
 
     score: int
     passed: bool
+    reasoning: str | None = None  # LLM justification for the score
 
 
 class NoveltySearchBlock(BaseModel):

@@ -100,14 +100,7 @@ class _NSRewriteResponse(BaseModel):
 
 
 class _NSRewriteResponseMixed(BaseModel):
-    rewritten_sentence: str | None
-    action: Literal["rewrite", "discard"]
-    reasoning: str
-
-
-class _NSRewriteResponseMixedWeak(BaseModel):
-    rewritten_sentence: str | None
-    action: Literal["rewrite", "discard"]
+    rewritten_sentence: str
     reasoning: str
 
 
@@ -241,14 +234,14 @@ VERDICT DEFINITIONS:
 
 - "novel": The claim describes a concrete fact, event, decision, figure, transaction, or change that is attributable to a specific source, and neither the claim nor its substance appears in the evidence.
 
-- "partially_novel": The topic appears in the evidence, but the claim adds a materially new element. A new element is material if it meaningfully changes what a reader would know about the situation — for example a concrete figure that is not a trivial restatement, a newly named action or entity, a specific date, a decision that advances the story to a new phase.
+- "partially_novel": The topic appears in the evidence, but the claim adds a materially new element. The new element must be concrete and independently verifiable: a specific figure, a named entity or person, a specific date, or a discrete decision or action that advances the story to a new phase. Qualitative descriptors, analytical framing, or characterizations of the same situation — even if not literally present in the evidence — do not qualify as materially new.
 
 - "old": The claim is equivalent in substance to what the evidence already reports, including rephrasings and restatements that carry no new information. This includes:
   - Exact matches, rewordings or paraphrases of the same information
   - Same state or situation presented with a different degree of certainty or framing
   - Figures or facts similar to those in the evidence referring to the same event or situation — mark "old" even if the numbers are not identical
 
-- "novel_trivial": The claim is not literally present in the evidence, but the element that is "new" is not materially informative. Indicators include: scope or coverage statistics (counts of countries, cities, customers, partners) without accompanying material context; small numeric deltas on figures whose direction and magnitude are already reported; evaluative, comparative, or promotional language not grounded in a sourced fact; general statistics of the entity used as scene-setting.
+- "novel_trivial": The claim is not literally present in the evidence, but the element that is "new" is not materially informative. Indicators include: scope or coverage statistics (counts of countries, cities, customers, partners) without accompanying material context; small numeric deltas on figures whose direction and magnitude are already reported; evaluative, comparative, or promotional language not grounded in a sourced fact; general statistics of the entity used as scene-setting; qualitative descriptors or analytical characterizations of a situation already covered by the evidence (e.g. labeling a known trend as "fashion-driven" or inferring downstream consequences such as "harming long-term growth").
 
 - "novel_unsupported": The claim is not in the evidence because it appears to be an inference, opinion, comparative judgment, forward-looking projection, or downstream consequence that is not reported by any source and cannot be verified against the evidence. Use this label also when the evidence actively contradicts the claim.
 
@@ -289,11 +282,16 @@ In the context of the original sentence: {sentence}
 
 
 _REWRITE_PROMPT_MIXED = """\
-You are an expert editor of financial intelligence. The bullet-level verdict is "mixed": the sentence contains at least one fully novel claim plus previously known context.
+You are a financial news editor. You are given a sentence and a list of its claims, each labeled either "old" (already known) or "novel" (new information). Claims labeled "novel_trivial" or "novel_unsupported" must be dropped entirely.
 
-You must rewrite the sentence keeping the same house format as the input: the rewritten sentence must open with the entity name, exactly as the original does. Immediately after the entity name, preserve the already-known context (claims labeled "old") as an appositive, relative clause, or prepositional clause — in readable form, so the reader has a clear reference to what the update is about. Then introduce the novel material via one of the allowed pivot markers, followed by exactly the content labeled "novel" in the original.
+Rewrite the sentence using this structure:
 
-ALLOWED PIVOT MARKERS (use exactly one, no alternatives):
+    {entity_name}, <clause recalling the old claims>, <pivot marker> <novel claims>.
+
+ENTITY: "{entity_name}"
+The sentence must open with this exact name, character-for-character.
+
+PIVOT MARKERS — use exactly one from this list, no alternatives:
 - has now <verb> / have now <verb>
 - has just <verb>
 - has confirmed
@@ -301,94 +299,118 @@ ALLOWED PIVOT MARKERS (use exactly one, no alternatives):
 - has reported
 
 RULES:
-1. The rewritten sentence must open with the entity name, exactly as the original does.
-2. Claims labeled "novel_trivial" or "novel_unsupported" are eliminated entirely — not preserved, not paraphrased, not compressed.
-3. Do not add any information beyond what the original sentence contains: no qualifiers, no superlatives, no comparatives, no inferred consequences, no forward-looking framing.
-4. Paraphrase only where grammatically required by the restructuring.
-5. The claim-level and bullet-level verdicts are inputs, not subjects of revision. Do not overturn the judge's classification.
-6. "keep" is not an allowed action. The sentence is mixed by definition and must be restructured.
-7. Use "discard" only when the novel material, once isolated and framed with the preserved context, would not justify publishing an update (e.g. the novel element is a bare scope statistic, an unnamed location, a detail without magnitude).
+1. Open with "{entity_name}", exactly as written.
+2. State the old claims as a subordinate clause (e.g. "which reported ...", "after lowering ...", "following ..."). Do not omit them.
+3. Place the pivot marker between the old-claim clause and the novel material.
+4. The novel material must convey the substance of claims labeled "novel" — but write it as a fluent continuation of the sentence, not a copy-paste of the claim text. The subject after the pivot marker is already "{entity_name}", so do not repeat the entity name. Integrate naturally.
+5. Drop claims labeled "novel_trivial" or "novel_unsupported" — do not include them anywhere.
+6. The result must read as a single, coherent, publishable sentence — not as two clauses mechanically stitched together.
 
 ---
 
-1) SENTENCE:
+EXAMPLES:
+
+Example 1
+  Sentence: "{entity_name} faced criticism over its pricing strategy and announced a 15% price reduction across its core product range."
+  Claims:
+    - [old] faced criticism over its pricing strategy
+    - [novel] {entity_name} announced a 15% price reduction across its core product range
+  Rewritten: "{entity_name}, which had faced criticism over its pricing strategy, has now cut prices across its core product range by 15%."
+
+Example 2
+  Sentence: "{entity_name} lowered its FY26 guidance in March, with the CFO stating that further downward revisions are possible."
+  Claims:
+    - [old] lowered FY26 guidance in March
+    - [novel] the CFO stated that further downward revisions are possible
+  Rewritten: "{entity_name}, after lowering its FY26 guidance in March, has now disclosed that further downward revisions remain possible."
+
+Example 3 — tense shift: old claims move to past in the subordinate clause
+  Sentence: "{entity_name} suspended operations in a major export market in 2022 and confirmed the permanent closure of its regional offices."
+  Claims:
+    - [old] suspended operations in that market in 2022
+    - [novel] confirmed the permanent closure of its regional offices
+  Rewritten: "{entity_name}, which had suspended operations in that market in 2022, has confirmed the permanent closure of its regional offices."
+
+Example 4 — multiple novel claims combined into one fluent clause
+  Sentence: "{entity_name} signaled softer margins earlier in the year, reported a Q4 operating margin of 8.2%, and said cost savings would accelerate in the second half."
+  Claims:
+    - [old] signaled softer margins earlier in the year
+    - [novel] Q4 operating margin of 8.2%
+    - [novel] cost savings would accelerate in the second half
+  Rewritten: "{entity_name}, which had signaled softer margins, has reported a Q4 operating margin of 8.2% and guided for accelerating cost savings in the second half."
+
+Example 5 — novel_trivial claim is dropped
+  Sentence: "{entity_name} posted a net loss in Q2, issued a USD 500m bond to refinance near-term debt, and now operates across 52 markets."
+  Claims:
+    - [old] posted a net loss in Q2
+    - [novel] issued a USD 500m bond to refinance near-term debt
+    - [novel_trivial] now operates across 52 markets
+  Rewritten: "{entity_name}, which posted a net loss in Q2, has now issued a USD 500m bond to refinance near-term debt."
+
+Example 6 — novel_unsupported claim is dropped
+  Sentence: "{entity_name} reported weaker demand in Europe and said the trend could accelerate margin pressure, while disclosing a new USD 300m share buyback programme."
+  Claims:
+    - [old] reported weaker demand in Europe
+    - [novel_unsupported] the trend could accelerate margin pressure
+    - [novel] disclosed a new USD 300m share buyback programme
+  Rewritten: "{entity_name}, which reported weaker demand in Europe, has disclosed a new USD 300m share buyback programme."
+
+---
+
+SENTENCE:
 
 {sentence}
 
 ---
 
-2) CLAIMS AND VERDICTS:
+CLAIMS:
 
 {claims_and_verdicts}
 
 ---
 
-3) ALL EVIDENCE:
-
-{all_evidence}
-
----
-
-4) REASONING PER CLAIM:
-
-{reasonings_per_claim}
-
----
-
-5) OUTPUT (JSON):
+OUTPUT (JSON):
 
 {{
-  "action": "rewrite" | "discard",
-  "rewritten_sentence": "..." or null,
+  "rewritten_sentence": "...",
   "reasoning": "Brief explanation."
 }}
 """
 
 
-_REWRITE_PROMPT_MIXED_WEAK = """\
-You are an expert editor of financial intelligence. The bullet-level verdict is "mixed_weak": the sentence contains no fully novel claim — only partially novel material. The judge has already determined that nothing in this sentence is fully new.
+_REWRITE_PROMPT_MIXED_NOISE = """\
+You are a financial news editor. You are given a sentence and a list of its claims. Some claims are labeled "novel" (keep these), others are labeled "novel_trivial" or "novel_unsupported" (drop these entirely).
 
-Your task is a materiality check: are the material elements within the partially novel claims informative enough to justify publishing a reduced bullet, once the already-known framing is removed?
+Your task: produce a clean sentence containing only the information from claims labeled "novel". Do not add, infer, or paraphrase beyond what is necessary for grammatical correctness. Do not use a pivot marker — there is no known context to contrast with.
+
+ENTITY: "{entity_name}"
+The sentence must open with this exact name, character-for-character.
 
 RULES:
-1. "keep" is not an allowed action.
-2. Choose "rewrite" only if the material element inside the partially novel claims is concretely informative as a standalone update — a specific figure, a named decision, a transaction detail, a regulatory step that meaningfully advances what a reader would know.
-3. Choose "discard" when the remaining substance would be a bare fragment, a scope statistic, a micro-delta on an already-known figure, or evaluative language without a sourced fact.
-4. Bias toward "discard": the threshold for publishing a "mixed_weak" bullet is high.
-5. Any rewritten output must be grounded strictly in the original sentence — no fabrication, no paraphrase beyond what is required for grammaticality.
-6. The claim-level and bullet-level verdicts are inputs, not subjects of revision. Do not overturn the judge's classification.
+1. Open with "{entity_name}", exactly as written.
+2. Include only the content from claims labeled "novel".
+3. Drop claims labeled "novel_trivial" or "novel_unsupported" entirely.
+4. Do not add qualifiers, superlatives, editorial framing, or inferred consequences.
+5. Paraphrase only where grammatically necessary to combine multiple novel claims.
 
 ---
 
-1) SENTENCE:
+SENTENCE:
 
 {sentence}
 
 ---
 
-2) CLAIMS AND VERDICTS:
+CLAIMS:
 
 {claims_and_verdicts}
 
 ---
 
-3) ALL EVIDENCE:
-
-{all_evidence}
-
----
-
-4) REASONING PER CLAIM:
-
-{reasonings_per_claim}
-
----
-
-5) OUTPUT (JSON):
+OUTPUT (JSON):
 
 {{
-  "action": "rewrite" | "discard",
-  "rewritten_sentence": "..." or null,
+  "rewritten_sentence": "...",
   "reasoning": "Brief explanation."
 }}
 """
@@ -503,11 +525,23 @@ def _ns_compute_overall_verdict(verdicts: list[_NSClaimVerdict]) -> str:
     if any(l == "novel" for l in labels):
         if all(l == "novel" for l in labels):
             return "novel"
-        return "mixed"  # rewriter strips old/trivial/unsupported, keeps novel substance
+        # Distinguish two sub-cases of "mixed":
+        # - mixed      : novel + old/partially_novel → rewrite with old-context clause + pivot marker
+        # - mixed_noise: novel + only trivial/unsupported noise → strip noise, keep novel material
+        has_old_context = any(l in ("old", "partially_novel") for l in labels)
+        if not has_old_context:
+            return "mixed_noise"  # rewriter strips noise, publishes novel claims as clean sentence
+        return "mixed"
 
     # Rule 2 — no fully novel, but at least one partially_novel
     if any(l == "partially_novel" for l in labels):
-        return "mixed_weak"  # rewriter performs materiality check
+        # NOTE (future improvement): "partially_novel" is currently a single bucket that covers
+        # both strong cases (claim adds a concrete new figure, named decision, or specific date)
+        # and weak cases (claim adds vague qualitative framing or an analytical inference).
+        # To recover more bullets, this branch could ask the judgment LLM for a
+        # partially_novel_strength score ("strong" / "weak") and route strong cases to the
+        # rewrite LLM instead of discarding them directly.
+        return "mixed_weak"  # currently always discarded — see note above
 
     # Rule 3 — only old / novel_trivial / novel_unsupported
     if any(l == "novel_unsupported" for l in labels):
@@ -552,46 +586,26 @@ def _ns_get_evidence_for_claim(
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-def _ns_build_rewrite_prompt_sections(
+def _ns_build_rewrite_claims_and_verdicts(
     claims: list[_NSClaim],
     claim_verdicts: list[_NSClaimVerdict],
-    id_to_chunk: dict[str, _NSSearchResult],
-) -> tuple[str, str, str]:
-    """
-    Build the three text sections needed for the rewrite prompt.
+) -> str:
+    """Build the claims+verdicts section for the rewrite prompt.
 
-    Returns: (claims_and_verdicts, all_evidence, reasonings_per_claim)
+    The rewriter operates on the judge's decisions only — evidence and per-claim
+    reasoning are intentionally not included, since the classification is the
+    only signal needed to restructure the sentence.
     """
-    # 1) Claims + verdicts (one pair per verdict)
-    cv_lines: list[str] = []
+    lines: list[str] = []
     for i, verdict in enumerate(claim_verdicts):
         idx = verdict.claim_index
         if 0 <= idx < len(claims):
-            cv_lines += [
+            lines += [
                 f"Claim {i + 1}: {claims[idx].text}",
                 f"Verdict {i + 1}: {verdict.novelty}",
                 "",
             ]
-    claims_and_verdicts = "\n".join(cv_lines).rstrip()
-
-    # 2) All unique cited evidence (deduplicated), grouped by date+doc
-    seen_ids: set[str] = set()
-    cited_chunks: list[_NSSearchResult] = []
-    for verdict in claim_verdicts:
-        for eid in verdict.evidence_ids:
-            if eid in id_to_chunk and eid not in seen_ids:
-                seen_ids.add(eid)
-                cited_chunks.append(id_to_chunk[eid])
-    all_evidence = _ns_format_evidence_grouped_by_date_and_doc(cited_chunks)
-
-    # 3) Reasoning per claim
-    r_lines: list[str] = []
-    for i, verdict in enumerate(claim_verdicts):
-        if 0 <= verdict.claim_index < len(claims):
-            r_lines += [f"Reasoning claim {i + 1}: {verdict.reasoning}", ""]
-    reasonings_per_claim = "\n".join(r_lines).rstrip()
-
-    return claims_and_verdicts, all_evidence, reasonings_per_claim
+    return "\n".join(lines).rstrip()
 
 
 # ══════════════════════════════════════════════════════════════════════════════

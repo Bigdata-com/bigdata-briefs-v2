@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from bigdata_briefs.orchestration.windows import WindowMode
 
@@ -73,9 +73,10 @@ class EntityRunsResponse(BaseModel):
 class CitationDetail(BaseModel):
     """A resolved citation with its source title and chunk text."""
 
-    id: str       # e.g. "CQS:REF0"
-    headline: str  # article / document title
-    text: str      # chunk text used as evidence
+    id: str
+    headline: str
+    text: str
+    source_name: str = ""
 
 
 class BulletPointItem(BaseModel):
@@ -229,6 +230,94 @@ class BatchBulletsResponse(BaseModel):
     results: list[EntityBulletsResult]
     total_entities: int
     total_bullets: int
+
+
+# ── Batch bullets detail ─────────────────────────────────────────────────────
+
+
+class BulletPassedDetail(BaseModel):
+    """Why this bullet passed all filters and was published."""
+    relevance_score: int
+    relevance_reason: str
+
+
+class EvidenceDetail(BaseModel):
+    """Resolved evidence chunk for a claim verdict."""
+    simple_id: str
+    original_doc_id: str
+    chunk_num: int
+    headline: str
+    date: str
+    text: str
+
+
+class ClaimVerdictDetail(BaseModel):
+    """Per-claim novelty verdict from the search novelty check."""
+    claim_index: int
+    claim_text: str
+    novelty: str
+    evidence: list[EvidenceDetail]
+    reasoning: str
+
+
+class BulletDiscardDetail(BaseModel):
+    """Why this bullet was discarded and at which stage."""
+    model_config = ConfigDict(exclude_none=True)
+
+    stage: str  # relevance_score | grounding | novelty_embedding | novelty_embedding_relevance | novelty_search | novelty_search_relevance | error
+    reason: str
+    # relevance_score / novelty_embedding_relevance / novelty_search_relevance: numeric score (1-5)
+    score: int | None = None
+    # grounding: citation IDs that were checked
+    citations: list[str] | None = None
+    # novelty_embedding: raw evaluator details (similar bullets found)
+    evaluator_details: list[dict] | None = None
+    # novelty_search: per-claim verdicts with evidence references
+    claim_verdicts: list[ClaimVerdictDetail] | None = None
+    overall_verdict: str | None = None  # novel | mixed | mixed_weak | discard_not_new | discard_unsupported
+    # novelty_search_relevance: LLM justification for the relevance score
+    evaluator_reasoning: str | None = None
+
+
+class BulletDetailItem(BaseModel):
+    model_config = ConfigDict(exclude_none=True)
+
+    trace_id: str
+    theme: str
+    original_text: str
+    final_text: str | None = None  # only present when text was rewritten
+    is_active: bool
+    citations: list[CitationDetail] | None = None  # only for active bullets
+    passed: BulletPassedDetail | None = None
+    discarded: BulletDiscardDetail | None = None
+
+
+class RunDetailResult(BaseModel):
+    run_id: str
+    report_window_start: datetime
+    report_window_end: datetime
+    total_bullets: int
+    active_bullets: int
+    discarded_bullets: int
+    bullets: list[BulletDetailItem]
+
+
+class EntityDetailResult(BaseModel):
+    entity_id: str
+    found: bool
+    entity_name: str | None = None
+    runs: list[RunDetailResult] = []
+
+
+class BatchBulletsDetailRequest(BaseModel):
+    entity_ids: list[str]
+    from_date: datetime | None = None  # filter runs with window_end >= from_date
+    to_date: datetime | None = None    # filter runs with window_start <= to_date
+
+
+class BatchBulletsDetailResponse(BaseModel):
+    results: list[EntityDetailResult]
+    total_entities: int
 
 
 # ── Run bullet trace ─────────────────────────────────────────────────────────

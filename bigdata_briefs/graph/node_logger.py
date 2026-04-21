@@ -5,8 +5,8 @@ Node execution logger for the Brief 2.0 LangGraph pipeline.
 structured START / DONE log lines via the package-level structlog logger.
 
 Output format (structlog key=value rendering):
-    [node: concept_extraction] START  entity=Microsoft Corp.
-    [node: concept_extraction] DONE   entity=Microsoft Corp.  wall_ms=2341  categories=3  concepts_total=8
+    [concept_extraction] START  entity=Microsoft Corp.
+    [concept_extraction] DONE   entity=Microsoft Corp.  wall_ms=2341  categories=3  concepts_total=8
 """
 
 from __future__ import annotations
@@ -89,7 +89,7 @@ def with_node_log(node_id: str, fn: Callable) -> Callable:
             ctx["theme"] = themes[idx] if idx < len(themes) else "?"
 
         logger.info(
-            f"[node: {node_id}] START",
+            f"[{node_id}] START",
             entity=entity,
             window=window,
             **ctx,
@@ -109,7 +109,7 @@ def with_node_log(node_id: str, fn: Callable) -> Callable:
             extra["status"] = result["pipeline_status"]
 
         logger.info(
-            f"[node: {node_id}] DONE",
+            f"[{node_id}] DONE",
             entity=entity,
             wall_ms=wall_ms,
             **{**ctx, **extra},

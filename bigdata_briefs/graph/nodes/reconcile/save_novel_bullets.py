@@ -106,6 +106,7 @@ def save_novel_bullet_points(
                     id=cit_id,
                     headline=(citation_lookup.get(cit_id) or {}).get("headline", ""),
                     text=(citation_lookup.get(cit_id) or {}).get("text", ""),
+                    source_name=(citation_lookup.get(cit_id) or {}).get("source_name", ""),
                 )
                 for cit_id in record.citations
             ]

@@ -107,11 +107,11 @@ def score_search_rewrite_relevance(
             ]
         }
 
-    def check_single(bullet_idx: int) -> tuple[int, int]:
+    def check_single(bullet_idx: int) -> tuple[int, int, str | None]:
         bp = bullet_points[bullet_idx]
         rewritten_text: str = ((bp.get("novelty_search") or {}).get("search") or {}).get("rewritten_text", "")
         step_name = novelty_search_rewrite_relevance_check_step_name(bullet_idx)
-        score = run_relevance_check_for_bullet_text(
+        score, reasoning = run_relevance_check_for_bullet_text(
             rewritten_text=rewritten_text,
             entity_name=entity_name,
             entity_ticker=entity_ticker,
@@ -123,21 +123,21 @@ def score_search_rewrite_relevance(
             step_name=step_name,
             bullet_index=bullet_idx,
         )
-        return bullet_idx, score
+        return bullet_idx, score, reasoning
 
     max_workers = min(
         settings.NOVELTY_SEARCH_REWRITE_RELEVANCE_CHECK_MAX_CONCURRENT,
         len(check_indices),
     )
-    score_map: dict[int, int] = {}
+    score_map: dict[int, tuple[int, str | None]] = {}
     failures: dict[int, Exception] = {}
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {executor.submit(check_single, i): i for i in check_indices}
         for future in as_completed(futures):
             bidx = futures[future]
             try:
-                bidx, score = future.result()
-                score_map[bidx] = score
+                bidx, score, reasoning = future.result()
+                score_map[bidx] = (score, reasoning)
             except Exception as e:
                 failures[bidx] = e
 
@@ -158,7 +158,7 @@ def score_search_rewrite_relevance(
             updated[i] = record_to_bullet(record)
             continue
 
-        score = score_map.get(i, default_score)
+        score, reasoning = score_map.get(i, (default_score, None))
         passed = score > threshold
 
         if record.novelty_search is None:
@@ -167,6 +167,7 @@ def score_search_rewrite_relevance(
         record.novelty_search.relevance_check = SearchRelevanceMetadata(
             score=score,
             passed=passed,
+            reasoning=reasoning,
         )
         if not passed:
             record.is_active = False

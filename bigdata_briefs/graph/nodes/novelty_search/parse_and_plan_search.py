@@ -102,35 +102,90 @@ def parse_and_plan_search(
     max_workers = max(1, settings.NOVELTY_SEARCH_MAX_CONCURRENT)
 
     def _parse_one(bullet_idx: int, trace_id: str, sentence: str) -> None:
-        """Parse one bullet — stores result in cache or marks bullet inactive."""
-        user_content = _PARSE_AND_PLAN_PROMPT.format(
+        """Parse one bullet — stores result in cache or marks bullet inactive.
+
+        If the LLM response fails structural validation (claim index out of range,
+        claim assigned to multiple parts, or unassigned claims), retries once with
+        an explicit rule reminder appended to the prompt.
+        """
+        base_content = _PARSE_AND_PLAN_PROMPT.format(
             sentence=sentence,
             entity=entity_name,
         )
-        parse_result: _NSParseAndPlanResponse | None = deps.llm_client.call_with_response_format(
-            system=[],
-            messages=[{"role": "user", "content": user_content}],
-            text_format=_NSParseAndPlanResponse,
-            model=_NS_MODEL,
-            max_tokens=_NS_MAX_TOKENS,
-            reasoning_effort=_NS_REASONING_EFFORT,
-            step_name=f"novelty_search_parse_{bullet_idx}",
-            debug_logger=deps.debug_logger,
-            entity_metrics=deps.entity_metrics,
-        )
-        if parse_result is None:
-            raise RuntimeError(
-                "parse_and_plan returned None (LLM produced no parseable output)"
+
+        for attempt in range(2):
+            if attempt == 0:
+                user_content = base_content
+            # attempt 1: append targeted rule reminder derived from the validation error
+            # (reminder_suffix is set in the except block below after attempt 0 fails)
+
+            parse_result: _NSParseAndPlanResponse | None = deps.llm_client.call_with_response_format(
+                system=[],
+                messages=[{"role": "user", "content": user_content}],
+                text_format=_NSParseAndPlanResponse,
+                model=_NS_MODEL,
+                max_tokens=_NS_MAX_TOKENS,
+                reasoning_effort=_NS_REASONING_EFFORT,
+                step_name=f"novelty_search_parse_{bullet_idx}_attempt{attempt}",
+                debug_logger=deps.debug_logger,
+                entity_metrics=deps.entity_metrics,
             )
-        _ns_validate_parse_and_plan_response(parse_result, entity_name)
-        deps.store_search_data(trace_id, "claims", parse_result.claims)
-        deps.store_search_data(trace_id, "sentence_parts", parse_result.sentence_parts)
-        logger.info(
-            "[novelty_search_parse] bullet=%d claims=%d queries=%d",
-            bullet_idx,
-            len(parse_result.claims),
-            len(parse_result.sentence_parts),
-        )
+            if parse_result is None:
+                raise RuntimeError(
+                    "parse_and_plan returned None (LLM produced no parseable output)"
+                )
+            try:
+                _ns_validate_parse_and_plan_response(parse_result, entity_name)
+            except ValueError as val_err:
+                if attempt == 0:
+                    err_msg = str(val_err)
+                    if "not assigned to any part" in err_msg:
+                        rule = (
+                            "MANDATORY RULE — EVERY claim must be assigned to exactly one "
+                            "sentence_part. Do not leave any claim index unassigned. "
+                            "With N claims extracted, every index from 0 to N-1 must appear "
+                            "in exactly one part's claim_indices list."
+                        )
+                    elif "assigned to multiple parts" in err_msg:
+                        rule = (
+                            "MANDATORY RULE — Each claim may belong to exactly ONE "
+                            "sentence_part only. Do not repeat the same claim index in "
+                            "multiple parts' claim_indices lists."
+                        )
+                    elif "invalid claim index" in err_msg or "duplicate claim indices" in err_msg:
+                        rule = (
+                            "MANDATORY RULE — claim_indices must be valid 0-based indices "
+                            "into the claims array you returned. Each index must be unique "
+                            "within a part and within [0, len(claims)-1]. No duplicates, "
+                            "no out-of-range values."
+                        )
+                    else:
+                        rule = (
+                            "MANDATORY RULE — Every claim must belong to exactly one "
+                            "sentence_part. Each claim index (0-based) must appear in "
+                            "exactly one part's claim_indices. No claim may be omitted, "
+                            "duplicated, or assigned to more than one part."
+                        )
+                    logger.warning(
+                        "[novelty_search_parse] bullet=%d validation failed (attempt %d): %s — retrying with rule reminder",
+                        bullet_idx,
+                        attempt,
+                        val_err,
+                    )
+                    user_content = base_content + f"\n\n⚠ {rule}"
+                    continue
+                raise  # attempt 1 also failed — propagate
+
+            # Validation passed
+            deps.store_search_data(trace_id, "claims", parse_result.claims)
+            deps.store_search_data(trace_id, "sentence_parts", parse_result.sentence_parts)
+            logger.info(
+                "[novelty_search_parse] bullet=%d claims=%d queries=%d",
+                bullet_idx,
+                len(parse_result.claims),
+                len(parse_result.sentence_parts),
+            )
+            return
 
     with ThreadPoolExecutor(
         max_workers=max_workers,

@@ -13,7 +13,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
-from threading import Semaphore
+from threading import Lock, Semaphore
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -32,6 +32,8 @@ from bigdata_briefs.api.dependencies import (
 )
 from bigdata_briefs.query_service.rate_limit import RequestsPerMinuteController
 from bigdata_briefs.api.schemas import (
+    BatchBulletsDetailRequest,
+    BatchBulletsDetailResponse,
     BatchBulletsRequest,
     BatchBulletsResponse,
     BatchRunRequest,
@@ -39,12 +41,20 @@ from bigdata_briefs.api.schemas import (
     BatchRunStatusItem,
     BatchStatusRequest,
     BatchStatusResponse,
+    BulletDetailItem,
+    BulletDiscardDetail,
+    BulletPassedDetail,
     BulletPointItem,
     CitationDetail,
+    ClaimVerdictDetail,
+    EvidenceDetail,
     EntityBulletsResult,
+    EntityDetailResult,
     RunBulletsResult,
+    RunDetailResult,
     RunSubmittedResponse,
 )
+from bigdata_briefs.novelty.sql_models import SQLGeneratedBulletPoint
 from bigdata_briefs.novelty.storage import SQLiteGeneratedBulletPointStorage
 from bigdata_briefs.orchestration.config_load import load_pipeline_config_dict, resolve_config_path
 from bigdata_briefs.orchestration.entity_runner import run_entity_incremental
@@ -393,8 +403,24 @@ def batch_run_parallel(
     # beginning.  This prevents all worker threads from opening Bigdata / OpenAI
     # connections at the exact same instant, which caused burst connection errors.
     _ENTITY_STAGGER_SECONDS = 3.0
+    batch_id = str(uuid.uuid4())[:8]
+    total = len(body.entity_ids)
+    _completed = [0]
+    _lock = Lock()
+
+    def _on_entity_done(_future):
+        with _lock:
+            _completed[0] += 1
+            if _completed[0] == total:
+                logger.info(
+                    "Batch run-parallel complete",
+                    batch_id=batch_id,
+                    total=total,
+                    entity_ids=body.entity_ids,
+                )
+
     for idx, (run_id, entity_id) in enumerate(zip(run_ids, body.entity_ids)):
-        executor.submit(
+        future = executor.submit(
             _run_one_entity_safely,
             run_id=run_id,
             entity_id=entity_id,
@@ -410,7 +436,14 @@ def batch_run_parallel(
             http_client=http_client,
             startup_delay_seconds=idx * _ENTITY_STAGGER_SECONDS,
         )
+        future.add_done_callback(_on_entity_done)
 
+    logger.info(
+        "Batch run-parallel submitted",
+        batch_id=batch_id,
+        total=total,
+        entity_ids=body.entity_ids,
+    )
     submitted = [
         RunSubmittedResponse(run_id=str(rid), entity_id=eid)
         for rid, eid in zip(run_ids, body.entity_ids)
@@ -659,4 +692,331 @@ def batch_bullets(body: BatchBulletsRequest) -> BatchBulletsResponse:
         results=results,
         total_entities=len(results),
         total_bullets=sum(r.total_bullets for r in results),
+    )
+
+
+# ── Batch bullets detail ──────────────────────────────────────────────────────
+
+
+def _resolve_citations(
+    citation_ids: list[str],
+    source_lookup: dict[str, dict],
+) -> list[CitationDetail] | None:
+    if not citation_ids:
+        return None
+    return [
+        CitationDetail(
+            id=cid,
+            headline=(source_lookup.get(cid) or {}).get("headline", ""),
+            text=(source_lookup.get(cid) or {}).get("text", ""),
+            source_name=(source_lookup.get(cid) or {}).get("source_name", ""),
+        )
+        for cid in citation_ids
+    ] or None
+
+
+def _build_bullet_detail(
+    bp: dict,
+    cite_map: dict[str, list[CitationDetail]] | None = None,
+    source_lookup: dict[str, dict] | None = None,
+) -> BulletDetailItem:
+    """Convert a raw BulletPointRecord dict into a BulletDetailItem with full reasoning."""
+    is_active = bp.get("is_active", True)
+    generation = bp.get("generation") or {}
+    original_text = generation.get("original_text") or bp.get("text", "")
+    final_text = bp.get("text", "")
+    rewritten = final_text != original_text
+
+    if is_active:
+        rs = bp.get("relevance_scoring") or {}
+        passed = BulletPassedDetail(
+            relevance_score=rs.get("score", 0),
+            relevance_reason=rs.get("reason", ""),
+        ) if rs else None
+        trace_id = bp.get("trace_id", "")
+        citations = (cite_map or {}).get(trace_id) or None
+        return BulletDetailItem(
+            trace_id=trace_id,
+            theme=bp.get("theme", ""),
+            original_text=original_text,
+            final_text=final_text if rewritten else None,
+            is_active=True,
+            citations=citations,
+            passed=passed,
+        )
+
+    # For discarded bullets, resolve citations from source_references if available
+    discarded_citations = _resolve_citations(
+        bp.get("citations") or [], source_lookup or {}
+    )
+
+    # --- Discarded bullet: find which stage eliminated it ---
+
+    # 1. Initial relevance score
+    rs = bp.get("relevance_scoring") or {}
+    if rs and not rs.get("passed", True):
+        return BulletDetailItem(
+            trace_id=bp.get("trace_id", ""),
+            theme=bp.get("theme", ""),
+            original_text=original_text,
+            final_text=final_text if rewritten else None,
+            is_active=False,
+            citations=discarded_citations,
+            discarded=BulletDiscardDetail(
+                stage="relevance_score",
+                reason=rs.get("reason", ""),
+                score=rs.get("score"),
+            ),
+        )
+
+    # 2. Entity grounding
+    eg_check = (bp.get("entity_grounding") or {}).get("check") or {}
+    if eg_check.get("decision") == "invalid":
+        return BulletDetailItem(
+            trace_id=bp.get("trace_id", ""),
+            theme=bp.get("theme", ""),
+            original_text=original_text,
+            final_text=final_text if rewritten else None,
+            is_active=False,
+            citations=discarded_citations,
+            discarded=BulletDiscardDetail(
+                stage="grounding",
+                reason=eg_check.get("reason", ""),
+            ),
+        )
+
+    # 3. Novelty embedding — judgment
+    ne = bp.get("novelty_embedding") or {}
+    judgment = ne.get("judgment") or {}
+    if judgment.get("decision") == "discard":
+        _EMBEDDING_STRIP_KEYS = {"evidence_ids", "evidence"}
+        clean_evaluators = []
+        for ev in (judgment.get("evaluator_details") or []):
+            ev_clean = {k: v for k, v in ev.items() if k not in _EMBEDDING_STRIP_KEYS}
+            if "retrieved_bullets" in ev_clean:
+                ev_clean["retrieved_bullets"] = [
+                    {k: v for k, v in rb.items() if k not in _EMBEDDING_STRIP_KEYS}
+                    for rb in (ev_clean["retrieved_bullets"] or [])
+                ]
+            clean_evaluators.append(ev_clean)
+        return BulletDetailItem(
+            trace_id=bp.get("trace_id", ""),
+            theme=bp.get("theme", ""),
+            original_text=original_text,
+            final_text=final_text if rewritten else None,
+            is_active=False,
+            citations=discarded_citations,
+            discarded=BulletDiscardDetail(
+                stage="novelty_embedding",
+                reason=judgment.get("reason", ""),
+                evaluator_details=clean_evaluators,
+            ),
+        )
+
+    # 4. Novelty embedding — relevance check on rewritten bullet
+    emb_rc = ne.get("relevance_check") or {}
+    if emb_rc and not emb_rc.get("passed", True):
+        return BulletDetailItem(
+            trace_id=bp.get("trace_id", ""),
+            theme=bp.get("theme", ""),
+            original_text=original_text,
+            final_text=final_text if rewritten else None,
+            is_active=False,
+            citations=discarded_citations,
+            discarded=BulletDiscardDetail(
+                stage="novelty_embedding_relevance",
+                reason=f"Rewritten bullet scored {emb_rc.get('score')} — below relevance threshold.",
+                score=emb_rc.get("score"),
+            ),
+        )
+
+    # 5. Novelty search — verdict
+    ns = bp.get("novelty_search") or {}
+    search = ns.get("search") or {}
+    if search.get("verdict") == "discard":
+        details = search.get("details") or {}
+        raw_verdicts = details.get("claim_verdicts") or []
+        claims = details.get("claims") or []
+        evidence_map: dict = details.get("evidence_map") or {}
+        claim_details: list[ClaimVerdictDetail] = []
+        for cv in raw_verdicts:
+            idx = cv.get("claim_index", 0)
+            claim_text = claims[idx].get("text", "") if idx < len(claims) else ""
+            evidence = [
+                EvidenceDetail(
+                    simple_id=eid,
+                    original_doc_id=(evidence_map.get(eid) or {}).get("original_doc_id", ""),
+                    chunk_num=(evidence_map.get(eid) or {}).get("chunk_num", 0),
+                    headline=(evidence_map.get(eid) or {}).get("headline", ""),
+                    date=(evidence_map.get(eid) or {}).get("date", ""),
+                    text=(evidence_map.get(eid) or {}).get("text", ""),
+                )
+                for eid in (cv.get("evidence_ids") or [])
+            ]
+            claim_details.append(ClaimVerdictDetail(
+                claim_index=idx,
+                claim_text=claim_text,
+                novelty=cv.get("novelty", ""),
+                evidence=evidence,
+                reasoning=cv.get("reasoning", ""),
+            ))
+        return BulletDetailItem(
+            trace_id=bp.get("trace_id", ""),
+            theme=bp.get("theme", ""),
+            original_text=original_text,
+            final_text=final_text if rewritten else None,
+            is_active=False,
+            citations=discarded_citations,
+            discarded=BulletDiscardDetail(
+                stage="novelty_search",
+                reason=search.get("reason") or "",
+                claim_verdicts=claim_details or None,
+                overall_verdict=search.get("overall_verdict"),
+            ),
+        )
+
+    # 6. Novelty search — relevance check on rewritten bullet
+    search_rc = ns.get("relevance_check") or {}
+    if search_rc and not search_rc.get("passed", True):
+        return BulletDetailItem(
+            trace_id=bp.get("trace_id", ""),
+            theme=bp.get("theme", ""),
+            original_text=original_text,
+            final_text=final_text if rewritten else None,
+            is_active=False,
+            citations=discarded_citations,
+            discarded=BulletDiscardDetail(
+                stage="novelty_search_relevance",
+                reason=f"Search-rewritten bullet scored {search_rc.get('score')} — below relevance threshold.",
+                score=search_rc.get("score"),
+                evaluator_reasoning=search_rc.get("reasoning"),
+            ),
+        )
+
+    # 7. Node failure
+    failure = bp.get("failure") or {}
+    return BulletDetailItem(
+        trace_id=bp.get("trace_id", ""),
+        theme=bp.get("theme", ""),
+        original_text=original_text,
+        final_text=bp.get("text", ""),
+        is_active=False,
+        discarded=BulletDiscardDetail(
+            stage="error",
+            reason=failure.get("error_message", "Unknown pipeline error"),
+        ),
+    )
+
+
+@router.post(
+    "/batch/bullets/detail",
+    response_model=BatchBulletsDetailResponse,
+    response_model_exclude_none=True,
+    dependencies=[Depends(require_api_key)],
+    summary="Full bullet details for multiple entities",
+    description=(
+        "For each entity, returns the latest succeeded run with all bullets — "
+        "both active (published) and discarded — enriched with reasoning.\n\n"
+        "**Active bullets** include the relevance score and its reasoning.\n\n"
+        "**Discarded bullets** include the stage that eliminated them "
+        "(`relevance_score`, `grounding`, `novelty_embedding`, `novelty_search`, `error`) "
+        "and the human-readable reason. For `novelty_search` discards, per-claim verdicts "
+        "and evidence IDs are also returned."
+    ),
+)
+def batch_bullets_detail(body: BatchBulletsDetailRequest) -> BatchBulletsDetailResponse:
+    engine = get_engine()
+    results: list[EntityDetailResult] = []
+
+    for entity_id in body.entity_ids:
+        with Session(engine) as session:
+            orch = session.get(SQLEntityOrchestrationState, entity_id)
+            entity_name: str | None = orch.kg_name if orch else None
+
+            query = (
+                select(SQLEntityPipelineRunLog)
+                .where(SQLEntityPipelineRunLog.entity_id == entity_id)
+                .where(SQLEntityPipelineRunLog.status == "succeeded")
+            )
+            if body.from_date is not None:
+                query = query.where(SQLEntityPipelineRunLog.report_window_end >= body.from_date)
+            if body.to_date is not None:
+                query = query.where(SQLEntityPipelineRunLog.report_window_start <= body.to_date)
+            run_rows = session.exec(
+                query.order_by(desc(SQLEntityPipelineRunLog.process_completed_at_utc))
+            ).all()
+
+        if not run_rows:
+            results.append(EntityDetailResult(entity_id=entity_id, found=False))
+            continue
+
+        entity_runs: list[RunDetailResult] = []
+        for row in run_rows:
+            if not row.output_json:
+                continue
+            try:
+                parsed = json.loads(row.output_json)
+            except (json.JSONDecodeError, TypeError):
+                continue
+            # Support both new format {bullet_points, source_references} and legacy list
+            if isinstance(parsed, list):
+                raw_bullets: list[dict] = parsed
+                raw_source_refs: dict = {}
+            else:
+                raw_bullets = parsed.get("bullet_points") or []
+                raw_source_refs = parsed.get("source_references") or {}
+
+            # Build citation_id → {headline, text} lookup from source_references
+            source_lookup: dict[str, dict] = {}
+            for src in raw_source_refs.values():
+                if isinstance(src, dict):
+                    doc_id = src.get("document_id")
+                    chunk_id = src.get("chunk_id")
+                    if doc_id is not None and chunk_id is not None:
+                        source_lookup[f"CQS:{doc_id}-{chunk_id}"] = src
+
+            active_trace_ids = [
+                bp.get("trace_id") for bp in raw_bullets
+                if bp.get("is_active") and bp.get("trace_id")
+            ]
+            cite_map: dict[str, list[CitationDetail]] = {}
+            if active_trace_ids:
+                with Session(engine) as session:
+                    cite_rows = session.exec(
+                        select(SQLGeneratedBulletPoint).where(
+                            SQLGeneratedBulletPoint.trace_id.in_(active_trace_ids)
+                        )
+                    ).all()
+                cite_map = {
+                    r.trace_id: [
+                        CitationDetail(id=c["id"], headline=c["headline"], text=c["text"])
+                        for c in (r.citations or [])
+                        if isinstance(c, dict)
+                    ]
+                    for r in cite_rows
+                    if r.trace_id
+                }
+
+            bullets = [_build_bullet_detail(bp, cite_map, source_lookup) for bp in raw_bullets]
+            active = sum(1 for b in bullets if b.is_active)
+            entity_runs.append(RunDetailResult(
+                run_id=str(row.run_id),
+                report_window_start=row.report_window_start,
+                report_window_end=row.report_window_end,
+                total_bullets=len(bullets),
+                active_bullets=active,
+                discarded_bullets=len(bullets) - active,
+                bullets=bullets,
+            ))
+
+        results.append(EntityDetailResult(
+            entity_id=entity_id,
+            found=True,
+            entity_name=entity_name,
+            runs=entity_runs,
+        ))
+
+    return BatchBulletsDetailResponse(
+        results=results,
+        total_entities=len(results),
     )
