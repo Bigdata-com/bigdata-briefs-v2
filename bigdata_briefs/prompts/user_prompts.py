@@ -164,6 +164,7 @@ def get_iterative_theme_user_prompt(
         end_date=report_dates.get_end_date_formatted(),
         date_instructions=report_dates.get_date_filter_instructions(),
         current_datetime=report_dates.get_current_date_for_prompt(),
+        date_phrase=report_dates.get_date_phrase_for_prompt(),
         contextual_quarter=contextual_quarter or "N/A",
         response_format=response_format,
     )

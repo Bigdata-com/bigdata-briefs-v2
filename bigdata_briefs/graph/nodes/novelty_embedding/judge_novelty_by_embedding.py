@@ -76,7 +76,7 @@ def evaluate_novelty_by_embedding_similarity(
     # Novelty lookback window: [start_date - LOOKBACK, start_date]
     novelty_start = start_date - timedelta(days=settings.NOVELTY_LOOKBACK_DAYS)
     novelty_end = start_date
-    current_date = end_date
+    current_date = start_date  # use start of window as reference date for prompts
 
     bullet_points: list[dict] = state.get("bullet_points") or []
     active_indices = [i for i, bp in enumerate(bullet_points) if bp.get("is_active", True)]

@@ -76,8 +76,8 @@ def score_search_rewrite_relevance(
     entity_ticker: str | None = state.get("entity_ticker") or None
     current_quarter_title: str | None = state.get("current_quarter_title") or None
 
-    end_date = datetime.fromisoformat(state["report_end_date"])
-    current_datetime_str = (end_date - timedelta(seconds=1)).strftime("%A, %B %d, %Y")
+    start_date = datetime.fromisoformat(state["report_start_date"])
+    current_datetime_str = start_date.strftime("%A, %B %d, %Y")
 
     threshold = settings.INTRO_SECTION_MIN_RELEVANCE_SCORE
     default_score = threshold + 1

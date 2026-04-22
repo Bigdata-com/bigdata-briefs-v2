@@ -249,10 +249,26 @@ class StartEndDate(BaseModel):
         return self.end - timedelta(seconds=1)
 
     def get_current_date_for_prompt(self) -> str:
-        """Get the appropriate 'current date' for LLM prompts without time."""
+        """Get the start date formatted for prompts that embed it in a sentence.
+
+        Always uses the start of the reporting window so that relevance_score
+        and novelty_embedding prompts share a consistent reference point.
+        For bullets_generation use get_date_phrase_for_prompt() instead.
+        """
+        return self.start.strftime("%A, %B %d, %Y")
+
+    def get_date_phrase_for_prompt(self) -> str:
+        """Return a context-aware date phrase for the bullets_generation header.
+
+        Single day  → 'Today is Monday, April 21, 2026'
+        Multi-day   → 'We are analyzing the period from April 21, 2026 to April 22, 2026'
+        """
         if self.is_single_day():
-            return self.start.strftime("%A, %B %d, %Y")
-        return self.get_actual_end_date().strftime("%A, %B %d, %Y")
+            return f"Today is {self.start.strftime('%A, %B %d, %Y')}"
+        return (
+            f"We are analyzing the period from {self.get_start_date_formatted()}"
+            f" to {self.get_end_date_formatted()}"
+        )
 
     def get_start_date_formatted(self) -> str:
         """Get start date formatted without time."""

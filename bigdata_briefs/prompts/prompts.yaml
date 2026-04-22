@@ -26,7 +26,7 @@ entity_update_iterative_by_theme:
     max_tokens: 1500
   system_prompt: "You are a financial analyst writing concise market intelligence updates."
   user_template: |
-    Generate a market-focused update on **{{entity_info}}** based on the recent information below. You must focus EXCLUSIVELY on the specified theme. Today is {{current_datetime}}.
+    Generate a market-focused update on **{{entity_info}}** based on the recent information below. You must focus EXCLUSIVELY on the specified theme. {{date_phrase}}.
 
     <theme_focus>
     **FOCUS ON THIS THEME ONLY**: {{theme}}
@@ -147,7 +147,7 @@ entity_update_iterative_by_theme:
 
     <final_reminder>
     **REMINDER BEFORE GENERATING**:
-    - The current date is {{current_datetime}} and **{{entity_info}}**'s fiscal quarter for this analysis is {{contextual_quarter}}.
+    - {{date_phrase}}. **{{entity_info}}**'s fiscal quarter for this analysis is {{contextual_quarter}}.
     - You are writing ONLY about the theme: **{{theme}}**
     - DO NOT write about these themes: {% for t in other_themes %}{{t}}{% if not loop.last %}, {% endif %}{% endfor %}
     </final_reminder>
