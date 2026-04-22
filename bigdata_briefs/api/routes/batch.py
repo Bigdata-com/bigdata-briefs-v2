@@ -148,7 +148,10 @@ def _load_discarded_for_runs(
                 continue
 
             try:
-                bullet_points: list[dict] = json.loads(row.output_json)
+                parsed = json.loads(row.output_json)
+                bullet_points: list[dict] = (
+                    parsed if isinstance(parsed, list) else parsed.get("bullet_points") or []
+                )
             except (json.JSONDecodeError, TypeError):
                 result[run_id_str] = buckets
                 continue
@@ -555,7 +558,9 @@ def _build_entity_result_from_run_log(
         buckets: dict[str, list[str]] = {"relevance": [], "grounding": [], "novelty": []}
         if row.output_json:
             try:
-                for bp in json.loads(row.output_json):
+                parsed = json.loads(row.output_json)
+                bps = parsed if isinstance(parsed, list) else parsed.get("bullet_points") or []
+                for bp in bps:
                     category = _classify_discarded(bp)
                     if category:
                         text = bp.get("text", "")
@@ -952,19 +957,18 @@ def batch_bullets_detail(body: BatchBulletsDetailRequest) -> BatchBulletsDetailR
 
         entity_runs: list[RunDetailResult] = []
         for row in run_rows:
-            if not row.output_json:
-                continue
-            try:
-                parsed = json.loads(row.output_json)
-            except (json.JSONDecodeError, TypeError):
-                continue
-            # Support both new format {bullet_points, source_references} and legacy list
-            if isinstance(parsed, list):
-                raw_bullets: list[dict] = parsed
-                raw_source_refs: dict = {}
-            else:
-                raw_bullets = parsed.get("bullet_points") or []
-                raw_source_refs = parsed.get("source_references") or {}
+            raw_bullets: list[dict] = []
+            raw_source_refs: dict = {}
+            if row.output_json:
+                try:
+                    parsed = json.loads(row.output_json)
+                    if isinstance(parsed, list):
+                        raw_bullets = parsed
+                    else:
+                        raw_bullets = parsed.get("bullet_points") or []
+                        raw_source_refs = parsed.get("source_references") or {}
+                except (json.JSONDecodeError, TypeError):
+                    pass
 
             # Build citation_id → {headline, text} lookup from source_references
             source_lookup: dict[str, dict] = {}

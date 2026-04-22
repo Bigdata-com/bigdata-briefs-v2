@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from threading import Semaphore
 
@@ -26,6 +27,9 @@ from bigdata_briefs.api.dependencies import (
 from bigdata_briefs.query_service.rate_limit import RequestsPerMinuteController
 from bigdata_briefs.api.schemas import (
     BulletTrace,
+    DateRangeRunRequest,
+    DateRangeRunResponse,
+    DateRangeRunSubmittedItem,
     EmbeddingJudgmentTrace,
     EmbeddingTrace,
     GroundingTrace,
@@ -308,4 +312,108 @@ def get_run_trace(run_id: uuid.UUID) -> RunTraceResponse:
         total_bullets=len(bullets),
         active_bullets=sum(1 for b in bullets if b.is_active),
         bullets=bullets,
+    )
+
+
+def _run_entity_date_range(
+    *,
+    entity_id: str,
+    day_runs: list[tuple[date, uuid.UUID]],
+    pipeline_config: dict,
+    state_dir: Path,
+    refresh_entity: bool,
+    force_run: bool,
+    window_mode,
+    rate_limiter: RequestsPerMinuteController,
+    connection_sem: Semaphore,
+    http_client: httpx.Client,
+) -> None:
+    """Background task: run the pipeline once per day, sequentially."""
+    engine = get_engine()
+    for day, run_id in day_runs:
+        window_start = datetime(day.year, day.month, day.day, 0, 0, 0, tzinfo=timezone.utc)
+        window_end = window_start + timedelta(days=1)
+        run_entity_incremental(
+            run_id=run_id,
+            entity_id=entity_id,
+            pipeline_config=pipeline_config,
+            state_dir=state_dir,
+            refresh_entity=refresh_entity,
+            force_run=force_run,
+            force_window_start=window_start,
+            force_window_end=window_end,
+            window_mode=window_mode,
+            engine=engine,
+            rate_limiter=rate_limiter,
+            connection_sem=connection_sem,
+            http_client=http_client,
+        )
+
+
+@router.post(
+    "/entities/{entity_id}/run-range",
+    response_model=DateRangeRunResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_api_key)],
+    summary="Run pipeline day-by-day over a date range",
+    description=(
+        "Submits one pipeline run per day from `start_date` to `end_date` (inclusive), "
+        "processed sequentially in chronological order. "
+        "Returns one `run_id` per day immediately; "
+        "poll **GET /api/v1/runs/{run_id}** to track each run's progress.\n\n"
+        "Each day's window is midnight-to-midnight UTC "
+        "(`YYYY-MM-DDT00:00:00Z` → `YYYY-MM-DDT00:00:00Z` next day)."
+    ),
+)
+async def run_date_range(
+    entity_id: str,
+    body: DateRangeRunRequest,
+    background_tasks: BackgroundTasks,
+    rate_limiter: RequestsPerMinuteController = Depends(get_rate_limiter),
+    connection_sem: Semaphore = Depends(get_connection_sem),
+    http_client: httpx.Client = Depends(get_http_client),
+) -> DateRangeRunResponse:
+    if body.end_date < body.start_date:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="end_date must be >= start_date",
+        )
+
+    days: list[date] = []
+    current = body.start_date
+    while current <= body.end_date:
+        days.append(current)
+        current += timedelta(days=1)
+
+    day_runs = [(d, uuid.uuid4()) for d in days]
+
+    cfg_path = resolve_config_path(None)
+    pipeline_config = (
+        body.pipeline_config
+        if body.pipeline_config is not None
+        else load_pipeline_config_dict(cfg_path)
+    )
+    state_dir = _resolve_state_dir(body.state_dir)
+
+    background_tasks.add_task(
+        _run_entity_date_range,
+        entity_id=entity_id,
+        day_runs=day_runs,
+        pipeline_config=pipeline_config,
+        state_dir=state_dir,
+        refresh_entity=body.refresh_entity,
+        force_run=body.force_run,
+        window_mode=body.window_mode,
+        rate_limiter=rate_limiter,
+        connection_sem=connection_sem,
+        http_client=http_client,
+    )
+
+    return DateRangeRunResponse(
+        entity_id=entity_id,
+        total_days=len(days),
+        submitted=[
+            DateRangeRunSubmittedItem(date=str(d), run_id=str(run_id), entity_id=entity_id)
+            for d, run_id in day_runs
+        ],
     )

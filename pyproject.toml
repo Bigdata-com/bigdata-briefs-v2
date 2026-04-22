@@ -23,6 +23,8 @@ dependencies = [
     "novelty-via-search",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.0",
+    "python-multipart>=0.0.9",
+    "aiofiles>=23.0.0",
 ]
 
 [tool.uv.sources]

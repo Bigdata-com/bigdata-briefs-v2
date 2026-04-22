@@ -109,6 +109,11 @@ class Settings(BaseSettings):
 
     # LLM configuration
     LLM_RETRIES: int = 4  # attempt 0→fail→30s, attempt 1→fail→60s, attempt 2→fail→60s, attempt 3→raise
+    LLM_TIMEOUT_SECONDS: int = 60
+    EMBEDDING_TIMEOUT_SECONDS: int = 60
+    NOVELTY_SEARCH_TIMEOUT_SECONDS: int = 120
+    NOVELTY_SEARCH_HTTP_TIMEOUT_SECONDS: int = 30
+    RUN_RANGE_DAY_TIMEOUT_SECONDS: int = 1800  # hard wall-clock limit per day (30 min)
 
     # When workflow passes rerank_concept_sources=True (see QueryService.run_concept_queries_*).
     RERANK_CONCEPT_CHUNK_LIMIT: int = 45  # Chunks to fetch per concept when reranking
@@ -119,11 +124,15 @@ class Settings(BaseSettings):
     # When True, chunks with identical text but different sources are merged into a single prompt entry
     # with multiple headlines, reducing redundancy and improving LLM focus
     DEDUPLICATE_SAME_TEXT: bool = True
-    
+
     # Chunk hash storage configuration
     # When True, stores SHA256 hashes of chunk texts to filter out already-used chunks in subsequent runs
     STORE_RETRIEVED_CHUNKS: bool = True
     CHUNK_HASH_LOOKBACK_DAYS: int = 14  # Same lookback as novelty check
+
+    # Named entity ID lists for the web UI dropdown.
+    # Set as JSON string in environment: ENTITY_LISTS='{"sp500": ["D8442A", ...], "tech": [...]}'
+    ENTITY_LISTS: dict[str, list[str]] = {}
 
     @classmethod
     def load_from_env(cls) -> "Settings":

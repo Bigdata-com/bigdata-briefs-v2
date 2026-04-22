@@ -94,7 +94,7 @@ def score_embedding_rewrite_relevance(
     def check_single(bullet_idx: int) -> tuple[int, int]:
         bp = bullet_points[bullet_idx]
         rewritten_text: str = ((bp.get("novelty_embedding") or {}).get("rewrite") or {}).get("text_after", "")
-        score = _run_relevance_check_on_rewrite(
+        score, _ = _run_relevance_check_on_rewrite(
             rewritten_text=rewritten_text,
             entity_name=entity_name,
             entity_ticker=entity_ticker,

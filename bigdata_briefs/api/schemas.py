@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
@@ -403,6 +403,33 @@ class ClearStaleRunsResponse(BaseModel):
     """Entity IDs whose stale run rows were cleared."""
     stale_seconds_threshold: int
     """Age (seconds) above which a running row was considered stale."""
+
+
+# ── Date-range run ───────────────────────────────────────────────────────────
+
+
+class DateRangeRunRequest(BaseModel):
+    """Body for POST /entities/{entity_id}/run-range."""
+
+    start_date: date
+    end_date: date
+    pipeline_config: dict[str, Any] | None = None
+    state_dir: str | None = None
+    refresh_entity: bool = False
+    force_run: bool = False
+    window_mode: WindowMode = WindowMode.DAILY
+
+
+class DateRangeRunSubmittedItem(BaseModel):
+    date: str        # YYYY-MM-DD
+    run_id: str
+    entity_id: str
+
+
+class DateRangeRunResponse(BaseModel):
+    entity_id: str
+    total_days: int
+    submitted: list[DateRangeRunSubmittedItem]
 
 
 # ── Dry run ───────────────────────────────────────────────────────────────────

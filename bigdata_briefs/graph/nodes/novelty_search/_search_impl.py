@@ -22,6 +22,7 @@ import httpx
 from pydantic import BaseModel, Field
 
 from bigdata_briefs import logger
+from bigdata_briefs.settings import settings
 
 
 # ── LLM model config ──────────────────────────────────────────────────────────
@@ -41,7 +42,7 @@ _NS_SENTIMENT_RANGES: list[dict] = [
     {"min": 0.3, "max": 1.0},
 ]
 _NS_CATEGORY_VALUES: list[str] = ["news"]
-_NS_HTTP_TIMEOUT: float = 30.0
+_NS_HTTP_TIMEOUT: float = settings.NOVELTY_SEARCH_HTTP_TIMEOUT_SECONDS
 
 
 # ══════════════════════════════════════════════════════════════════════════════

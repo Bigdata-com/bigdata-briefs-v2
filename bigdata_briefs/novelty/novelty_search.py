@@ -128,6 +128,7 @@ async def _ainvoke_batch_parallel(
     """
     from novelty_via_search.config import config_from_env
     from novelty_via_search.graph import compile_graph
+    from bigdata_briefs.settings import settings
 
     _MAX_BULLET_RETRIES = 2  # up to 3 total attempts per bullet
     _RETRY_BACKOFF_SECONDS = (2.0, 4.0)
@@ -188,7 +189,7 @@ async def _ainvoke_batch_parallel(
                     try:
                         result = await asyncio.wait_for(
                             current_app.ainvoke(state),  # type: ignore[arg-type]
-                            timeout=120.0,
+                            timeout=settings.NOVELTY_SEARCH_TIMEOUT_SECONDS,
                         )
                         action = result.get("rewrite_action", "?") if isinstance(result, dict) else "error"
                         logger.info(

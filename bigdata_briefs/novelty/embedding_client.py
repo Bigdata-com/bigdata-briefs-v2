@@ -18,7 +18,10 @@ class EmbeddingClient:
     def __init__(self, model: str, client: openai.OpenAI | None = None):
         self.model = model
         if client is None:
-            client = openai.OpenAI(api_key=str(settings.OPENAI_API_KEY))
+            client = openai.OpenAI(
+                api_key=str(settings.OPENAI_API_KEY),
+                timeout=settings.EMBEDDING_TIMEOUT_SECONDS,
+            )
         self.client = client
 
     def compute(
@@ -66,6 +69,16 @@ class EmbeddingClient:
         for attempt in range(settings.EMBEDDING_RETRIES):
             try:
                 return func(*args, **kwargs)
+            except openai.APITimeoutError:
+                if attempt >= settings.EMBEDDING_RETRIES - 1:
+                    raise
+                logger.warning(
+                    "OpenAI embedding timeout (%.0fs) — retrying. Attempt %s/%s",
+                    settings.EMBEDDING_TIMEOUT_SECONDS,
+                    attempt + 1,
+                    settings.EMBEDDING_RETRIES,
+                )
+                sleep_with_backoff(attempt=attempt)
             except Exception:
                 if attempt >= settings.EMBEDDING_RETRIES - 1:
                     raise

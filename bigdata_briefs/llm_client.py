@@ -23,15 +23,12 @@ from bigdata_briefs.utils import (
 )
 
 
-_LLM_TIMEOUT_SECONDS: float = 60.0
-
-
 class LLMClient:
     def __init__(self, client: openai.OpenAI | None = None, debug_logger: DebugLogger | None = None):
         if client is None:
             client = openai.OpenAI(
                 api_key=str(settings.OPENAI_API_KEY),
-                timeout=_LLM_TIMEOUT_SECONDS,
+                timeout=settings.LLM_TIMEOUT_SECONDS,
             )
         self.client = client
         self.debug_logger = debug_logger
@@ -282,7 +279,7 @@ class LLMClient:
                 ctx_str = " ".join(f"{k}={v}" for k, v in log_ctx.items() if v)
                 logger.warning(
                     "OpenAI timeout (%.0fs) — retrying. Attempt %s/%s%s",
-                    _LLM_TIMEOUT_SECONDS,
+                    settings.LLM_TIMEOUT_SECONDS,
                     attempt + 1,
                     settings.LLM_RETRIES,
                     f" ({ctx_str})" if ctx_str else "",
