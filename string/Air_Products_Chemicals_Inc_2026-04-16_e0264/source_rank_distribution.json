@@ -1,8 +1,0 @@
-{
-  "timestamp": "2026-04-16T11:02:06.429306",
-  "entity": "Air Products & Chemicals Inc.",
-  "retrieved_chunk_pool_note": "rank_distribution, sources, and total_unique_chunks cover every deduplicated chunk passed through concept search (after optional hash filter), before bullets cite a subset.",
-  "total_unique_chunks": 0,
-  "rank_distribution": {},
-  "sources": {}
-}
