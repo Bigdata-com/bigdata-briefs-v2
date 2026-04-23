@@ -4,9 +4,16 @@ A universe is simply a named collection of entity IDs that can be passed
 directly to batch endpoints.  Use GET /universes to list all available
 universes; use GET /universes/{name} to retrieve the entity IDs for a
 specific one.
+
+Universe definitions are loaded at startup from CSV files in
+``bigdata_briefs/data/universes/``. Each CSV must have ``id`` and ``name``
+columns. Adding a new CSV file automatically registers a new universe.
 """
 
 from __future__ import annotations
+
+import csv
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
@@ -14,15 +21,21 @@ from bigdata_briefs.api.schemas import UniverseListResponse, UniverseResponse
 
 router = APIRouter(tags=["universes"])
 
-# ---------------------------------------------------------------------------
-# Universe registry
-# Add entity IDs to the lists below to populate a universe.
-# ---------------------------------------------------------------------------
+_UNIVERSES_DIR = Path(__file__).parent.parent.parent / "data" / "universes"
 
-_UNIVERSES: dict[str, list[str]] = {
-    "dow_30": [],
-    "eurostoxx_50": [],
-}
+
+def _load_universes() -> dict[str, list[str]]:
+    """Load all universes from CSV files in the universes data directory."""
+    universes: dict[str, list[str]] = {}
+    for csv_path in sorted(_UNIVERSES_DIR.glob("*.csv")):
+        name = csv_path.stem
+        with csv_path.open(newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            universes[name] = [row["id"] for row in reader if row.get("id")]
+    return universes
+
+
+_UNIVERSES: dict[str, list[str]] = _load_universes()
 
 
 @router.get(
@@ -31,7 +44,8 @@ _UNIVERSES: dict[str, list[str]] = {
     summary="List all available universes",
     description=(
         "Returns the names of all registered company universes and the number "
-        "of entities in each one."
+        "of entities in each one. Universes are loaded from CSV files in "
+        "``bigdata_briefs/data/universes/``."
     ),
 )
 def list_universes() -> UniverseListResponse:
