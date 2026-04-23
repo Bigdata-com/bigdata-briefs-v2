@@ -66,6 +66,15 @@ from bigdata_briefs.api.routes.universes import _UNIVERSES
 from bigdata_briefs.settings import settings
 
 
+def _all_entity_ids(engine) -> list[str]:
+    """Return all distinct entity_ids that have at least one run log row."""
+    with Session(engine) as session:
+        rows = session.exec(
+            select(SQLEntityPipelineRunLog.entity_id).distinct()
+        ).all()
+    return list(rows)
+
+
 def _classify_discarded(bp: dict) -> str | None:
     """
     Return the discard category for an inactive bullet, or None if still active.
@@ -734,8 +743,9 @@ def batch_bullets(body: BatchBulletsRequest) -> BatchBulletsResponse:
     engine = get_engine()
     storage = SQLiteGeneratedBulletPointStorage(engine)
     results: list[EntityBulletsResult] = []
+    entity_ids = body.entity_ids or _all_entity_ids(engine)
 
-    for entity_id in body.entity_ids:
+    for entity_id in entity_ids:
         grouped = storage.get_all_runs_bullets(entity_id)
 
         if not grouped:
@@ -1054,8 +1064,9 @@ def _build_bullet_detail(
 def batch_bullets_detail(body: BatchBulletsDetailRequest) -> BatchBulletsDetailResponse:
     engine = get_engine()
     results: list[EntityDetailResult] = []
+    entity_ids = body.entity_ids or _all_entity_ids(engine)
 
-    for entity_id in body.entity_ids:
+    for entity_id in entity_ids:
         with Session(engine) as session:
             orch = session.get(SQLEntityOrchestrationState, entity_id)
             entity_name: str | None = orch.kg_name if orch else None

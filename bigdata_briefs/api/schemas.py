@@ -259,9 +259,12 @@ class EntityBulletsResult(BaseModel):
 
 
 class BatchBulletsRequest(BaseModel):
-    """Body for POST /batch/bullets."""
+    """Body for POST /batch/bullets.
 
-    entity_ids: list[str]
+    If ``entity_ids`` is empty, all entities in the DB are returned.
+    """
+
+    entity_ids: list[str] = []
 
 
 class BatchBulletsResponse(BaseModel):
@@ -348,7 +351,12 @@ class EntityDetailResult(BaseModel):
 
 
 class BatchBulletsDetailRequest(BaseModel):
-    entity_ids: list[str]
+    """Body for POST /batch/bullets/detail.
+
+    If ``entity_ids`` is empty, all entities in the DB are returned.
+    """
+
+    entity_ids: list[str] = []
     from_date: datetime | None = None  # filter runs with window_end >= from_date
     to_date: datetime | None = None    # filter runs with window_start <= to_date
 
