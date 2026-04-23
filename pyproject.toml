@@ -20,15 +20,11 @@ dependencies = [
     "bigdata-client==2.19.0",
     "sqlmodel>=0.0.24",
     "fpdf2>=2.8.7",
-    "novelty-via-search",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.0",
     "python-multipart>=0.0.9",
     "aiofiles>=23.0.0",
 ]
-
-[tool.uv.sources]
-novelty-via-search = { path = "../../NoveltyViaSearch", editable = true }
 
 [dependency-groups]
 dev = [
