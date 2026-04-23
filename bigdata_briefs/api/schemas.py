@@ -171,9 +171,14 @@ class BatchParallelRunStatusResponse(BaseModel):
 
 
 class BatchRunRequest(BaseModel):
-    """Body for POST /batch/run."""
+    """Body for POST /batch/run and POST /batch/run-parallel.
 
-    entity_ids: list[str]
+    Either ``entity_ids`` or ``universe`` must be provided (not both).
+    When ``universe`` is set, entity IDs are resolved from the named universe CSV.
+    """
+
+    entity_ids: list[str] = []
+    universe: str | None = None          # e.g. "dow_30" or "eurostoxx_50"
     pipeline_config: dict[str, Any] | None = None
     state_dir: str | None = None
     force_run: bool = False

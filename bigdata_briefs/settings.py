@@ -88,7 +88,7 @@ class Settings(BaseSettings):
     # (see api/app.py lifespan). This caps how many entity pipelines run concurrently.
     # Start conservative (OpenAI TPM is usually the real ceiling) and tune via
     # GET /api/v1/rate/status.
-    MAX_CONCURRENT_ENTITIES: int = 4
+    MAX_CONCURRENT_ENTITIES: int = 10
     API_CHUNKS_LIMIT_EXPLORATORY: int = 15
     API_RERANK_EXPLORATORY: float = 0.8
     EXPLORATORY_SENTIMENT_THRESHOLD: float = 0.0

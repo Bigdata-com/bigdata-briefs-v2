@@ -62,6 +62,7 @@ from bigdata_briefs.novelty.storage import SQLiteGeneratedBulletPointStorage
 from bigdata_briefs.orchestration.config_load import load_pipeline_config_dict, resolve_config_path
 from bigdata_briefs.orchestration.entity_runner import run_entity_incremental
 from bigdata_briefs.orchestration.models import SQLBatchParallelRun, SQLEntityOrchestrationState, SQLEntityPipelineRunLog
+from bigdata_briefs.api.routes.universes import _UNIVERSES
 from bigdata_briefs.settings import settings
 
 
@@ -389,10 +390,26 @@ def batch_run_parallel(
     connection_sem: Semaphore = Depends(get_connection_sem),
     http_client: httpx.Client = Depends(get_http_client),
 ) -> BatchParallelRunResponse:
-    if not body.entity_ids:
-        raise HTTPException(status_code=422, detail="entity_ids must not be empty")
+    # Resolve entity_ids: either explicit list or from a named universe
+    if body.universe:
+        if body.entity_ids:
+            raise HTTPException(
+                status_code=422,
+                detail="Provide either 'entity_ids' or 'universe', not both.",
+            )
+        entity_ids = _UNIVERSES.get(body.universe)
+        if entity_ids is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Universe '{body.universe}' not found. Available: {list(_UNIVERSES)}",
+            )
+    else:
+        entity_ids = body.entity_ids
 
-    _assert_no_running_entities(body.entity_ids)
+    if not entity_ids:
+        raise HTTPException(status_code=422, detail="No entity_ids to run.")
+
+    _assert_no_running_entities(entity_ids)
 
     cfg_path = resolve_config_path(None)
     pipeline_config = (
@@ -401,20 +418,20 @@ def batch_run_parallel(
         else load_pipeline_config_dict(cfg_path)
     )
     state_dir = _resolve_state_dir(body.state_dir)
-    run_ids = [uuid.uuid4() for _ in body.entity_ids]
+    run_ids = [uuid.uuid4() for _ in entity_ids]
     engine = get_engine()
     batch_id = uuid.uuid4()
     submitted_at = datetime.utcnow()
-    total = len(body.entity_ids)
+    total = len(entity_ids)
 
     # Persist batch record so the status endpoint can resolve run IDs later
-    run_ids_map = {eid: str(rid) for eid, rid in zip(body.entity_ids, run_ids)}
+    run_ids_map = {eid: str(rid) for eid, rid in zip(entity_ids, run_ids)}
     with Session(engine) as session:
         session.add(SQLBatchParallelRun(
             batch_id=batch_id,
             submitted_at=submitted_at,
             total=total,
-            entity_ids_json=json.dumps(body.entity_ids),
+            entity_ids_json=json.dumps(entity_ids),
             run_ids_json=json.dumps(run_ids_map),
         ))
         session.commit()
@@ -432,10 +449,10 @@ def batch_run_parallel(
                     "Batch run-parallel complete",
                     batch_id=str(batch_id),
                     total=total,
-                    entity_ids=body.entity_ids,
+                    entity_ids=entity_ids,
                 )
 
-    for idx, (run_id, entity_id) in enumerate(zip(run_ids, body.entity_ids)):
+    for idx, (run_id, entity_id) in enumerate(zip(run_ids, entity_ids)):
         future = executor.submit(
             _run_one_entity_safely,
             run_id=run_id,
@@ -458,7 +475,8 @@ def batch_run_parallel(
         "Batch run-parallel submitted",
         batch_id=str(batch_id),
         total=total,
-        entity_ids=body.entity_ids,
+        entity_ids=entity_ids,
+        universe=body.universe,
     )
     return BatchParallelRunResponse(
         batch_id=str(batch_id),
