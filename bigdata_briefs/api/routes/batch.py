@@ -36,6 +36,9 @@ from bigdata_briefs.api.schemas import (
     BatchBulletsDetailResponse,
     BatchBulletsRequest,
     BatchBulletsResponse,
+    BatchParallelRunResponse,
+    BatchParallelRunStatusItem,
+    BatchParallelRunStatusResponse,
     BatchRunRequest,
     BatchRunResponse,
     BatchRunStatusItem,
@@ -58,7 +61,7 @@ from bigdata_briefs.novelty.sql_models import SQLGeneratedBulletPoint
 from bigdata_briefs.novelty.storage import SQLiteGeneratedBulletPointStorage
 from bigdata_briefs.orchestration.config_load import load_pipeline_config_dict, resolve_config_path
 from bigdata_briefs.orchestration.entity_runner import run_entity_incremental
-from bigdata_briefs.orchestration.models import SQLEntityOrchestrationState, SQLEntityPipelineRunLog
+from bigdata_briefs.orchestration.models import SQLBatchParallelRun, SQLEntityOrchestrationState, SQLEntityPipelineRunLog
 from bigdata_briefs.settings import settings
 
 
@@ -368,15 +371,14 @@ def _run_one_entity_safely(
 
 @router.post(
     "/batch/run-parallel",
-    response_model=BatchRunResponse,
+    response_model=BatchParallelRunResponse,
     dependencies=[Depends(require_api_key)],
     summary="Run pipeline in parallel for multiple entities",
     description=(
         "Submits each entity to a process-wide worker pool (``MAX_CONCURRENT_ENTITIES``). "
-        "Returns one ``run_id`` per entity immediately; poll "
-        "**GET /api/v1/runs/{run_id}** to track each run.\n\n"
-        "All concurrent runs share one 450 QPM Bigdata budget and one connection pool, "
-        "so this endpoint is safe to call with many entities at once. "
+        "Returns a single **batch_id** to track the whole batch via "
+        "**GET /api/v1/batch/parallel/{batch_id}/status**.\n\n"
+        "All concurrent runs share one 450 QPM Bigdata budget and one connection pool. "
         "Use **GET /api/v1/rate/status** to observe the current budget usage."
     ),
 )
@@ -386,9 +388,9 @@ def batch_run_parallel(
     rate_limiter: RequestsPerMinuteController = Depends(get_rate_limiter),
     connection_sem: Semaphore = Depends(get_connection_sem),
     http_client: httpx.Client = Depends(get_http_client),
-) -> BatchRunResponse:
+) -> BatchParallelRunResponse:
     if not body.entity_ids:
-        return BatchRunResponse(submitted=[], total=0)
+        raise HTTPException(status_code=422, detail="entity_ids must not be empty")
 
     _assert_no_running_entities(body.entity_ids)
 
@@ -401,13 +403,24 @@ def batch_run_parallel(
     state_dir = _resolve_state_dir(body.state_dir)
     run_ids = [uuid.uuid4() for _ in body.entity_ids]
     engine = get_engine()
-
-    # Stagger entity starts: each worker sleeps 3 s × its position index before
-    # beginning.  This prevents all worker threads from opening Bigdata / OpenAI
-    # connections at the exact same instant, which caused burst connection errors.
-    _ENTITY_STAGGER_SECONDS = 3.0
-    batch_id = str(uuid.uuid4())[:8]
+    batch_id = uuid.uuid4()
+    submitted_at = datetime.utcnow()
     total = len(body.entity_ids)
+
+    # Persist batch record so the status endpoint can resolve run IDs later
+    run_ids_map = {eid: str(rid) for eid, rid in zip(body.entity_ids, run_ids)}
+    with Session(engine) as session:
+        session.add(SQLBatchParallelRun(
+            batch_id=batch_id,
+            submitted_at=submitted_at,
+            total=total,
+            entity_ids_json=json.dumps(body.entity_ids),
+            run_ids_json=json.dumps(run_ids_map),
+        ))
+        session.commit()
+
+    # Stagger entity starts to avoid burst connection errors
+    _ENTITY_STAGGER_SECONDS = 3.0
     _completed = [0]
     _lock = Lock()
 
@@ -417,7 +430,7 @@ def batch_run_parallel(
             if _completed[0] == total:
                 logger.info(
                     "Batch run-parallel complete",
-                    batch_id=batch_id,
+                    batch_id=str(batch_id),
                     total=total,
                     entity_ids=body.entity_ids,
                 )
@@ -443,15 +456,106 @@ def batch_run_parallel(
 
     logger.info(
         "Batch run-parallel submitted",
-        batch_id=batch_id,
+        batch_id=str(batch_id),
         total=total,
         entity_ids=body.entity_ids,
     )
-    submitted = [
-        RunSubmittedResponse(run_id=str(rid), entity_id=eid)
-        for rid, eid in zip(run_ids, body.entity_ids)
-    ]
-    return BatchRunResponse(submitted=submitted, total=len(submitted))
+    return BatchParallelRunResponse(
+        batch_id=str(batch_id),
+        total=total,
+        submitted_at=submitted_at,
+    )
+
+
+_STUCK_THRESHOLD_MINUTES: int = 30
+
+
+@router.get(
+    "/batch/parallel/{batch_id}/status",
+    response_model=BatchParallelRunStatusResponse,
+    dependencies=[Depends(require_api_key)],
+    summary="Status of a parallel batch run",
+    description=(
+        "Returns the status of each entity run within a batch submitted via "
+        "**POST /batch/run-parallel**. A run is considered **stuck** when its "
+        f"status is still `running` after {_STUCK_THRESHOLD_MINUTES} minutes."
+    ),
+)
+def batch_parallel_status(batch_id: uuid.UUID) -> BatchParallelRunStatusResponse:
+    engine = get_engine()
+    now = datetime.utcnow()
+
+    with Session(engine) as session:
+        batch = session.get(SQLBatchParallelRun, batch_id)
+    if batch is None:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+
+    entity_ids: list[str] = json.loads(batch.entity_ids_json)
+    run_ids_map: dict[str, str] = json.loads(batch.run_ids_json)
+
+    runs: list[BatchParallelRunStatusItem] = []
+    succeeded = failed = running = not_started = stuck = 0
+
+    with Session(engine) as session:
+        for entity_id in entity_ids:
+            run_id_str = run_ids_map.get(entity_id, "")
+            try:
+                run_uuid = uuid.UUID(run_id_str)
+            except ValueError:
+                runs.append(BatchParallelRunStatusItem(
+                    entity_id=entity_id, run_id=run_id_str, status="not_started",
+                ))
+                not_started += 1
+                continue
+
+            row = session.get(SQLEntityPipelineRunLog, run_uuid)
+            if row is None:
+                runs.append(BatchParallelRunStatusItem(
+                    entity_id=entity_id, run_id=run_id_str, status="not_started",
+                ))
+                not_started += 1
+                continue
+
+            is_stuck = False
+            if row.status == "running":
+                elapsed = (now - row.process_started_at_utc).total_seconds() / 60
+                is_stuck = elapsed > _STUCK_THRESHOLD_MINUTES
+
+            error_msg: str | None = None
+            if row.status == "failed" and row.error_summary:
+                error_msg = row.error_summary.splitlines()[0]
+
+            runs.append(BatchParallelRunStatusItem(
+                entity_id=entity_id,
+                run_id=run_id_str,
+                status=row.status,
+                stuck=is_stuck,
+                started_at=row.process_started_at_utc,
+                completed_at=row.process_completed_at_utc,
+                error_message=error_msg,
+            ))
+
+            if row.status == "succeeded":
+                succeeded += 1
+            elif row.status == "failed":
+                failed += 1
+            elif row.status == "running":
+                running += 1
+                if is_stuck:
+                    stuck += 1
+
+    return BatchParallelRunStatusResponse(
+        batch_id=str(batch_id),
+        submitted_at=batch.submitted_at,
+        total=batch.total,
+        succeeded=succeeded,
+        failed=failed,
+        running=running,
+        not_started=not_started,
+        stuck=stuck,
+        stuck_threshold_minutes=_STUCK_THRESHOLD_MINUTES,
+        runs=runs,
+    )
 
 
 @router.post(

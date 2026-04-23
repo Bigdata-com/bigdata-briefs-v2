@@ -8,6 +8,16 @@ from sqlalchemy import Text
 from sqlmodel import Field, SQLModel
 
 
+class SQLBatchParallelRun(SQLModel, table=True):
+    """One row per batch submitted via POST /batch/run-parallel."""
+
+    batch_id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    submitted_at: datetime
+    total: int
+    entity_ids_json: str = Field(sa_type=Text)   # JSON list of entity_id strings
+    run_ids_json: str = Field(sa_type=Text)        # JSON dict {entity_id: str(run_id)}
+
+
 class SQLEntityOrchestrationState(SQLModel, table=True):
     """One row per entity: incremental window cursor + denormalized KG cache."""
 

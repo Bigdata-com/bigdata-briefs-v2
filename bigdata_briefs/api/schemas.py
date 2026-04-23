@@ -134,6 +134,39 @@ class UniverseListResponse(BaseModel):
     universes: list[UniverseResponse]
 
 
+# ── Batch parallel run ───────────────────────────────────────────────────────
+
+
+class BatchParallelRunResponse(BaseModel):
+    """Response from POST /batch/run-parallel — single batch ID."""
+    batch_id: str
+    total: int
+    submitted_at: datetime
+
+
+class BatchParallelRunStatusItem(BaseModel):
+    entity_id: str
+    run_id: str
+    status: str                        # running | succeeded | failed | not_started
+    stuck: bool = False                # True when running for longer than stuck_threshold_minutes
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    error_message: str | None = None
+
+
+class BatchParallelRunStatusResponse(BaseModel):
+    batch_id: str
+    submitted_at: datetime
+    total: int
+    succeeded: int
+    failed: int
+    running: int
+    not_started: int
+    stuck: int                         # subset of running, exceeded stuck_threshold_minutes
+    stuck_threshold_minutes: int
+    runs: list[BatchParallelRunStatusItem]
+
+
 # ── Batch run ────────────────────────────────────────────────────────────────
 
 
