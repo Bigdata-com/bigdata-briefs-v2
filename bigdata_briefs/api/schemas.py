@@ -148,7 +148,6 @@ class BatchParallelRunStatusItem(BaseModel):
     entity_id: str
     run_id: str
     status: str                        # running | succeeded | failed | not_started
-    stuck: bool = False                # True when running for longer than stuck_threshold_minutes
     started_at: datetime | None = None
     completed_at: datetime | None = None
     error_message: str | None = None
@@ -162,8 +161,6 @@ class BatchParallelRunStatusResponse(BaseModel):
     failed: int
     running: int
     not_started: int
-    stuck: int                         # subset of running, exceeded stuck_threshold_minutes
-    stuck_threshold_minutes: int
     runs: list[BatchParallelRunStatusItem]
 
 

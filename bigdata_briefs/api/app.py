@@ -20,6 +20,7 @@ from bigdata_briefs.api.routes.admin import router as admin_router
 from bigdata_briefs.api.routes.batch import router as batch_router
 from bigdata_briefs.api.routes.entities import router as entities_router
 from bigdata_briefs.api.routes.rate import router as rate_router
+from bigdata_briefs.api.routes.report import router as report_router
 from bigdata_briefs.api.routes.runs import router as runs_router
 from bigdata_briefs.api.routes.ui import router as ui_router
 from bigdata_briefs.api.routes.universes import router as universes_router
@@ -118,6 +119,7 @@ def create_app() -> FastAPI:
     app.include_router(rate_router, prefix="/api/v1")
     app.include_router(admin_router, prefix="/api/v1")
     app.include_router(universes_router, prefix="/api/v1")
+    app.include_router(report_router, prefix="/api/v1")
     app.include_router(ui_router, prefix="/ui")
 
     return app

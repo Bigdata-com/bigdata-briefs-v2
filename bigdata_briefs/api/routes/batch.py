@@ -494,9 +494,6 @@ def batch_run_parallel(
     )
 
 
-_STUCK_THRESHOLD_MINUTES: int = 30
-
-
 @router.get(
     "/batch/parallel/{batch_id}/status",
     response_model=BatchParallelRunStatusResponse,
@@ -504,13 +501,11 @@ _STUCK_THRESHOLD_MINUTES: int = 30
     summary="Status of a parallel batch run",
     description=(
         "Returns the status of each entity run within a batch submitted via "
-        "**POST /batch/run-parallel**. A run is considered **stuck** when its "
-        f"status is still `running` after {_STUCK_THRESHOLD_MINUTES} minutes."
+        "**POST /batch/run-parallel**."
     ),
 )
 def batch_parallel_status(batch_id: uuid.UUID) -> BatchParallelRunStatusResponse:
     engine = get_engine()
-    now = datetime.utcnow()
 
     with Session(engine) as session:
         batch = session.get(SQLBatchParallelRun, batch_id)
@@ -521,7 +516,7 @@ def batch_parallel_status(batch_id: uuid.UUID) -> BatchParallelRunStatusResponse
     run_ids_map: dict[str, str] = json.loads(batch.run_ids_json)
 
     runs: list[BatchParallelRunStatusItem] = []
-    succeeded = failed = running = not_started = stuck = 0
+    succeeded = failed = running = not_started = 0
 
     with Session(engine) as session:
         for entity_id in entity_ids:
@@ -543,11 +538,6 @@ def batch_parallel_status(batch_id: uuid.UUID) -> BatchParallelRunStatusResponse
                 not_started += 1
                 continue
 
-            is_stuck = False
-            if row.status == "running":
-                elapsed = (now - row.process_started_at_utc).total_seconds() / 60
-                is_stuck = elapsed > _STUCK_THRESHOLD_MINUTES
-
             error_msg: str | None = None
             if row.status == "failed" and row.error_summary:
                 error_msg = row.error_summary.splitlines()[0]
@@ -556,7 +546,6 @@ def batch_parallel_status(batch_id: uuid.UUID) -> BatchParallelRunStatusResponse
                 entity_id=entity_id,
                 run_id=run_id_str,
                 status=row.status,
-                stuck=is_stuck,
                 started_at=row.process_started_at_utc,
                 completed_at=row.process_completed_at_utc,
                 error_message=error_msg,
@@ -568,8 +557,6 @@ def batch_parallel_status(batch_id: uuid.UUID) -> BatchParallelRunStatusResponse
                 failed += 1
             elif row.status == "running":
                 running += 1
-                if is_stuck:
-                    stuck += 1
 
     return BatchParallelRunStatusResponse(
         batch_id=str(batch_id),
@@ -579,8 +566,6 @@ def batch_parallel_status(batch_id: uuid.UUID) -> BatchParallelRunStatusResponse
         failed=failed,
         running=running,
         not_started=not_started,
-        stuck=stuck,
-        stuck_threshold_minutes=_STUCK_THRESHOLD_MINUTES,
         runs=runs,
     )
 
