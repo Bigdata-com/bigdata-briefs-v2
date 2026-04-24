@@ -22,7 +22,7 @@ The pipeline processes each entity through five sequential phases:
 
 ## Quickstart
 
-### Option A — Docker
+### Option A: Docker
 
 ```bash
 # Build
@@ -37,7 +37,7 @@ docker run -d \
   bigdata_briefs
 ```
 
-### Option B — uv (no Docker)
+### Option B: uv (no Docker)
 
 ```bash
 # Install uv if needed: https://docs.astral.sh/uv/getting-started/installation/
@@ -58,7 +58,7 @@ uv run uvicorn bigdata_briefs.api.app:app --host 0.0.0.0 --port 8000
 curl http://localhost:8000/health
 ```
 
-> **Interactive API docs** are available at **`http://localhost:8000/docs`** — open it in your browser to explore and try all endpoints interactively.
+> **Interactive API docs** are available at **`http://localhost:8000/docs`**: open it in your browser to explore and try all endpoints interactively.
 
 ## Available endpoints
 
@@ -167,15 +167,15 @@ Each bullet includes the final text, source citations (headline, chunk text), an
 
 #### `POST /api/v1/batch/bullets/detail`
 
-Returns **full pipeline detail** for every bullet — both published and discarded — for one or more entities. Pass an empty body to retrieve all entities.
+Returns **full pipeline detail** for every bullet (both published and discarded) for one or more entities. Pass an empty body to retrieve all entities.
 
 For each bullet you get:
 - **Published bullets**: relevance score and reasoning that justified publishing
 - **Discarded bullets**: the stage that eliminated them and the reason:
-  - `relevance_score` — scored too low on financial materiality
-  - `grounding` — text not verifiable against cited sources
-  - `novelty_embedding` — already reported in a previous run
-  - `novelty_search` — per-claim verdicts with the evidence chunks that already covered the information
+  - `relevance_score`: scored too low on financial materiality
+  - `grounding`: text not verifiable against cited sources
+  - `novelty_embedding`: already reported in a previous run
+  - `novelty_search`: per-claim verdicts with the evidence chunks that already covered the information
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/batch/bullets/detail \
@@ -187,10 +187,10 @@ curl -X POST http://localhost:8000/api/v1/batch/bullets/detail \
 
 #### `GET /api/v1/report/html`
 
-Generates a self-contained HTML page that can be opened directly in the browser. Published bullets are shown in **green** (fully novel) or **amber** (partially novel, rewritten to surface the new element). Discarded bullets are grouped under a collapsible **Discard** section showing the reason, stage, and — for novelty search discards — the prior evidence that already covered each claim.
+Generates a self-contained HTML page that can be opened directly in the browser. Published bullets are shown in **green** (fully novel) or **amber** (partially novel, rewritten to surface the new element). Discarded bullets are grouped under a collapsible **Discard** section showing the reason, stage, and (for novelty search discards) the prior evidence that already covered each claim.
 
 ```
-# All entities — open directly in browser
+# All entities (open directly in browser)
 http://localhost:8000/api/v1/report/html
 
 # Single entity
@@ -209,7 +209,7 @@ curl "http://localhost:8000/api/v1/report/html?entity_id=0157B1" -o report.html
 
 #### `POST /api/v1/admin/reset-db`
 
-**Drops and recreates all database tables.** Use with caution — all run history, embeddings, and saved bullets are permanently deleted.
+**Drops and recreates all database tables.** Use with caution: all run history, embeddings, and saved bullets are permanently deleted.
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/admin/reset-db
@@ -229,22 +229,22 @@ curl -X POST http://localhost:8000/api/v1/admin/clear-stale-runs
 
 Every run covers a time window `[start, end)`. You can either specify it explicitly with `force_window_start` / `force_window_end`, or let the pipeline compute it automatically via `window_mode`.
 
-**Explicit window** — use `force_window_start` and `force_window_end` to target a specific period. One day at a time is recommended: a single-day window gives the model a focused, bounded set of news to analyze, producing sharper bullets and more reliable novelty comparisons. Wider windows are possible but for entities with a high volume of news they can generate briefs where temporal references are ambiguous or inconsistent.
+**Explicit window**: use `force_window_start` and `force_window_end` to target a specific period. One day at a time is recommended: a single-day window gives the model a focused, bounded set of news to analyze, producing sharper bullets and more reliable novelty comparisons. Wider windows are possible but for entities with a high volume of news they can generate briefs where temporal references are ambiguous or inconsistent.
 
-**Automatic window** — omit the dates and let `window_mode` decide:
+**Automatic window**: omit the dates and let `window_mode` decide:
 
 ### `daily` (default)
 
 Covers `[UTC midnight of today → now]`.
 
 - If the pipeline already ran **today**, it resumes from exactly where that run ended.
-- If the last run was **yesterday or earlier**, it always resets to midnight of today — prior days never influence today's window start.
+- If the last run was **yesterday or earlier**, it always resets to midnight of today: prior days never influence today's window start.
 
 ### `continuous`
 
 Covers `[end of last run → now]`.
 
-- If the last run was yesterday at 18:00, today's run covers from 18:00 yesterday to now — no gap, no reset.
+- If the last run was yesterday at 18:00, today's run covers from 18:00 yesterday to now: no gap, no reset.
 - If no previous run exists, falls back to `[UTC midnight of today → now]`, same as `daily`.
 
 | | `daily` | `continuous` |
@@ -262,7 +262,7 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
   -d '{"universe": "dow_30", "window_mode": "continuous"}'
 ```
 
-> **Overlap protection** — if the requested window (forced or automatic) overlaps any already-completed run for the same entity, that entity's run is rejected immediately with an error and marked as `failed` in the batch status. No API calls or LLM calls are made. Use a non-overlapping date range or reset the entity via `POST /api/v1/admin/reset-db` to clear its history.
+> **Overlap protection**: if the requested window (forced or automatic) overlaps any already-completed run for the same entity, that entity's run is rejected immediately with an error and marked as `failed` in the batch status. No API calls or LLM calls are made. Use a non-overlapping date range or reset the entity via `POST /api/v1/admin/reset-db` to clear its history.
 
 ## Pre-defined universes
 
@@ -283,8 +283,8 @@ Pass `"universe": "top_us_100"` (or any name above) to `run-parallel` or `run` i
 
 | Environment variable | Description | Default |
 |---|---|---|
-| `BIGDATA_API_KEY` | Bigdata.com API key **(required)** | — |
-| `OPENAI_API_KEY` | OpenAI API key **(required)** | — |
+| `BIGDATA_API_KEY` | Bigdata.com API key **(required)** |: |
+| `OPENAI_API_KEY` | OpenAI API key **(required)** |: |
 | `MAX_CONCURRENT_ENTITIES` | Max entities running in parallel | `10` |
 | `DB_STRING` | SQLite connection string | `sqlite:///briefs.db` |
 | `LLM_TIMEOUT_SECONDS` | LLM call timeout | `60` |
