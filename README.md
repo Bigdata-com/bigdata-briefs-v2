@@ -284,6 +284,8 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
   -d '{"universe": "dow_30", "window_mode": "continuous"}'
 ```
 
+> **Overlap protection** — if the requested window (forced or automatic) overlaps any already-completed run for the same entity, that entity's run is rejected immediately with an error and marked as `failed` in the batch status. No API calls or LLM calls are made. Use a non-overlapping date range or reset the entity via `POST /api/v1/admin/reset-db` to clear its history.
+
 ---
 
 ## Pre-defined universes
