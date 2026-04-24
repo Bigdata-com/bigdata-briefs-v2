@@ -140,8 +140,13 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_api_keys(self) -> "Settings":
+        import warnings
         if self.BIGDATA_API_KEY == UNSET or self.OPENAI_API_KEY == UNSET:
-            raise ValueError("BIGDATA_API_KEY and OPENAI_API_KEY must be set.")
+            warnings.warn(
+                "BIGDATA_API_KEY and OPENAI_API_KEY are not set — pipeline runs will fail. "
+                "Set them in .env before triggering a run.",
+                stacklevel=2,
+            )
         if not self.NOVELTY_SEARCH_ENABLED:
             raise ValueError(
                 "NOVELTY_SEARCH_ENABLED must be true: novelty-via-search cannot be disabled."
