@@ -77,7 +77,7 @@ def build_report_dates_for_entity_run(
             start = today_midnight
 
     elif window_mode == WindowMode.CONTINUOUS:
-        # Pick up exactly where the last run ended; no 24h cap.
+        # Pick up exactly where the last run ended; no cap.
         if last_window_end is None:
             start = utc_midnight(end.date())
         else:

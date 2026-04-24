@@ -104,7 +104,8 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
 ```
 
 > `entity_ids` and `universe` are mutually exclusive. Available universes: `dow_30`, `eurostoxx_50`, `top_us_100`, `top_us_500`, `top_eu_100`, `top_eu_500`.  
-> Omit `force_window_start` / `force_window_end` to use the automatic incremental window.
+> Omit `force_window_start` / `force_window_end` to use the automatic incremental window.  
+> Re-running a window that overlaps an already-completed run for the same entity is blocked automatically.
 
 ---
 
@@ -242,6 +243,45 @@ Resets rows that are stuck in `running` status (e.g. after a service crash). Row
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/admin/clear-stale-runs
+```
+
+---
+
+## Understanding run windows
+
+Every run covers a time window `[start, end)`. You can either specify it explicitly with `force_window_start` / `force_window_end`, or let the pipeline compute it automatically via `window_mode`.
+
+**Explicit window** — use `force_window_start` and `force_window_end` to target a specific period. One day at a time is recommended: a single-day window gives the model a focused, bounded set of news to analyze, producing sharper bullets and more reliable novelty comparisons. Wider windows are possible but for entities with a high volume of news they can generate briefs where temporal references are ambiguous or inconsistent.
+
+**Automatic window** — omit the dates and let `window_mode` decide:
+
+### `daily` (default)
+
+Covers `[UTC midnight of today → now]`.
+
+- If the pipeline already ran **today**, it resumes from exactly where that run ended.
+- If the last run was **yesterday or earlier**, it always resets to midnight of today — prior days never influence today's window start.
+
+### `continuous`
+
+Covers `[end of last run → now]`.
+
+- If the last run was yesterday at 18:00, today's run covers from 18:00 yesterday to now — no gap, no reset.
+- If no previous run exists, falls back to `[UTC midnight of today → now]`, same as `daily`.
+
+| | `daily` | `continuous` |
+|---|---|---|
+| No previous run | `[today midnight → now]` | `[today midnight → now]` |
+| Last run was today at 09:00 | `[09:00 → now]` | `[09:00 → now]` |
+| Last run was yesterday at 18:00 | `[today midnight → now]` | `[yesterday 18:00 → now]` |
+| Last run was 3 days ago | `[today midnight → now]` | `[3 days ago end → now]` |
+
+Use `daily` for standard day-by-day monitoring. Use `continuous` when you need to guarantee no gaps across runs regardless of when they were last triggered.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
+  -H "Content-Type: application/json" \
+  -d '{"universe": "dow_30", "window_mode": "continuous"}'
 ```
 
 ---
