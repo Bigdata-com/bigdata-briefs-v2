@@ -773,12 +773,8 @@ async def ui_run_page(request: Request) -> HTMLResponse:
     templates = request.app.state.templates
     preset_names = list(settings.ENTITY_LISTS.keys())
     return templates.TemplateResponse(
-        "ui/run.html",
-        {
-            "request": request,
-            "preset_names": preset_names,
-            "entity_lists_json": json.dumps(settings.ENTITY_LISTS),
-        },
+        request, "ui/run.html",
+        {"preset_names": preset_names, "entity_lists_json": json.dumps(settings.ENTITY_LISTS)},
     )
 
 
@@ -788,8 +784,8 @@ async def ui_history_page(request: Request) -> HTMLResponse:
     engine = get_engine()
     entities = _get_distinct_entities(engine)
     return templates.TemplateResponse(
-        "ui/history.html",
-        {"request": request, "entities": entities, "page": "history"},
+        request, "ui/history.html",
+        {"entities": entities, "page": "history"},
     )
 
 
@@ -799,8 +795,8 @@ async def ui_history_details_page(request: Request) -> HTMLResponse:
     engine = get_engine()
     entities = _get_distinct_entities(engine)
     return templates.TemplateResponse(
-        "ui/history.html",
-        {"request": request, "entities": entities, "page": "history-details"},
+        request, "ui/history.html",
+        {"entities": entities, "page": "history-details"},
     )
 
 
@@ -856,8 +852,8 @@ async def ui_batch_run(
     )
 
     return templates.TemplateResponse(
-        "ui/partials/run_progress.html",
-        {"request": request, "batch_id": batch_id, "total": len(ids), "done": 0},
+        request, "ui/partials/run_progress.html",
+        {"batch_id": batch_id, "total": len(ids), "done": 0},
     )
 
 
@@ -879,8 +875,8 @@ async def ui_run_status(request: Request, batch_id: str = "") -> HTMLResponse:
 
     if batch.status == "running":
         return templates.TemplateResponse(
-            "ui/partials/run_progress.html",
-            {"request": request, "batch_id": batch_id, "total": batch.total, "done": batch.done},
+            request, "ui/partials/run_progress.html",
+            {"batch_id": batch_id, "total": batch.total, "done": batch.done},
         )
 
     # finished or cancelled — deserialise results and render final HTML
@@ -899,8 +895,8 @@ async def ui_run_status(request: Request, batch_id: str = "") -> HTMLResponse:
 
     results_html = _render_batch_results(statuses)
     return templates.TemplateResponse(
-        "ui/partials/run_result.html",
-        {"request": request, "results_html": results_html},
+        request, "ui/partials/run_result.html",
+        {"results_html": results_html},
     )
 
 
@@ -948,8 +944,8 @@ async def ui_history_partial(request: Request, entity_id: str = "") -> HTMLRespo
     runs = _get_history_runs(engine, entity_id)
     history_html = _render_entity_history_html(runs, include_discarded=False, include_details=False)
     return templates.TemplateResponse(
-        "ui/partials/history_content.html",
-        {"request": request, "history_html": history_html},
+        request, "ui/partials/history_content.html",
+        {"history_html": history_html},
     )
 
 
@@ -962,6 +958,6 @@ async def ui_history_details_partial(request: Request, entity_id: str = "") -> H
     runs = _get_history_runs(engine, entity_id)
     history_html = _render_entity_history_html(runs, include_discarded=True, include_details=True)
     return templates.TemplateResponse(
-        "ui/partials/history_content.html",
-        {"request": request, "history_html": history_html},
+        request, "ui/partials/history_content.html",
+        {"history_html": history_html},
     )

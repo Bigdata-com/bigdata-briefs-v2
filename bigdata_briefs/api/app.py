@@ -10,7 +10,7 @@ from threading import Semaphore
 import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -104,6 +104,10 @@ def create_app() -> FastAPI:
     # Jinja2 templates — shared across all template responses
     templates_dir = _PACKAGE_DIR / "templates"
     app.state.templates = Jinja2Templates(directory=str(templates_dir))
+
+    @app.get("/", include_in_schema=False)
+    async def root() -> RedirectResponse:
+        return RedirectResponse(url="/ui/run")
 
     @app.get("/health", include_in_schema=False)
     async def health() -> JSONResponse:
