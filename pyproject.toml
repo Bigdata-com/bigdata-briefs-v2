@@ -1,8 +1,7 @@
 [project]
 name = "bigdata_briefs"
 version = "4.0.0"
-description = "Generate briefs based on finantially relevant information from Bigdata.com "
-authors = [{name = "jaldana", email = "jaldana@ravenpack.com"}]
+description = "Generate briefs based on financially relevant information from Bigdata.com "
 readme = "README.md"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
@@ -47,8 +46,7 @@ packages = ["bigdata_briefs"]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# Anchor pytest here so runs from this directory do not inherit parent
-# Projects/fricigliano/pyproject.toml (parent pytest: --cov=src, asyncio_mode).
+# Anchor pytest here so runs from this directory do not inherit parent config.
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
