@@ -574,6 +574,7 @@ def batch_parallel_status(batch_id: uuid.UUID) -> BatchParallelRunStatusResponse
     "/batch/status",
     response_model=BatchStatusResponse,
     dependencies=[Depends(require_api_key)],
+    include_in_schema=False,
     summary="Health-check on a batch run",
     description=(
         "Given the list of `run_id`s returned by **POST /api/v1/batch/run**, "

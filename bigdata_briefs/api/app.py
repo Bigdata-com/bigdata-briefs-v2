@@ -113,14 +113,14 @@ def create_app() -> FastAPI:
     async def health() -> JSONResponse:
         return JSONResponse({"status": "ok"})
 
-    app.include_router(entities_router, prefix="/api/v1")
-    app.include_router(runs_router, prefix="/api/v1")
+    app.include_router(entities_router, prefix="/api/v1", include_in_schema=False)
+    app.include_router(runs_router, prefix="/api/v1", include_in_schema=False)
     app.include_router(batch_router, prefix="/api/v1")
-    app.include_router(rate_router, prefix="/api/v1")
+    app.include_router(rate_router, prefix="/api/v1", include_in_schema=False)
     app.include_router(admin_router, prefix="/api/v1")
     app.include_router(universes_router, prefix="/api/v1")
     app.include_router(report_router, prefix="/api/v1")
-    app.include_router(ui_router, prefix="/ui")
+    app.include_router(ui_router, prefix="/ui", include_in_schema=False)
 
     return app
 

@@ -18,13 +18,15 @@ The pipeline processes each entity through five sequential phases:
 
 ## Prerequisites
 
-- Docker
 - A **Bigdata.com API key**
 - An **OpenAI API key**
+- **Docker** (option A) or **uv** (option B)
 
 ---
 
 ## Quickstart
+
+### Option A — Docker
 
 ```bash
 # Build
@@ -39,13 +41,28 @@ docker run -d \
   bigdata_briefs
 ```
 
+### Option B — uv (no Docker)
+
+```bash
+# Install uv if needed: https://docs.astral.sh/uv/getting-started/installation/
+
+# Install dependencies
+uv sync
+
+# Copy and edit the environment file
+cp .env.example .env
+
+# Run
+uv run uvicorn bigdata_briefs.api.app:app --host 0.0.0.0 --port 8000
+```
+
 ### Verify the service
 
 ```bash
 curl http://localhost:8000/health
 ```
 
-The interactive API docs are available at `http://localhost:8000/docs`.
+> **Interactive API docs** are available at **`http://localhost:8000/docs`** — open it in your browser to explore and try all endpoints interactively.
 
 ---
 
@@ -86,7 +103,7 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
 }
 ```
 
-> `entity_ids` and `universe` are mutually exclusive. Available universes: `dow_30`, `eurostoxx_50`.  
+> `entity_ids` and `universe` are mutually exclusive. Available universes: `dow_30`, `eurostoxx_50`, `top_us_100`, `top_us_500`, `top_eu_100`, `top_eu_500`.  
 > Omit `force_window_start` / `force_window_end` to use the automatic incremental window.
 
 ---
@@ -111,7 +128,7 @@ curl -X POST http://localhost:8000/api/v1/batch/run \
 
 #### `GET /api/v1/batch/parallel/{batch_id}/status`
 
-Returns the real-time status of a batch submitted via `run-parallel`: how many entities have succeeded, failed, are still running, or are stuck (running for more than 30 minutes).
+Returns the real-time status of a batch submitted via `run-parallel`: how many entities have succeeded, failed, are still running, or have not started yet.
 
 ```bash
 curl http://localhost:8000/api/v1/batch/parallel/3f8a1c2d-.../status
@@ -144,7 +161,7 @@ curl http://localhost:8000/api/v1/batch/parallel/3f8a1c2d-.../status
 
 #### `POST /api/v1/batch/bullets`
 
-Returns the published bullet points for one or more entities, grouped by run. Pass an empty `entity_ids` list to retrieve all entities in the database.
+Returns the published bullet points for one or more entities, grouped by run. Pass an empty body to retrieve all entities in the database.
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/batch/bullets \
@@ -163,7 +180,7 @@ Each bullet includes the final text, source citations (headline, chunk text), an
 
 #### `POST /api/v1/batch/bullets/detail`
 
-Returns **full pipeline detail** for every bullet — both published and discarded — for one or more entities. Pass an empty `entity_ids` list to retrieve all entities.
+Returns **full pipeline detail** for every bullet — both published and discarded — for one or more entities. Pass an empty body to retrieve all entities.
 
 For each bullet you get:
 - **Published bullets**: relevance score and reasoning that justified publishing
@@ -231,14 +248,18 @@ curl -X POST http://localhost:8000/api/v1/admin/clear-stale-runs
 
 ## Pre-defined universes
 
-Two entity universes are bundled with the service:
+Six entity universes are bundled with the service:
 
 | Universe | Entities | Description |
 |---|---|---|
 | `dow_30` | 30 | Dow Jones Industrial Average components |
 | `eurostoxx_50` | 50 | Euro Stoxx 50 components |
+| `top_us_100` | 100 | Top 100 US companies by market cap |
+| `top_us_500` | 500 | Top 500 US companies by market cap |
+| `top_eu_100` | 100 | Top 100 European companies by market cap |
+| `top_eu_500` | 500 | Top 500 European companies by market cap |
 
-Pass `"universe": "dow_30"` (or `"eurostoxx_50"`) to `run-parallel` or `run` instead of an explicit `entity_ids` list.
+Pass `"universe": "top_us_100"` (or any name above) to `run-parallel` or `run` instead of an explicit `entity_ids` list.
 
 ---
 
@@ -249,6 +270,11 @@ Pass `"universe": "dow_30"` (or `"eurostoxx_50"`) to `run-parallel` or `run` ins
 | `BIGDATA_API_KEY` | Bigdata.com API key **(required)** | — |
 | `OPENAI_API_KEY` | OpenAI API key **(required)** | — |
 | `MAX_CONCURRENT_ENTITIES` | Max entities running in parallel | `10` |
+| `DB_STRING` | SQLite connection string | `sqlite:///briefs.db` |
+| `LLM_TIMEOUT_SECONDS` | LLM call timeout | `60` |
+| `NOVELTY_LOOKBACK_DAYS` | Days of history used for novelty checks | `14` |
+
+See `.env.example` for the full list with descriptions.
 
 ---
 
@@ -261,8 +287,7 @@ curl http://localhost:8000/health
 ```
 
 **Entity stuck in `running` for a long time**  
-Check `GET /api/v1/batch/parallel/{batch_id}/status` for `"stuck": true`, then call `POST /api/v1/admin/clear-stale-runs` to reset it and re-submit.
+Call `POST /api/v1/admin/clear-stale-runs` to reset it, then re-submit the entity.
 
 **All bullets discarded**  
 Expected when the entity has no materially new information in the requested window relative to prior runs. Try a different date range or run on a day with more news activity for that entity.
-
