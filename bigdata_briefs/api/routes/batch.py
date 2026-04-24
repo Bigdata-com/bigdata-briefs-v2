@@ -267,6 +267,7 @@ def _run_entities_sequentially(
     "/batch/run",
     response_model=BatchRunResponse,
     dependencies=[Depends(require_api_key)],
+    include_in_schema=False,
     summary="Run pipeline sequentially for multiple entities",
     description=(
         "Submits a list of entities to the pipeline and processes them **one at a time**, "
@@ -388,10 +389,17 @@ def _run_one_entity_safely(
         "concurrently up to `MAX_CONCURRENT_ENTITIES`. Returns a single **batch_id** to monitor "
         "progress via **GET /api/v1/batch/parallel/{batch_id}/status**.\n\n"
         "**Date window** — omit `force_window_start` / `force_window_end` to use the automatic "
-        "incremental window (see `window_mode`). Pass explicit ISO 8601 dates to target a specific "
-        "period. One day at a time is recommended: a single-day window produces sharper bullets "
-        "and more reliable novelty comparisons. Wider windows can generate briefs with ambiguous "
-        "temporal references for high-volume entities.\n\n"
+        "incremental window controlled by `window_mode`. Pass explicit ISO 8601 dates to target a "
+        "specific period. One day at a time is recommended: a single-day window produces sharper "
+        "bullets and more reliable novelty comparisons. Wider windows can generate briefs with "
+        "ambiguous temporal references for high-volume entities.\n\n"
+        "**Window modes** (when no forced dates are provided):\n"
+        "- `daily` *(default)* — covers `[UTC midnight of today → now]`. If the pipeline already "
+        "ran today it resumes from where that run ended; if the last run was yesterday or earlier "
+        "it always resets to midnight of today.\n"
+        "- `continuous` — covers `[end of last run → now]`, picking up exactly where the previous "
+        "run stopped regardless of which day it was. Falls back to `[UTC midnight of today → now]` "
+        "if no previous run exists. Use this mode to guarantee no gaps across consecutive runs.\n\n"
         "**Overlap protection** — if the requested window overlaps an already-completed run for "
         "the same entity, that entity is rejected immediately with an error and marked as `failed` "
         "in the batch status. No API or LLM calls are made for that entity."
