@@ -14,15 +14,11 @@ The pipeline processes each entity through five sequential phases:
 4. **Novelty Check via Search** — claim-level verification against recent news evidence
 5. **Post-processing** — redundancy removal, thematic consolidation, report assembly *(in development)*
 
----
-
 ## Prerequisites
 
 - A **Bigdata.com API key**
 - An **OpenAI API key**
 - **Docker** (option A) or **uv** (option B)
-
----
 
 ## Quickstart
 
@@ -63,8 +59,6 @@ curl http://localhost:8000/health
 ```
 
 > **Interactive API docs** are available at **`http://localhost:8000/docs`** — open it in your browser to explore and try all endpoints interactively.
-
----
 
 ## Available endpoints
 
@@ -107,8 +101,6 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
 > Omit `force_window_start` / `force_window_end` to use the automatic incremental window.  
 > Re-running a window that overlaps an already-completed run for the same entity is blocked automatically.
 
----
-
 #### `POST /api/v1/batch/run`
 
 Same as `run-parallel` but processes entities **sequentially** one after the other. Useful for controlled, lower-concurrency runs.
@@ -122,8 +114,6 @@ curl -X POST http://localhost:8000/api/v1/batch/run \
     "force_window_end": "2026-04-22T23:59:59"
   }'
 ```
-
----
 
 ### Monitor a batch
 
@@ -156,8 +146,6 @@ curl http://localhost:8000/api/v1/batch/parallel/3f8a1c2d-.../status
 }
 ```
 
----
-
 ### Retrieve results
 
 #### `POST /api/v1/batch/bullets`
@@ -177,8 +165,6 @@ curl -X POST http://localhost:8000/api/v1/batch/bullets \
 
 Each bullet includes the final text, source citations (headline, chunk text), and novelty metadata (`search_action`, `not_fully_novel`).
 
----
-
 #### `POST /api/v1/batch/bullets/detail`
 
 Returns **full pipeline detail** for every bullet — both published and discarded — for one or more entities. Pass an empty body to retrieve all entities.
@@ -196,8 +182,6 @@ curl -X POST http://localhost:8000/api/v1/batch/bullets/detail \
   -H "Content-Type: application/json" \
   -d '{"entity_ids": ["0157B1"]}'
 ```
-
----
 
 ### HTML report
 
@@ -221,8 +205,6 @@ Download via curl:
 curl "http://localhost:8000/api/v1/report/html?entity_id=0157B1" -o report.html
 ```
 
----
-
 ### Administration
 
 #### `POST /api/v1/admin/reset-db`
@@ -235,8 +217,6 @@ curl -X POST http://localhost:8000/api/v1/admin/reset-db
 
 Useful when starting a fresh evaluation or clearing test data before a new run.
 
----
-
 #### `POST /api/v1/admin/clear-stale-runs`
 
 Resets rows that are stuck in `running` status (e.g. after a service crash). Rows older than the configured threshold are marked as `failed` so they no longer block re-runs for the same entity.
@@ -244,8 +224,6 @@ Resets rows that are stuck in `running` status (e.g. after a service crash). Row
 ```bash
 curl -X POST http://localhost:8000/api/v1/admin/clear-stale-runs
 ```
-
----
 
 ## Understanding run windows
 
@@ -286,8 +264,6 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
 
 > **Overlap protection** — if the requested window (forced or automatic) overlaps any already-completed run for the same entity, that entity's run is rejected immediately with an error and marked as `failed` in the batch status. No API calls or LLM calls are made. Use a non-overlapping date range or reset the entity via `POST /api/v1/admin/reset-db` to clear its history.
 
----
-
 ## Pre-defined universes
 
 Six entity universes are bundled with the service:
@@ -303,8 +279,6 @@ Six entity universes are bundled with the service:
 
 Pass `"universe": "top_us_100"` (or any name above) to `run-parallel` or `run` instead of an explicit `entity_ids` list.
 
----
-
 ## Configuration reference
 
 | Environment variable | Description | Default |
@@ -317,8 +291,6 @@ Pass `"universe": "top_us_100"` (or any name above) to `run-parallel` or `run` i
 | `NOVELTY_LOOKBACK_DAYS` | Days of history used for novelty checks | `14` |
 
 See `.env.example` for the full list with descriptions.
-
----
 
 ## Troubleshooting
 
