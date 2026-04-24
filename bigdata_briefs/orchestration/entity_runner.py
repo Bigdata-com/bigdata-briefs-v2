@@ -141,6 +141,35 @@ def _assert_no_active_run(
         )
 
 
+class OrchestratorWindowOverlapError(RuntimeError):
+    """Requested window overlaps a completed run for this entity."""
+
+
+def _assert_no_overlapping_run(
+    session: Session,
+    *,
+    entity_id: str,
+    report_dates: ReportDates,
+) -> None:
+    """Raise if any completed run for entity_id overlaps [report_dates.start, report_dates.end)."""
+    stmt = (
+        select(SQLEntityPipelineRunLog)
+        .where(SQLEntityPipelineRunLog.entity_id == entity_id)
+        .where(SQLEntityPipelineRunLog.status.in_(["succeeded", "no_data"]))
+    )
+    rows = session.exec(stmt).all()
+    rs = _as_utc_aware(report_dates.start)
+    re = _as_utc_aware(report_dates.end)
+    for row in rows:
+        existing_start = _as_utc_aware(row.report_window_start)
+        existing_end = _as_utc_aware(row.report_window_end)
+        if rs < existing_end and existing_start < re:
+            raise OrchestratorWindowOverlapError(
+                f"entity_id={entity_id!r} requested window [{rs.isoformat()}, {re.isoformat()}) "
+                f"overlaps existing run [{existing_start.isoformat()}, {existing_end.isoformat()})"
+            )
+
+
 def _insert_running_log(
     session: Session,
     *,
@@ -397,6 +426,18 @@ def run_entity_incremental(
             return EntityRunResult(
                 entity_id=entity_id,
                 report_dates=ReportDates(start=now, end=now),
+                success=False,
+                dry_run=dry_run,
+                error=str(e),
+            )
+
+    with Session(eng) as session:
+        try:
+            _assert_no_overlapping_run(session, entity_id=entity_id, report_dates=report_dates)
+        except OrchestratorWindowOverlapError as e:
+            return EntityRunResult(
+                entity_id=entity_id,
+                report_dates=report_dates,
                 success=False,
                 dry_run=dry_run,
                 error=str(e),
