@@ -740,7 +740,7 @@ _HTML_DOC_SHELL_HEAD: Final[str] = """<!DOCTYPE html>
         <li class="legend-row">
           <span class="legend-swatch partially-novel" aria-hidden="true"></span>
           <span>
-            <span class="legend-label-amber">Amber</span> briefs are partially new: they add new details, new information, or an evolution compared with an earlier story.
+            <span class="legend-label-amber">Amber</span> briefs are partially new: they add new details, new information, or an evolution compared with an earlier story. The bullet combines known context (information already in prior coverage) with a new element not previously reported.
           </span>
         </li>
       </ul>
@@ -1405,9 +1405,10 @@ def _render_detail_bullet_block(bullet: BulletJson, bullet_index: int, details_i
     )
     citations = _bullet_citation_objects(bullet)
     if active:
+        was_rewritten = bool(final) and final.strip() != original.strip()
         novelty_class = (
             "bullet-not-fully-novel"
-            if _bullet_shows_partial_novelty_style(bullet)
+            if (was_rewritten or _bullet_shows_partial_novelty_style(bullet))
             else "bullet-fully-novel"
         )
         body_block = _render_bullet_prose_with_inline_refs(
