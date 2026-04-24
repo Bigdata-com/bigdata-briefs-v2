@@ -4,7 +4,7 @@ An AI-powered pipeline that generates financially relevant, novelty-filtered bri
 
 ## Architecture overview
 
-![Pipeline diagram](assets/pipeline-diagram.png)
+![Pipeline diagram](assets/bigdata_briefs_overview.png)
 
 The pipeline processes each entity through five sequential phases:
 
@@ -12,7 +12,7 @@ The pipeline processes each entity through five sequential phases:
 2. **Bullet Generation** — LLM extracts material bullet points per theme
 3. **Novelty Check via Embedding** — discards bullets already covered in prior runs
 4. **Novelty Check via Search** — claim-level verification against recent news evidence
-5. **Post-processing** — redundancy removal, thematic consolidation, report assembly
+5. **Post-processing** — redundancy removal, thematic consolidation, report assembly *(optional, disabled by default — work in progress)*
 
 ---
 
