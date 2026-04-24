@@ -289,12 +289,8 @@ def batch_run(
     _assert_no_running_entities(body.entity_ids)
 
     cfg_path = resolve_config_path(None)
-    pipeline_config = (
-        body.pipeline_config
-        if body.pipeline_config is not None
-        else load_pipeline_config_dict(cfg_path)
-    )
-    state_dir = _resolve_state_dir(body.state_dir)
+    pipeline_config = load_pipeline_config_dict(cfg_path)
+    state_dir = _resolve_state_dir(None)
     run_ids = [uuid.uuid4() for _ in body.entity_ids]
 
     background_tasks.add_task(
@@ -303,7 +299,7 @@ def batch_run(
         entity_ids=body.entity_ids,
         pipeline_config=pipeline_config,
         state_dir=state_dir,
-        force_run=body.force_run,
+        force_run=False,
         force_window_start=body.force_window_start,
         force_window_end=body.force_window_end,
         window_mode=body.window_mode,
@@ -421,12 +417,8 @@ def batch_run_parallel(
     _assert_no_running_entities(entity_ids)
 
     cfg_path = resolve_config_path(None)
-    pipeline_config = (
-        body.pipeline_config
-        if body.pipeline_config is not None
-        else load_pipeline_config_dict(cfg_path)
-    )
-    state_dir = _resolve_state_dir(body.state_dir)
+    pipeline_config = load_pipeline_config_dict(cfg_path)
+    state_dir = _resolve_state_dir(None)
     run_ids = [uuid.uuid4() for _ in entity_ids]
     engine = get_engine()
     batch_id = uuid.uuid4()
@@ -468,7 +460,7 @@ def batch_run_parallel(
             entity_id=entity_id,
             pipeline_config=pipeline_config,
             state_dir=state_dir,
-            force_run=body.force_run,
+            force_run=False,
             force_window_start=body.force_window_start,
             force_window_end=body.force_window_end,
             window_mode=body.window_mode,

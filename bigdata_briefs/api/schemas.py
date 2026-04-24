@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from bigdata_briefs.orchestration.windows import WindowMode
 
@@ -174,14 +174,51 @@ class BatchRunRequest(BaseModel):
     When ``universe`` is set, entity IDs are resolved from the named universe CSV.
     """
 
-    entity_ids: list[str] = []
-    universe: str | None = None          # e.g. "dow_30" or "eurostoxx_50"
-    pipeline_config: dict[str, Any] | None = None
-    state_dir: str | None = None
-    force_run: bool = False
-    force_window_start: datetime | None = None  # override report window start (ISO 8601)
-    force_window_end: datetime | None = None    # override report window end   (ISO 8601)
-    window_mode: WindowMode = WindowMode.DAILY
+    entity_ids: list[str] = Field(
+        default=[],
+        description=(
+            "List of Bigdata entity IDs to process. "
+            "Mutually exclusive with 'universe'. "
+            "Pass an empty list together with 'universe' to run a full pre-defined universe."
+        ),
+    )
+    universe: str | None = Field(
+        default=None,
+        description=(
+            "Name of a pre-defined entity universe to run instead of an explicit entity list. "
+            "Available values: dow_30, eurostoxx_50, top_us_100, top_us_500, top_eu_100, top_eu_500. "
+            "Mutually exclusive with 'entity_ids'."
+        ),
+    )
+    force_window_start: datetime | None = Field(
+        default=None,
+        description=(
+            "Override the report window start (ISO 8601, UTC). Must be provided together with "
+            "force_window_end. When omitted the window is computed automatically based on window_mode. "
+            "One day at a time is recommended: a single-day window produces sharper bullets and more "
+            "reliable novelty comparisons. Wider windows can generate briefs with ambiguous temporal "
+            "references for high-volume entities."
+        ),
+    )
+    force_window_end: datetime | None = Field(
+        default=None,
+        description=(
+            "Override the report window end (ISO 8601, UTC). Must be provided together with "
+            "force_window_start. The window covers [force_window_start, force_window_end)."
+        ),
+    )
+    window_mode: WindowMode = Field(
+        default=WindowMode.DAILY,
+        description=(
+            "Controls how the search window is computed when no forced dates are provided. "
+            "'daily' (default): covers [UTC midnight of today → now]. If the pipeline already ran "
+            "today it resumes from where that run ended; if the last run was yesterday or earlier it "
+            "always resets to midnight of today. "
+            "'continuous': covers [end of last run → now], picking up exactly where the previous run "
+            "stopped regardless of which day it was. Falls back to [UTC midnight of today → now] if "
+            "no previous run exists. Use this mode to guarantee no gaps across consecutive runs."
+        ),
+    )
 
 
 class BatchRunResponse(BaseModel):
