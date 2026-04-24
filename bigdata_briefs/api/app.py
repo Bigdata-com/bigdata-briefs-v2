@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import threading
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -56,9 +55,6 @@ async def lifespan(app: FastAPI):
         max_workers=settings.MAX_CONCURRENT_ENTITIES,
         thread_name_prefix="entity-worker",
     )
-    # UI batch state: batch_id -> BatchState (see routes/ui.py)
-    app.state.active_batches: dict = {}
-    app.state.active_batches_lock = threading.Lock()
 
     logger.info(
         "FastAPI lifespan: singletons ready "

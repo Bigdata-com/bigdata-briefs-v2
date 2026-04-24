@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import html
 import json
-import threading
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -38,7 +37,11 @@ from bigdata_briefs.api.dependencies import (
 )
 from bigdata_briefs.orchestration.config_load import load_pipeline_config_dict, resolve_config_path
 from bigdata_briefs.orchestration.entity_runner import run_entity_incremental
-from bigdata_briefs.orchestration.models import SQLEntityOrchestrationState, SQLEntityPipelineRunLog
+from bigdata_briefs.orchestration.models import (
+    SQLEntityOrchestrationState,
+    SQLEntityPipelineRunLog,
+    SQLUIBatchRun,
+)
 from bigdata_briefs.orchestration.windows import WindowMode, build_report_dates_for_entity_run
 from bigdata_briefs.settings import settings
 
@@ -60,18 +63,6 @@ class EntityRunStatus:
     source_references: dict = field(default_factory=dict)
 
 
-@dataclass
-class BatchState:
-    batch_id: str
-    cancel_event: threading.Event
-    entity_ids: list[str]
-    total: int
-    done: int = 0
-    statuses: list[EntityRunStatus] = field(default_factory=list)
-    finished: bool = False
-    lock: threading.Lock = field(default_factory=threading.Lock)
-
-
 def _get_entity_name(engine, entity_id: str) -> str:
     with Session(engine) as session:
         row = session.get(SQLEntityOrchestrationState, entity_id)
@@ -80,30 +71,106 @@ def _get_entity_name(engine, entity_id: str) -> str:
     return entity_id
 
 
+# ── DB helpers for batch persistence ─────────────────────────────────────────
+
+
+def _db_create_batch(engine, batch_id: str, entity_ids: list[str]) -> None:
+    now = datetime.now(timezone.utc)
+    row = SQLUIBatchRun(
+        batch_id=batch_id,
+        status="running",
+        entity_ids_json=json.dumps(entity_ids),
+        results_json="[]",
+        total=len(entity_ids),
+        done=0,
+        created_at=now,
+        updated_at=now,
+    )
+    with Session(engine) as session:
+        session.add(row)
+        session.commit()
+
+
+def _db_append_result(engine, batch_id: str, result: EntityRunStatus) -> None:
+    with Session(engine) as session:
+        row = session.get(SQLUIBatchRun, batch_id)
+        if row is None:
+            return
+        existing: list[dict] = json.loads(row.results_json)
+        existing.append({
+            "entity_id": result.entity_id,
+            "entity_name": result.entity_name,
+            "status": result.status,
+            "error": result.error,
+            "window_start": result.window_start,
+            "window_end": result.window_end,
+            "bullet_points": result.bullet_points,
+            "source_references": result.source_references,
+        })
+        row.results_json = json.dumps(existing)
+        row.done += 1
+        row.updated_at = datetime.now(timezone.utc)
+        session.add(row)
+        session.commit()
+
+
+def _db_finish_batch(engine, batch_id: str) -> None:
+    with Session(engine) as session:
+        row = session.get(SQLUIBatchRun, batch_id)
+        if row is None:
+            return
+        row.status = "finished"
+        row.updated_at = datetime.now(timezone.utc)
+        session.add(row)
+        session.commit()
+
+
+def _db_cancel_batch(engine, batch_id: str) -> None:
+    # The background thread checks status at each entity iteration (~1 ms SQLite read).
+    # DB flag (vs threading.Event) survives machine restarts.
+    with Session(engine) as session:
+        row = session.get(SQLUIBatchRun, batch_id)
+        if row is None:
+            return
+        row.status = "cancelled"
+        row.updated_at = datetime.now(timezone.utc)
+        session.add(row)
+        session.commit()
+
+
+def _db_get_batch(engine, batch_id: str) -> SQLUIBatchRun | None:
+    with Session(engine) as session:
+        return session.get(SQLUIBatchRun, batch_id)
+
+
+def _db_is_cancelled(engine, batch_id: str) -> bool:
+    row = _db_get_batch(engine, batch_id)
+    return row is not None and row.status == "cancelled"
+
+
+# ── Background batch worker ───────────────────────────────────────────────────
+
+
 def _ui_run_batch(
     *,
     batch_id: str,
     entity_ids: list[str],
     force_window_end: datetime | None,
-    app_state,
     engine,
     rate_limiter,
     connection_sem,
     http_client,
 ) -> None:
-    batch: BatchState = app_state.active_batches[batch_id]
     state_dir = Path(".brief_pipeline_state")
     pipeline_config = load_pipeline_config_dict(resolve_config_path(None))
 
     for entity_id in entity_ids:
-        if batch.cancel_event.is_set():
-            with batch.lock:
-                batch.statuses.append(EntityRunStatus(
-                    entity_id=entity_id,
-                    entity_name=_get_entity_name(engine, entity_id),
-                    status="cancelled",
-                ))
-                batch.done += 1
+        if _db_is_cancelled(engine, batch_id):
+            _db_append_result(engine, batch_id, EntityRunStatus(
+                entity_id=entity_id,
+                entity_name=_get_entity_name(engine, entity_id),
+                status="cancelled",
+            ))
             continue
 
         entity_name = _get_entity_name(engine, entity_id)
@@ -139,14 +206,12 @@ def _ui_run_batch(
                 http_client=http_client,
             )
         except Exception as exc:
-            with batch.lock:
-                batch.statuses.append(EntityRunStatus(
-                    entity_id=entity_id,
-                    entity_name=entity_name,
-                    status="failed",
-                    error=str(exc),
-                ))
-                batch.done += 1
+            _db_append_result(engine, batch_id, EntityRunStatus(
+                entity_id=entity_id,
+                entity_name=entity_name,
+                status="failed",
+                error=str(exc),
+            ))
             continue
 
         bullet_points: list[dict] = []
@@ -169,21 +234,19 @@ def _ui_run_batch(
             window_start = result.report_dates.start.strftime("%Y-%m-%d %H:%M UTC")
             window_end = result.report_dates.end.strftime("%Y-%m-%d %H:%M UTC")
 
-        with batch.lock:
-            batch.statuses.append(EntityRunStatus(
-                entity_id=entity_id,
-                entity_name=entity_name,
-                status="succeeded" if result.success else "failed",
-                error=result.error if not result.success else None,
-                window_start=window_start,
-                window_end=window_end,
-                bullet_points=bullet_points,
-                source_references=source_references,
-            ))
-            batch.done += 1
+        _db_append_result(engine, batch_id, EntityRunStatus(
+            entity_id=entity_id,
+            entity_name=entity_name,
+            status="succeeded" if result.success else "failed",
+            error=result.error if not result.success else None,
+            window_start=window_start,
+            window_end=window_end,
+            bullet_points=bullet_points,
+            source_references=source_references,
+        ))
 
-    with batch.lock:
-        batch.finished = True
+    # Mark finished regardless of how many entities succeeded/failed/were cancelled.
+    _db_finish_batch(engine, batch_id)
 
 
 # ── Data helpers ──────────────────────────────────────────────────────────────
@@ -774,17 +837,9 @@ async def ui_batch_run(
             return HTMLResponse('<p style="color:#dc2626">Invalid end date format. Use YYYY-MM-DDTHH:MM</p>')
 
     batch_id = str(uuid.uuid4())
-    cancel_event = threading.Event()
-    batch = BatchState(
-        batch_id=batch_id,
-        cancel_event=cancel_event,
-        entity_ids=ids,
-        total=len(ids),
-    )
-    with request.app.state.active_batches_lock:
-        request.app.state.active_batches[batch_id] = batch
-
     engine = get_engine()
+    _db_create_batch(engine, batch_id, ids)
+
     rate_limiter = get_rate_limiter(request)
     connection_sem = get_connection_sem(request)
     http_client = get_http_client(request)
@@ -794,7 +849,6 @@ async def ui_batch_run(
         batch_id=batch_id,
         entity_ids=ids,
         force_window_end=force_window_end,
-        app_state=request.app.state,
         engine=engine,
         rate_limiter=rate_limiter,
         connection_sem=connection_sem,
@@ -809,35 +863,40 @@ async def ui_batch_run(
 
 @router.post("/batch/stop", response_class=HTMLResponse)
 async def ui_batch_stop(request: Request, batch_id: str = Form(default="")) -> HTMLResponse:
-    with request.app.state.active_batches_lock:
-        batch: BatchState | None = request.app.state.active_batches.get(batch_id)
-    if batch:
-        batch.cancel_event.set()
+    engine = get_engine()
+    _db_cancel_batch(engine, batch_id)
     return HTMLResponse('<p style="color:#92400e;font-size:0.9rem">Stop requested — waiting for current entity to finish.</p>')
 
 
 @router.get("/partials/run-status", response_class=HTMLResponse)
 async def ui_run_status(request: Request, batch_id: str = "") -> HTMLResponse:
     templates = request.app.state.templates
-    with request.app.state.active_batches_lock:
-        batch: BatchState | None = request.app.state.active_batches.get(batch_id)
+    engine = get_engine()
+    batch = _db_get_batch(engine, batch_id)
 
     if batch is None:
         return HTMLResponse('<p style="color:#dc2626">Batch not found.</p>')
 
-    with batch.lock:
-        finished = batch.finished
-        done = batch.done
-        total = batch.total
-        statuses = list(batch.statuses)
-
-    if not finished:
+    if batch.status == "running":
         return templates.TemplateResponse(
             "ui/partials/run_progress.html",
-            {"request": request, "batch_id": batch_id, "total": total, "done": done},
+            {"request": request, "batch_id": batch_id, "total": batch.total, "done": batch.done},
         )
 
-    # Build final results HTML
+    # finished or cancelled — deserialise results and render final HTML
+    statuses: list[EntityRunStatus] = []
+    for r in json.loads(batch.results_json):
+        statuses.append(EntityRunStatus(
+            entity_id=r["entity_id"],
+            entity_name=r["entity_name"],
+            status=r["status"],
+            error=r.get("error"),
+            window_start=r.get("window_start"),
+            window_end=r.get("window_end"),
+            bullet_points=r.get("bullet_points") or [],
+            source_references=r.get("source_references") or {},
+        ))
+
     results_html = _render_batch_results(statuses)
     return templates.TemplateResponse(
         "ui/partials/run_result.html",
