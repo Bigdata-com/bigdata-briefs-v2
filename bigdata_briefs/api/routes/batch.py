@@ -269,11 +269,14 @@ def _run_entities_sequentially(
     dependencies=[Depends(require_api_key)],
     summary="Run pipeline sequentially for multiple entities",
     description=(
-        "Submits a single background job that processes each entity **in order**, "
-        "one after the other. Returns one `run_id` per entity immediately; "
-        "poll **GET /api/v1/runs/{run_id}** to track each run's progress.\n\n"
-        "Use `force_window_start` / `force_window_end` (ISO 8601) to fix the report "
-        "window for all entities in the batch — useful for backfilling a specific day."
+        "Submits a list of entities to the pipeline and processes them **one at a time**, "
+        "in order. Useful for controlled, lower-concurrency runs or when you want to avoid "
+        "saturating the Bigdata API budget.\n\n"
+        "**Date window** — omit `force_window_start` / `force_window_end` to use the automatic "
+        "incremental window (see `window_mode`). Pass explicit ISO 8601 dates to target a specific "
+        "period. One day at a time is recommended for best results.\n\n"
+        "**Overlap protection** — if the requested window overlaps an already-completed run for "
+        "the same entity, that entity is rejected immediately with an error."
     ),
 )
 def batch_run(
@@ -381,11 +384,17 @@ def _run_one_entity_safely(
     dependencies=[Depends(require_api_key)],
     summary="Run pipeline in parallel for multiple entities",
     description=(
-        "Submits each entity to a process-wide worker pool (``MAX_CONCURRENT_ENTITIES``). "
-        "Returns a single **batch_id** to track the whole batch via "
-        "**GET /api/v1/batch/parallel/{batch_id}/status**.\n\n"
-        "All concurrent runs share one 450 QPM Bigdata budget and one connection pool. "
-        "Use **GET /api/v1/rate/status** to observe the current budget usage."
+        "Submits a list of entity IDs (or a named universe) to the pipeline. All entities run "
+        "concurrently up to `MAX_CONCURRENT_ENTITIES`. Returns a single **batch_id** to monitor "
+        "progress via **GET /api/v1/batch/parallel/{batch_id}/status**.\n\n"
+        "**Date window** — omit `force_window_start` / `force_window_end` to use the automatic "
+        "incremental window (see `window_mode`). Pass explicit ISO 8601 dates to target a specific "
+        "period. One day at a time is recommended: a single-day window produces sharper bullets "
+        "and more reliable novelty comparisons. Wider windows can generate briefs with ambiguous "
+        "temporal references for high-volume entities.\n\n"
+        "**Overlap protection** — if the requested window overlaps an already-completed run for "
+        "the same entity, that entity is rejected immediately with an error and marked as `failed` "
+        "in the batch status. No API or LLM calls are made for that entity."
     ),
 )
 def batch_run_parallel(
@@ -492,8 +501,9 @@ def batch_run_parallel(
     dependencies=[Depends(require_api_key)],
     summary="Status of a parallel batch run",
     description=(
-        "Returns the status of each entity run within a batch submitted via "
-        "**POST /batch/run-parallel**."
+        "Returns the real-time status of a batch submitted via **POST /api/v1/batch/run-parallel**: "
+        "how many entities have succeeded, failed, are still running, or have not started yet. "
+        "Poll this endpoint until `running` reaches 0 to know when the batch is fully complete."
     ),
 )
 def batch_parallel_status(batch_id: uuid.UUID) -> BatchParallelRunStatusResponse:
@@ -710,11 +720,13 @@ def _build_entity_result_from_run_log(
     "/batch/bullets",
     response_model=BatchBulletsResponse,
     dependencies=[Depends(require_api_key)],
-    summary="Get all bullets for multiple entities, grouped by run",
+    summary="Get published bullets for multiple entities, grouped by run",
     description=(
-        "Returns **every** bullet point stored for each entity, organised into "
-        "separate run blocks ordered newest-first. "
-        "Entities with no data are included with `found=false`."
+        "Returns the published bullet points for one or more entities, grouped by run and ordered "
+        "newest-first. Pass an empty `entity_ids` list to retrieve all entities in the database.\n\n"
+        "Each bullet includes the final text, source citations (headline, chunk text, date), and "
+        "novelty metadata (`search_action`, `not_fully_novel`). Amber bullets — partially novel, "
+        "rewritten to surface only the new element — are flagged with `not_fully_novel: true`."
     ),
 )
 def batch_bullets(body: BatchBulletsRequest) -> BatchBulletsResponse:
@@ -1028,15 +1040,16 @@ def _build_bullet_detail(
     response_model=BatchBulletsDetailResponse,
     response_model_exclude_none=True,
     dependencies=[Depends(require_api_key)],
-    summary="Full bullet details for multiple entities",
+    summary="Full pipeline detail for multiple entities",
     description=(
-        "For each entity, returns the latest succeeded run with all bullets — "
-        "both active (published) and discarded — enriched with reasoning.\n\n"
-        "**Active bullets** include the relevance score and its reasoning.\n\n"
-        "**Discarded bullets** include the stage that eliminated them "
-        "(`relevance_score`, `grounding`, `novelty_embedding`, `novelty_search`, `error`) "
-        "and the human-readable reason. For `novelty_search` discards, per-claim verdicts "
-        "and evidence IDs are also returned."
+        "Returns full pipeline detail for every bullet — both published and discarded — "
+        "for one or more entities. Pass an empty `entity_ids` list to retrieve all entities.\n\n"
+        "**Published bullets** include the relevance score and reasoning that justified publishing.\n\n"
+        "**Discarded bullets** include the stage that eliminated them and the reason:\n"
+        "- `relevance_score` — scored too low on financial materiality\n"
+        "- `grounding` — text not verifiable against cited sources\n"
+        "- `novelty_embedding` — already reported in a previous run\n"
+        "- `novelty_search` — per-claim verdicts with the evidence chunks that already covered the information"
     ),
 )
 def batch_bullets_detail(body: BatchBulletsDetailRequest) -> BatchBulletsDetailResponse:
