@@ -1,0 +1,501 @@
+id,name
+B65303,AstraZeneca PLC
+94A811,Novartis AG
+AE0DB4,ENI S.p.A.
+789D88,Banco Bilbao Vizcaya Argentaria S.A.
+D01300,TotalEnergies SE
+DD394F,Ferrari N.V.
+F15E41,Tenaris S.A.
+C12ED9,Nokia Corp.
+33057B,Stellantis N.V.
+21153F,Aegon Ltd.
+DD92E7,Bayer AG
+AFCFF2,ASML Holding N.V.
+92589A,Gedeon Richter Nyrt.
+89054D,Saipem S.p.A.
+73B927,Barclays PLC
+F13DEB,Aselsan Elektronik San. Ve Tic. A.S.
+394E6A,Vodafone Group PLC
+388C37,Investor AB
+09DDC4,NatWest Group PLC
+DB5E90,Rio Tinto PLC
+FFC922,Enka Insaat ve Sanayi A.S.
+9BA7AA,Turkiye Garanti Bankasi A.S.
+A1A4EE,Türkiye Petrol Rafinerileri A.S.
+AE0271,Marel hf.
+5C3A5C,BIM Birlesik Magazalar AS
+47718F,Turkish Airlines Inc.
+F5E860,Akbank T.A.S.
+895B74,KOC Holding A.S.
+DA63FE,Skandinaviska Enskilda Banken AB
+4EAA76,EQT AB
+3DC70D,Ford Otomotiv Sanayi A.S.
+EB5D45,Ryanair Holdings PLC
+629ACD,Turkiye Is Bankasi A.S.
+D7EAC4,Turkiye Vakiflar Bankasi T.A.O.
+128F1B,Yapi ve Kredi Bankasi A.S.
+9B16D5,Deutsche Bank AG
+BC9793,HSBC Holdings PLC
+01D03F,Roche Holding AG
+15D3E7,Turkiye Halk Bankasi A.S.
+890255,Shell PLC
+CD3691,Nestle S.A.
+73B0E0,Turkcell Iletisim Hizmetleri A.S.
+D3A095,Islandsbanki hf.
+B73B08,argenx SE
+E0427E,GSK PLC
+7C37A3,Eregli Demir ve Celik Fabrikalari T.A.S.
+18A43F,Komercni Banka A.S.
+E43B87,Turk Telekomunikasyon A.S.
+C74288,Siemens AG
+DC9BEC,Sabanci Holding A.S.
+689494,Coca-Cola Icecek A.S.
+29C6BF,Inditex
+CNFFMP,Sildarvinnslan hf
+BC8373,Banco Santander S.A.
+823D23,Gubre Fabrikalari T.A.S.
+7ED6E7,Essity AB
+5FC63E,ABB Ltd.
+1FA886,Airbus SE
+6D064B,Brim hf.
+1A1ED9,Siemens Energy AG
+80D76F,PDD Holdings Inc.
+C4073B,Eaton Corp. PLC
+95805E,Enerjisa Enerji A.S.
+E2C0F3,Turk Altin Isletmeleri AS
+AB4B9A,Safran S.A.
+ED869A,Iberdrola S.A.
+550034,Turkiye Sise Ve Cam Fabrikalari A.S.
+2F75E0,Koninklijke Philips N.V.
+5E9547,Tofas Turk Otomobil Fabrikasi A.S.
+C8FAC7,Anheuser-Busch InBev NV
+5930DD,British American Tobacco PLC
+DE27F9,Chubb Ltd.
+2D469F,BP PLC
+1AC3ED,Iskenderun Demir Ve Celik A.S.
+188CAC,Unilever PLC
+91B8B1,Accenture PLC
+B76277,Air Liquide S.A.
+239066,Investment AB Latour
+EA436E,TAV Havalimanlari Holding A.S.
+8C005F,Oyak Cimento Fabrikalari A.S.
+6E9442,Enel S.p.A.
+B77AF6,UniCredit S.p.A.
+E68733,Medtronic PLC
+7C5E15,Zurich Insurance Group AG
+A7C367,Migros Ticaret A.S.
+F11C7D,SASA Polyester Sanayi A.S.
+894CB4,Allegro.eu S.A.
+417431,Equinor ASA
+72BEB6,Intesa Sanpaolo S.p.A.
+442587,BNP Paribas S.A.
+B72D2E,EssilorLuxottica SA
+08A463,Anadolu Efes Biracilik ve Malt Sanayii A.S.
+51M43D,Ziraat Gayrimenkul Yatirim Ortakligi AS
+86170D,Spotify Technology S.A.
+E6C332,Industrivarden AB
+5B9E0F,Aksa Enerji Uretim AS
+FFF3BE,AXA S.A.
+697402,MONETA Money Bank A.S.
+A473AE,Compagnie Financiere Richemont S.A.
+FUBDT6,InvestCo Holding AS
+F837A5,ING Groep N.V.
+5A6336,Trane Technologies PLC
+AE8D72,Christian Dior SE
+D33270,BAE Systems PLC
+840033,Pegasus Hava Tasimaciligi AS
+A28C54,Vinci S.A.
+0E1492,Glencore PLC
+C4452A,National Grid PLC
+A8A146,Engie S.A.
+05E615,Rheinmetall AG
+F0F3E1,CaixaBank S.A.
+1D0E24,UBS Group AG
+314E5A,Munich Re
+99333F,Johnson Controls International PLC
+C283EF,L E Lundbergfoeretagen AB
+E317E0,Novo Nordisk A/S
+C9DABA,Aker ASA
+77579C,SpareBank 1 Sør-Norge ASA
+F750A8,RELX PLC
+61B740,Lloyds Banking Group PLC
+8A3FC9,Nordnet AB
+4DCAC6,Emlak Konut GYO AS
+744690,Arcelik A.S.
+E467C9,Borusan Birlesik Boru Fabrikalari Sanayi ve Ticaret A.S.
+5A52D4,EIS Eczacibasi Ilac San. Ve Tic. AS
+16AD58,CRH PLC
+C5EF8D,Aon PLC
+262D73,AG Anadolu Grubu Holding A.S.
+A5C69D,Assicurazioni Generali S.p.A.
+93284C,Fastighets AB Balder
+B49AB7,Thales S.A.
+C21F26,Osram Licht AG
+A8B51F,Borusan Yatirim ve Pazarlama A.S.
+F045FF,OMV Petrom S.A.
+1C7FFE,Deutsche Post AG
+60F8A4,TE Connectivity PLC
+3A2757,E.ON SE
+D819BE,Nordea Bank Abp
+F4D7DB,UCB S.A.
+EC210B,Infineon Technologies AG
+8FFD2D,London Stock Exchange Group PLC
+524322,DSV A/S
+A42637,Prosus N.V.
+995014,Avanza Bank Holding AB
+0E64D4,Credit Agricole S.A.
+9C7B0D,KGHM Polska Miedz S.A.
+B115EF,Societe Generale S.A.
+C24FAF,Deutsche Boerse AG
+C7FC95,Orange S.A.
+AB7AB7,Electricite de France S.A.
+40DA5A,Fortnox AB
+3E149C,Danone S.A.
+7DB9AC,Colt CZ Group SE
+C5F463,BASF SE
+580353,Petkim Petrokimya Holding A.S.
+6E5E72,KBC Groep N.V.
+1C9F48,Volvo AB
+67A658,Anglo American PLC
+B753B1,Dogan Sirketler Grubu Holding A.S.
+264398,BMW Group
+M1IY57,Anglogold Ashanti PLC
+B1977A,Selcuk Ecza Deposu Ticaret ve Sanayi A.S.
+9EF918,RWE AG
+351EC3,NXP Semiconductors N.V.
+C399C1,Compass Group PLC
+A84DC3,Swiss Re Ltd.
+554255,Sandvik AB
+26BE9B,Holcim Ltd.
+3BA4B2,Diageo PLC
+E3FC9C,Standard Chartered PLC
+F9F51C,Otokar Otomotiv ve Savunma Sanayi A.S.
+19ACAF,Siemens Healthineers AG
+D21EF3,Garmin Ltd.
+316E5D,Ferguson Enterprises Inc.
+6F02DF,DNB Bank ASA
+E48344,Endesa S.A.
+0B5C3C,Aena SME S.A.
+1A1E26,S.N.G.N. Romgaz S.A.
+5EF3A1,Lonza Group AG
+A85490,Heineken N.V.
+13DB45,Turk Traktor ve Ziraat Makineleri A.S.
+B2AA0A,Erste Group Bank AG
+4EB77D,Reckitt Benckiser Group PLC
+2A577D,Sweco AB
+FB49DF,SSE PLC
+CDE42A,Swisscom AG
+7677AE,Dogus Otomotiv Servis ve Ticaret A.S.
+38970C,Mycronic AB
+127021,Koninklijke Ahold Delhaize N.V.
+54C679,Ferrovial SE
+E61E5B,Coca-Cola Europacific Partners PLC
+6B2371,ALK-Abello A/S
+5176ED,Leonardo S.p.A.
+335ABA,ArcelorMittal S.A.
+FA4263,Tesco PLC
+A52060,Legrand S.A.
+F5221C,Danske Bank A/S
+6EA269,Commerzbank AG
+3478EA,Aksa Akrilik Kimya Sanayii A.S.
+840EAB,Compagnie de Saint-Gobain S.A.
+890F10,Lagercrantz Group AB
+3EE835,Alarko Holding A.S.
+495C6B,Banca Transilvania S.A.
+A13149,ASSA ABLOY AB
+4F51A6,Swedbank AB
+74933B,ASM International N.V.
+4368A6,Kongsberg Gruppen ASA
+C69A57,Hafnia Ltd.
+CBB84D,ACS S.A. (Spain)
+DE344E,Kering S.A.
+CC7BE5,Hannover Rueck SE
+3ED7D4,Nuh Cimento Sanayi AS
+VG3TB5,Daimler Truck Holding AG
+52D936,Prudential PLC
+354977,Philip Morris CR A.S.
+33D96A,3i Group PLC
+DE2196,Saab AB
+P4QYNH,Universal Music Group N.V.
+351512,Prysmian S.p.A.
+80B32C,Heidelberg Materials AG
+675376,Telefonaktiebolaget LM Ericsson AB
+203E0E,Sparebanken Norge Co.
+E0AD75,Antofagasta PLC
+AD713F,Olav Thon Eiendomsselskap ASA
+OX35RU,AutoStore Holdings Ltd.
+D43A7A,Talanx AG
+DB08C7,H. Lundbeck A/S
+29742E,Orsted A/S
+736AB6,STMicroelectronics N.V.
+8F67EE,Imperial Brands PLC
+69CC3E,Swiss Life Holding AG
+41F457,Hochtief AG
+7A54FE,Givaudan S.A.
+D7998C,Repsol S.A.
+108DB5,OTP Bank Nyrt.
+F8FB07,Experian PLC
+80BE8A,Adyen N.V.
+CB3F2D,Sok Marketler Ticaret A.S.
+8D40EC,PKO Bank Polski S.A.
+69ADD9,Volkswagen AG
+E9C8E8,CEZ A.S.
+872855,Catena AB
+4D80DB,Naturgy Energy Group S.A.
+112F8F,SpareBank 1 SMN ASA
+1E2158,Munters Group AB
+E094EB,Smith & Nephew PLC
+3C1252,Eurobank Ergasias Services & Holdings SA
+E92DFC,Camurus AB
+F3788A,Kone Oyj
+0119FA,BT Group PLC
+D6E5A4,Sampo PLC
+921CBB,Kuehne + Nagel International AG
+BA9110,Fresenius SE & Co. KGaA
+F92DBC,Veolia Environnement S.A.
+FA3D22,Kindred Group PLC
+8876D6,Adidas AG
+816A37,Vestas Wind Systems A/S
+2DBF98,Willis Towers Watson PLC
+C1C633,Dassault Systemes SE
+5C00BC,Poste Italiane S.p.A.
+734206,SpareBank 1 Ostlandet ASA
+C7E3CA,BW LPG Ltd.
+LWY4AI,Höegh Autoliners ASA
+7C623A,Horizon Therapeutics Ltd. (Ireland)
+7EBC5B,Sika AG
+D03FF2,Svenska Handelsbanken AB
+1A9CAF,Dassault Aviation S.A.
+CB10F8,H&M Group
+075AEB,Helvetia Baloise Holding AG
+F4194B,Sanofi S.A.
+D74613,Snam S.p.A.
+642EEA,Amadeus IT Group S.A.
+627395,BPER Banca S.p.A.
+E972A0,Veidekke ASA
+C87ECC,LyondellBasell Industries N.V.
+42B662,Fresnillo PLC
+04700D,Peab AB
+D68276,Telefonica S.A.
+BF0081,Hektas Ticaret T.A.S.
+9022A0,Aviva PLC
+97C9D9,Novonesis A/S
+F55A14,Spar Nord Bank A/S
+DC1BFA,Wallenstam AB
+8B1ED3,Hexagon AB
+9453BA,Atlas Copco AB
+5AFAA3,Hufvudstaden AB
+FA1D11,BioArctic AB
+D4D290,Neste Oyj
+AE8CE0,Telenor ASA
+DEB102,Wilhelm Wilhelmsen Holding ASA
+9114B8,OMV AG
+B8BD37,AerCap Holdings N.V.
+A1FF80,Fortum Oyj
+8A999F,Hapag-Lloyd AG
+4B604B,Terna Rete Elettrica Nazionale S.p.A.
+59DC38,Partners Group Holding AG
+49E038,Aker BP ASA
+7C1C76,BioNTech SE
+528DA2,EDP S.A.
+2F9655,Cellnex Telecom S.A.
+00593E,Wartsila Oyj
+E54950,Alfa Laval AB
+63A9BE,Geberit AG
+D10E69,Vantage Towers AG
+6BC61F,Banca Monte dei Paschi di Siena S.p.A.
+187183,Bouygues S.A.
+3M1AR3,Girisim Elektrik San. Taahhut Ve Tic. AS
+62C105,Sunbelt Rentals Holdings Inc.
+DD5C33,International Airlines Group
+7055C5,Vonovia SE
+F62500,AIB Group PLC
+4F892B,Schindler Holding AG
+95F411,HMS Networks AB
+C7AE8D,Pandox AB
+LIVBLM,Steris PLC
+D6AAF0,Mercedes-Benz Group AG
+1A2458,Scatec ASA
+8C15E2,Koninklijke KPN N.V.
+BC77BC,Publicis Groupe S.A.
+BF4F6A,Beiersdorf AG
+F329D5,Kazatomprom JSC NAC
+27E2DB,NN Group N.V.
+3467C7,Austevoll Seafood ASA
+D8480B,Banco BPM S.p.A.
+C6389F,ORLEN S.A.
+C1AEF1,Heineken Holding N.V.
+AD475F,Norsk Hydro ASA
+14AA8D,Next PLC
+44F9E4,Coca-Cola HBC AG
+B20D2E,Bravida Holding AB
+DB5309,SGS S.A.
+9DB0EF,ABN AMRO Bank N.V.
+8AC990,Bank Millennium S.A.
+D516C5,Michelin SCA
+47F966,Capgemini S.E.
+E3CD58,Societatea Nationala Nuclearelectrica SA
+B7B747,Telia Co. AB
+08B4B5,Roivant Sciences Ltd.
+00C977,BRD-Groupe Societe Generale S.A.
+085C10,Bufab AB
+7286BE,AF Gruppen ASA
+3BE2BD,MTU Aero Engines AG
+9F09C9,Halma PLC
+AC78F4,Sinch AB
+1B1ED3,Stolt-Nielsen Ltd.
+CD7A06,Alcon AG
+691BA6,Entra ASA
+5D37BB,Atrium Ljungberg AB
+17E42E,Legal & General Group PLC
+184B27,NCC AB
+3CA8E6,Sartorius Stedim Biotech S.A.
+FC4652,nVent Electric PLC
+1520CA,Arion Bank
+9897E7,EMS-Chemie Holding AG
+7697D2,Torm PLC
+A504F5,Orange Polska S.A.
+BC8E88,VAT Group AG
+DF8855,Amcor PLC
+3BD4B3,Knorr-Bremse AG
+112B21,Pernod Ricard S.A.
+6A027C,Flutter Entertainment PLC
+DB2D9E,WPP PLC
+6056E8,Henkel AG & Co. KGaA
+5C5BE0,Elkem ASA
+9A95B8,Traton SE
+33B0C5,JDE Peet's N.V.
+2238CA,Genmab A/S
+D5C2D9,BE Semiconductor Industries N.V.
+29BD75,Banco Sabadell S.A.
+C7CAD3,Associated British Foods PLC
+A75ABE,Wolters Kluwer N.V.
+C4A4CC,InterContinental Hotels Group PLC
+806766,EDP Renovaveis S.A.
+AE4ACE,Bank of Ireland Group PLC
+7507A6,Euronext N.V.
+3EFE75,Uniper SE
+0B632C,Airtel Africa PLC
+8DC7AC,Unipol Gruppo S.p.A.
+6EE648,Moncler S.p.A.
+15F47F,Straumann Holding AG
+C77474,Santander Bank Polska S.A.
+F7E049,Rentokil Initial PLC
+024205,Galp Energia SGPS S.A.
+4618B4,Schouw & Co. A/S
+FF8514,SAP SE
+E1E093,Merck Darmstadt
+C86C8D,UPM-Kymmene Corp.
+EQ23NL,OX2 AB
+05461A,Ipsen S.A.
+0554A6,Pepco Group N.V.
+F731C5,Bure Equity AB
+794A66,Granges AB
+F862DA,SpareBank 1 Nord-Norge
+07101A,Norwegian Air Shuttle ASA
+D6F456,Mediobanca SPA
+219A11,Julius Baer Group Ltd.
+18958B,Powszechny Zaklad Ubezpieczen S.A.
+F60ACA,HAL Trust Co.
+DB06B7,NP3 Fastigheter AB
+222D38,Eiffage S.A.
+D70BD1,Amundi SA
+F95404,Banca Mediolanum S.p.A.
+D4F5F8,Kingspan Group PLC
+VFQXNH,Vimian Group AB
+925050,Jeronimo Martins SGPS S.A.
+9E16E7,A.P. Moller-Maersk A/S
+21770E,Swedish Orphan Biovitrum AB
+13D576,Ageas SA/NV
+D5D251,Bank Handlowy w Warszawie S.A.
+CF0C90,Banco Comercial Portugues S.A.
+35E532,ING Bank Slaski S.A.
+4D6198,Elia Group S.A.
+233B7A,Systemair AB
+5AAE75,ASR Nederland N.V.
+E868F0,Yara International ASA
+E52DAD,BlueNord ASA
+284283,Boliden AB
+9AEA2D,Continental AG
+38FC4D,Tryg A/S
+B887A5,Bankinter S.A.
+551F85,Metso Oyj
+E894E1,Coloplast A/S
+DC0563,OEM-International AB
+505212,Covestro AG
+AA7506,Raiffeisen Bank International AG
+8D1632,Tele2 AB
+322A44,Pentair PLC
+49A2D7,Electrolux Professional AB
+A6BE37,Ascendis Pharma A/S
+8E75A5,Nyfosa AB
+7D6547,Swiss Prime Site AG
+0285DE,Mapfre S.A.
+SZDZBN,Storskogen Group AB
+C79992,National Bank of Greece S.A.
+7A8893,Bureau Veritas SA
+D065EF,Lindt & Sprungli AG
+E9E44A,Carrefour S.A.
+19C507,FinecoBank S.p.A.
+DFDEAD,Scottish Mortgage Investment Trust PLC
+990599,Schneider Electric SE
+A1EDD8,Bollore SE
+55EDAF,Millicom International Cellular S.A.
+AD88B3,Afry AB
+7796FE,Sonova Holding AG
+FC9869,Verbund AG
+2CD1E0,Centrica PLC
+4582C1,mBank S.A.
+F7B8AC,CNH Industrial N.V.
+D389EC,Informa PLC
+34B00D,Beijer Alma AB
+D01549,Fresenius Medical Care AG
+452EA1,Evolution AB
+1B1348,Gjensidige Forsikring ASA
+182546,Admiral Group PLC
+08862E,Alstom S.A.
+64CEBB,Aptiv Irish Holdings Ltd.
+4397ED,BioMerieux S.A.
+B4C694,Smurfit Kappa Group PLC
+A07DC6,Acciona S.A.
+HUJ7I1,Wise PLC
+E2D70C,Aéroports de Paris
+EEA1E7,Severn Trent PLC
+A584AC,Orkla ASA
+D7A681,L'Oreal S.A.
+3ED502,Carlsberg A/S
+B16273,Adevinta ASA
+2E8AEB,Kerry Group PLC
+820C99,Nordex SE
+9B0864,Lifco AB
+66DZZV,Vår Energi ASA
+0E2789,United Utilities Group PLC
+352AAB,Getlink S.E.
+D90D7F,Piraeus Financial Holdings S.A.
+9D1E1A,Groupe Bruxelles Lambert S.A.
+446ADD,Mowi ASA
+F9A645,SkiStar AB
+9A3FF4,Allegion PLC
+69EF5D,Recordati S.p.A.
+484468,Invisio AB
+913121,Lindab International AB
+13FA4C,UIE PLC
+79C50D,Strabag SE
+D5895C,Symrise AG
+E0E897,Allfunds Group PLC
+427864,Kinnevik AB
+D2B944,Bilia AB
+33649B,Logitech International S.A.
+ATOQTU,Smart Gunes Enerjisi Tek
+1F3EB2,Eurofins Scientific S.E.
+0911F1,Rexel S.A.
+0AE795,OPAP Holding SA
+7D453A,BAWAG Group AG
+8B38DB,Nolato AB
+E0A84E,AccorHotels S.A.
+AEA57C,Jazz Pharmaceuticals PLC
+1C66D0,LPP S.A.
+SNKMGL,Technoprobe S.p.A.
+A054B9,Modern Times Group MTG AB
+2EE686,Jeudan A/S
+882DCF,Vestel Beyaz Esya Sanayi Ve Ticaret A.S.

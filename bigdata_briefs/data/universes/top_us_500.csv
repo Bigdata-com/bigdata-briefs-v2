@@ -1,0 +1,501 @@
+id,name
+E09E2B,NVIDIA Corporation
+D8442A,Apple Inc.
+228D42,Microsoft Corporation
+0157B1,"Amazon.com, Inc."
+4A6F00,Alphabet Inc. Class A
+09DE1F,Broadcom Inc.
+4A6F00,Alphabet Inc. Class C
+12E454,Meta Platforms Inc Class A
+DD3BB1,"Tesla, Inc."
+168A5D,Berkshire Hathaway Inc. Class B
+F30508,Eli Lilly and Company
+619882,JPMorgan Chase & Co.
+E70531,Exxon Mobil Corporation
+A6828A,Johnson & Johnson
+713810,Walmart Inc.
+93D207,Visa Inc. Class A
+49BBBC,"Micron Technology, Inc."
+B8EF97,Costco Wholesale Corporation
+55C9B5,Mastercard Incorporated Class A
+665D7D,"AbbVie, Inc."
+ECD263,"Netflix, Inc."
+2E61CC,Procter & Gamble Company
+ACDF88,"Home Depot, Inc."
+1921DD,GE Aerospace
+D54E62,Chevron Corporation
+767F86,Caterpillar Inc.
+69345C,"Advanced Micro Devices, Inc."
+EEA6B3,Coca-Cola Company
+12DE76,"Cisco Systems, Inc."
+990AD0,Bank of America Corp
+1EBF8D,"Merck & Co., Inc."
+F1C69A,Palantir Technologies Inc. Class A
+A4BCDE,"Applied Materials, Inc."
+0B57D7,Lam Research Corporation
+CA1620,Philip Morris International Inc.
+2667B6,RTX Corporation
+205AD5,UnitedHealth Group Incorporated
+E8846E,Wells Fargo & Company
+D6489C,Oracle Corporation
+954E30,McDonald's Corporation
+50070E,"Goldman Sachs Group, Inc."
+QRHIPR,GE Vernova Inc.
+278DC5,Linde plc
+013528,"PepsiCo, Inc."
+8D4486,International Business Machines Corporation
+8A8E41,Verizon Communications Inc.
+76F067,Amgen Inc.
+520632,Abbott Laboratories
+17EDA5,Intel Corporation
+507AE7,KLA Corporation
+8665BA,Thermo Fisher Scientific Inc.
+2CB4C9,"NextEra Energy, Inc."
+251988,AT&T Inc
+39BFF6,Texas Instruments Incorporated
+6CGTFN,Walt Disney Company
+9196A2,Morgan Stanley
+F6E248,"Gilead Sciences, Inc."
+58CA9A,Citigroup Inc.
+BB127B,"Salesforce, Inc."
+40B903,TJX Companies Inc
+BB07E4,Amphenol Corporation Class A
+18EC17,"Intuitive Surgical, Inc."
+E68C3D,"Analog Devices, Inc."
+55438C,Boeing Company
+4C37C5,American Express Company
+D33D8C,Charles Schwab Corp
+HJ95FV,"BlackRock, Inc."
+D8F347,Union Pacific Corporation
+267718,Pfizer Inc.
+FF6644,Honeywell International Inc.
+431B74,Deere & Company
+CFF15D,QUALCOMM Incorporated
+D90F43,"Uber Technologies, Inc."
+76E80F,"Lowe's Companies, Inc."
+C4073B,Eaton Corp. Plc
+911AB8,Newmont Corporation
+PL177A,Welltower Inc.
+FE89E0,ConocoPhillips
+034B61,Booking Holdings Inc.
+3DC887,"Arista Networks, Inc."
+96F126,Lockheed Martin Corporation
+CFF97C,"S&P Global, Inc."
+C81E00,Stryker Corporation
+E124EB,Danaher Corporation
+8C5519,"Prologis, Inc."
+91B8B1,Accenture Plc Class A
+57CAAB,Vertex Pharmaceuticals Incorporated
+6B5379,Parker-Hannifin Corporation
+94637C,Bristol-Myers Squibb Company
+E68733,Medtronic Plc
+8FF2EF,Progressive Corporation
+DE27F9,Chubb Limited
+4A5C8D,McKesson Corporation
+055018,Capital One Financial Corp
+F40EE2,Corning Inc
+2BA977,"Altria Group, Inc."
+A52B6B,"Palo Alto Networks, Inc."
+5DD486,CME Group Inc. Class A
+C97B2D,Boston Scientific Corporation
+C83B88,Comcast Corporation Class A
+F11638,Intuit Inc.
+BB88B6,"ServiceNow, Inc."
+3CBA2A,Starbucks Corporation
+C9881C,Adobe Inc.
+147C38,Southern Company
+EC821B,Howmet Aerospace Inc.
+57DDB9,"T-Mobile US, Inc."
+9A4ECA,AppLovin Corp. Class A
+HTA3J9,Constellation Energy Corporation
+5A6336,Trane Technologies plc
+DB5CA5,Duke Energy Corporation
+69CE71,CVS Health Corporation
+FC1B7B,Northrop Grumman Corp.
+D4463B,"Freeport-McMoRan, Inc."
+96D34D,Vertiv Holdings Co. Class A
+99333F,Johnson Controls International plc
+315EB0,"Equinix, Inc."
+CE96E7,Western Digital Corporation
+9F71E5,"Intercontinental Exchange, Inc."
+9B5968,"Marsh & McLennan Companies, Inc."
+36ECA4,"CrowdStrike Holdings, Inc. Class A"
+E21871,"Williams Companies, Inc."
+DCD97F,General Dynamics Corporation
+A80FE0,American Tower Corporation
+E5AAB0,Sandisk Corporation
+616E3B,"Waste Management, Inc."
+03B8CF,3M Company
+66ECFD,"Automatic Data Processing, Inc."
+34B97A,HCA Healthcare Inc
+6166D1,U.S. Bancorp
+FAE021,"United Parcel Service, Inc. Class B"
+4030E2,Emerson Electric Co.
+353DBB,Illinois Tool Works Inc.
+C08256,Blackstone Inc.
+61B81B,"PNC Financial Services Group, Inc."
+408089,Sherwin-Williams Company
+EF5BED,Bank of New York Mellon Corp
+6844D2,FedEx Corporation
+253B2F,"Quanta Services, Inc."
+CC6FF5,"Cadence Design Systems, Inc."
+16AD58,CRH public limited company
+E49AA3,"Motorola Solutions, Inc."
+131443,Cummins Inc.
+E26FC3,CSX Corporation
+EB6965,Colgate-Palmolive Company
+7A10FF,"Mondelez International, Inc. Class A"
+589803,"Regeneron Pharmaceuticals, Inc."
+86170D,Spotify Technology SA
+6E1E61,"O'Reilly Automotive, Inc."
+751A74,Royal Caribbean Group
+164D72,SLB Limited
+9A602D,Ecolab Inc.
+385DD4,"Marriott International, Inc. Class A"
+7E1D5D,"Synopsys, Inc."
+86A1B9,Cigna Group
+3461CF,Moody's Corporation
+1BC12C,General Motors Company
+9F18FA,TransDigm Group Incorporated
+D64C6D,"NIKE, Inc. Class B"
+D9B1C9,"American Electric Power Company, Inc."
+2D643C,Norfolk Southern Corporation
+66E04A,Hilton Worldwide Holdings Inc.
+E7D47B,"Marvell Technology, Inc."
+C5EF8D,Aon Plc Class A
+7AB859,"Elevance Health, Inc."
+BFAEB4,Cintas Corporation
+E206B0,"Travelers Companies, Inc."
+7D85A9,"Cencora, Inc."
+EE6F1C,L3Harris Technologies Inc
+A43906,"EOG Resources, Inc."
+900356,"Simon Property Group, Inc."
+ADF092,"Warner Bros. Discovery, Inc. Series A"
+8C6C1B,"Ross Stores, Inc."
+ACF77B,PACCAR Inc
+AA5C8E,Kinder Morgan Inc Class P
+940C3D,Baker Hughes Company Class A
+M1IY57,Anglogold Ashanti PLC
+1A3E1B,Truist Financial Corporation
+CF4517,"DoorDash, Inc. Class A"
+B642E8,Sempra
+ECF709,"AutoZone, Inc."
+3FACA7,Phillips 66
+641F17,Valero Energy Corporation
+003B70,Realty Income Corporation
+DA48E4,"Air Products and Chemicals, Inc."
+1490F3,"Digital Realty Trust, Inc."
+2D2D43,Marathon Petroleum Corporation
+D09938,Monster Beverage Corporation
+THC8Q8,KKR & Co Inc
+D64EDF,Vistra Corp.
+C03C8B,"Zoetis, Inc. Class A"
+AADE0B,Arthur J. Gallagher & Co.
+09E31A,"Airbnb, Inc. Class A"
+E1C16B,Allstate Corporation
+BB036E,"Robinhood Markets, Inc. Class A"
+D3D781,"Snowflake, Inc."
+35F4B5,"AMETEK, Inc."
+A6213D,Ford Motor Company
+3FB145,Corteva Inc
+3587B4,"Cardinal Health, Inc."
+AD3C93,Aflac Incorporated
+E2866E,Cloudflare Inc Class A
+977A1E,Dominion Energy Inc
+32CB22,"United Rentals, Inc."
+6ABCB8,"Monolithic Power Systems, Inc."
+92D3A0,Fastenal Company
+E4CE73,Keysight Technologies Inc
+64E346,"Autodesk, Inc."
+B7EB38,"IDEXX Laboratories, Inc."
+09F623,"ONEOK, Inc."
+F6DCE4,Target Corporation
+32BBAA,Carrier Global Corp.
+873DB9,"Becton, Dickinson and Company"
+DB06B0,Electronic Arts Inc.
+63F892,"Fortinet, Inc."
+B7BDA3,"Cheniere Energy, Inc."
+6EB9DA,"W.W. Grainger, Inc."
+AXWAKS,Nu Holdings Ltd. Class A
+EAEBF3,Targa Resources Corp.
+93F143,"Teradyne, Inc."
+B303A6,Exelon Corporation
+316E5D,Ferguson Enterprises Inc.
+6137BF,Edwards Lifesciences Corporation
+319BE2,"Comfort Systems USA, Inc."
+1151F4,Xcel Energy Inc.
+092C47,"Lumentum Holdings, Inc."
+0E431C,Ciena Corporation
+A63820,"Chipotle Mexican Grill, Inc."
+AFEC35,Public Storage
+6E7060,Entergy Corporation
+33AD83,"Dell Technologies, Inc. Class C"
+B4C673,"Yum! Brands, Inc."
+D96202,"Republic Services, Inc."
+416C55,"Rockwell Automation, Inc."
+A72AEF,Carvana Co. Class A
+945DE6,Westinghouse Air Brake Technologies Corporation
+8377DB,Fifth Third Bancorp
+0BC29E,"American International Group, Inc."
+51D876,"CBRE Group, Inc. Class A"
+9D2790,Sysco Corporation
+9A02C4,"Ameriprise Financial, Inc."
+WDJL5K,Apollo Global Management Inc
+B560AF,Public Service Enterprise Group Inc
+5F2FF7,"Delta Air Lines, Inc."
+818072,Roblox Corp. Class A
+2C7505,"Alnylam Pharmaceuticals, Inc"
+06EF42,"D.R. Horton, Inc."
+3ED92D,MSCI Inc. Class A
+652E62,PG&E Corporation
+95DC1F,Kroger Co.
+D21EF3,Garmin Ltd.
+972356,eBay Inc.
+57B174,Vulcan Materials Company
+97AAF6,"Consolidated Edison, Inc."
+986AF6,Nucor Corporation
+D6534D,"Martin Marietta Materials, Inc."
+D2AC74,Axon Enterprise Inc
+7999F3,"Ventas, Inc."
+03CF95,"PayPal Holdings, Inc."
+C0BA36,Coherent Corp.
+810E30,"MetLife, Inc."
+25102A,"Nasdaq, Inc."
+766047,"Hartford Insurance Group, Inc."
+CDFCC9,Microchip Technology Incorporated
+D69946,"Coinbase Global, Inc. Class A"
+14C7B2,Keurig Dr Pepper Inc.
+275300,Crown Castle Inc.
+LJPA1L,GE Healthcare Technologies Inc.
+A01664,"Take-Two Interactive Software, Inc."
+366A08,EQT Corporation
+343996,WEC Energy Group Inc
+119CB6,"Old Dominion Freight Line, Inc."
+5E6959,"Roper Technologies, Inc."
+CA212F,Occidental Petroleum Corporation
+434F38,ResMed Inc.
+EEEA9F,Ingersoll Rand Inc.
+3DE4D1,Kimberly-Clark Corporation
+8AM205,"Kenvue, Inc."
+C20B75,Otis Worldwide Corporation
+5BC2F4,State Street Corporation
+61BCA7,Arch Capital Group Ltd.
+D6C356,"Datadog, Inc. Class A"
+C72B8F,Strategy Inc Class A
+ED79D9,"Agilent Technologies, Inc."
+6E705B,"United Airlines Holdings, Inc."
+FEC475,"Prudential Financial, Inc."
+9F03CF,Hershey Company
+DC2B00,Dollar General Corporation
+067779,Carnival Corporation
+7A3633,"Block, Inc. Class A"
+8B4A45,"Copart, Inc."
+885758,Bloom Energy Corporation Class A
+FD39EB,"NRG Energy, Inc."
+C9E107,Huntington Bancshares Incorporated
+190B91,"Fiserv, Inc."
+D1AE3B,M&T Bank Corporation
+2B7A40,Archer-Daniels-Midland Company
+A247F5,Fair Isaac Corporation
+E15736,"Diamondback Energy, Inc."
+BB0787,"Tapestry, Inc."
+52015A,"EMCOR Group, Inc."
+4FB770,Extra Space Storage Inc.
+6284B5,"Iron Mountain, Inc."
+9D30A8,Teledyne Technologies Incorporated
+F46EC9,Xylem Inc.
+F1529C,Cboe Global Markets Inc
+1F9D90,Waters Corporation
+0BF198,Insmed Incorporated
+K8XQN6,FTAI Aviation Ltd.
+07EC43,Cognizant Technology Solutions Corporation Class A
+CF7292,Ulta Beauty Inc.
+7AC86E,DTE Energy Company
+789A7D,Ameren Corporation
+636639,Dover Corporation
+DF532D,"Interactive Brokers Group, Inc. Class A"
+18311E,Texas Pacific Land Corporation
+6F6559,"Paychex, Inc."
+7E3F8F,IQVIA Holdings Inc
+2B49F4,Halliburton Company
+106394,VICI Properties Inc
+B2E6B5,Atmos Energy Corporation
+2DBF98,Willis Towers Watson Public Limited Company
+2E0496,"Verisk Analytics, Inc."
+5A9A82,PPL Corporation
+4B7006,"Workday, Inc. Class A"
+B840EF,"DexCom, Inc."
+8BBCDA,Rocket Lab Corporation
+E10D31,Edison International
+2BAE5F,Eversource Energy
+58B46F,"CenterPoint Energy, Inc."
+DBB28E,Hewlett Packard Enterprise Co.
+7B1E50,FirstEnergy Corp.
+6B0784,Mettler-Toledo International Inc.
+CEDFD5,Biogen Inc.
+26CC63,Jabil Inc.
+39FB23,"PPG Industries, Inc."
+FC1F9D,Tractor Supply Company
+C8257F,Omnicom Group Inc
+E6E012,Hubbell Incorporated
+B3CB74,"Raymond James Financial, Inc."
+790C34,ON Semiconductor Corporation
+CBDB4D,"Natera, Inc."
+3CCC90,Northern Trust Corporation
+7B0BA6,"Fidelity National Information Services, Inc."
+A1E3B3,Veeva Systems Inc Class A
+14ED2B,Estee Lauder Companies Inc. Class A
+14BA06,Devon Energy Corporation
+7D5FD6,"PulteGroup, Inc."
+2GFTNH,"Qnity Electronics, Inc."
+890C4E,TechnipFMC plc
+6DBBBC,"American Water Works Company, Inc."
+20BEEA,"Steel Dynamics, Inc."
+384CD3,Curtiss-Wright Corporation
+3A0C6D,"MongoDB, Inc. Class A"
+F0B2B5,Markel Group Inc.
+BFE02C,"Citizens Financial Group, Inc."
+9C25FF,"Live Nation Entertainment, Inc."
+AD23DE,Equifax Inc.
+12F98C,"Casey's General Stores, Inc."
+39692D,"Expedia Group, Inc."
+51E682,Cincinnati Financial Corporation
+789ADD,"Church & Dwight Co., Inc."
+2FEA66,"AvalonBay Communities, Inc."
+382B0C,"Coupang, Inc. Class A"
+9BBFA5,"Darden Restaurants, Inc."
+3D9999,Synchrony Financial
+LIVBLM,STERIS plc
+263216,"Royal Gold, Inc."
+66CB62,Expand Energy Corporation
+I8DQKN,Smurfit Westrock PLC
+73C521,Regions Financial Corporation
+F748C7,"Williams-Sonoma, Inc."
+143C52,"Dollar Tree, Inc."
+9CA619,"General Mills, Inc."
+E3E68E,"XPO, Inc."
+9F6B1A,Labcorp Holdings Inc.
+AE4EEB,Equity Residential
+009397,LPL Financial Holdings Inc.
+5F9CE3,Quest Diagnostics Incorporated
+7BAAE7,CMS Energy Corporation
+4D9669,"Restaurant Brands International, Inc."
+B4E00D,Flex Ltd
+G47HNQ,Veralto Corporation
+E7A2A5,"Woodward, Inc."
+388E00,Coterra Energy Inc.
+00067A,Humana Inc.
+8E0E32,International Paper Company
+91C82E,Lennar Corporation Class A
+E866D2,Southwest Airlines Co.
+DF8855,Amcor PLC
+6ED519,NiSource Inc
+1D1B07,"Constellation Brands, Inc. Class A"
+504FE2,"Leidos Holdings, Inc."
+D1173F,ATI Inc.
+F5D410,Centene Corporation
+D29B44,"Corpay, Inc."
+BA2D83,"Dow, Inc."
+C659EB,"C.H. Robinson Worldwide, Inc."
+FDF28E,US Foods Holding Corp.
+24C48B,"Broadridge Financial Solutions, Inc."
+1E169E,SBA Communications Corp. Class A
+C85E94,SoFi Technologies Inc
+594402,United Therapeutics Corporation
+C356AC,Kraft Heinz Company
+32E873,Ares Management Corporation
+485445,International Flavors & Fragrances Inc.
+8E82A6,Albemarle Corporation
+C8A248,"DuPont de Nemours, Inc."
+43A74A,Tenet Healthcare Corporation
+B8F71F,W. R. Berkley Corporation
+C598D7,"Brown & Brown, Inc."
+59B229,"Principal Financial Group, Inc."
+E6D89E,"Illumina, Inc."
+C29715,"NVR, Inc."
+B6082A,Packaging Corporation of America
+2F94A5,"T. Rowe Price Group, Inc."
+061366,"First Solar, Inc."
+C3DE7D,"Everpure, Inc. Class A"
+6A091A,"Entegris, Inc."
+E94704,Snap-on Incorporated
+362955,"Zoom Communications, Inc. Class A"
+D88EF3,"Charter Communications, Inc. Class A"
+F5C8AB,"Expeditors International of Washington, Inc."
+56277A,"Zimmer Biomet Holdings, Inc."
+24CB56,KeyCorp
+7B31BE,Fabrinet
+934CC3,"NetApp, Inc."
+A72AB6,"Burlington Stores, Inc."
+97693A,lululemon athletica inc.
+45BC35,Exact Sciences Corporation
+AFD7DD,"Evergy, Inc."
+8EA478,"Moderna, Inc."
+5A64D5,Carpenter Technology Corporation
+A5B913,"VeriSign, Inc."
+B803B1,Liberty Media Corporation Series C Liberty Formula One
+D9E036,"BWX Technologies, Inc."
+567F3D,Fortive Corp.
+FC4652,nVent Electric plc
+118A3F,"RB Global, Inc."
+D437C3,PTC Inc.
+ED0402,"CoStar Group, Inc."
+F93C8A,Alliant Energy Corporation
+E2F66E,"MasTec, Inc."
+968B00,Loews Corporation
+1D4A78,Southern Copper Corporation
+1D9E55,Global Payments Inc.
+FEE4B0,Ball Corporation
+BF79F5,"West Pharmaceutical Services, Inc."
+AD1ACF,"Tyson Foods, Inc. Class A"
+A905D3,"Reddit, Inc. Class A"
+C0030A,Somnigroup International Inc.
+2E902B,Lennox International Inc.
+58A62D,Royalty Pharma Plc Class A
+9D56F2,"McCormick & Company, Incorporated"
+6LW8TA,Brookfield Asset Management Ltd. Class A
+4AC91D,HP Inc.
+72DF04,"J.B. Hunt Transport Services, Inc."
+82FD6D,RBC Bearings Incorporated
+FF4BA4,Weyerhaeuser Company
+26008A,HEICO Corporation Class A
+4BAF2E,"Revolution Medicines, Inc."
+D82E83,"AST SpaceMobile, Inc. Class A"
+C9B932,Las Vegas Sands Corp.
+A1EAC8,"Huntington Ingalls Industries, Inc."
+E0339F,Textron Inc.
+9C5174,Insulet Corporation
+508CFD,"Viatris, Inc."
+771985,"Coeur Mining, Inc."
+270305,"First Citizens BancShares, Inc. Class A"
+4988CD,"Rocket Companies, Inc. Class A"
+CBA33B,"Rollins, Inc."
+F179ED,"Twilio, Inc. Class A"
+726EEA,"ITT, Inc."
+8VCHP2,Credo Technology Group Holding Ltd.
+4595EF,Deckers Outdoor Corporation
+6A027C,Flutter Entertainment Plc
+47B609,Talen Energy Corp
+C951A2,"Hologic, Inc."
+159739,"Sun Communities, Inc."
+CD2DA4,"Cooper Companies, Inc."
+30A565,"Super Micro Computer, Inc."
+E05DC8,"Reliance, Inc."
+C15DB3,Genuine Parts Company
+1BDB2A,MKS Inc.
+15ABD0,Jacobs Solutions Inc.
+E845D9,APi Group Corporation
+9548BB,Carlisle Companies Incorporated
+6CC55E,Incyte Corporation
+F67165,"Essex Property Trust, Inc."
+U8X3QM,Bunge Global SA
+322A44,Pentair plc
+6B236C,"Invitation Homes, Inc."
+87B81A,CDW Corporation
+1F43A1,W. P. Carey Inc.
+61E975,"CF Industries Holdings, Inc."
+64CEBB,Aptiv PLC
+D93A25,Alcoa Corporation
+D4AC65,Trimble Inc.
+0B4D10,"Annaly Capital Management, Inc."
+E8B21D,IDEX Corporation
