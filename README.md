@@ -8,11 +8,11 @@ An AI-powered pipeline that generates financially relevant, novelty-filtered bri
 
 The pipeline processes each entity through five sequential phases:
 
-1. **Search** — exploratory + concept-driven search via Bigdata.com API
-2. **Bullet Generation** — LLM extracts material bullet points per theme
-3. **Novelty Check via Embedding** — discards bullets already covered in prior runs
-4. **Novelty Check via Search** — claim-level verification against recent news evidence
-5. **Post-processing** — redundancy removal, thematic consolidation, report assembly *(in development)*
+1. **Search**: exploratory + concept-driven search via Bigdata.com API
+2. **Bullet Generation**: LLM extracts material bullet points per theme
+3. **Novelty Check via Embedding**: discards bullets already covered in prior runs
+4. **Novelty Check via Search**: claim-level verification against recent news evidence
+5. **Post-processing**: redundancy removal, thematic consolidation, report assembly *(in development)*
 
 ## Prerequisites
 
