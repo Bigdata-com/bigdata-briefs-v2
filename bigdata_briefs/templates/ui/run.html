@@ -1,0 +1,77 @@
+{% extends "ui/base.html" %}
+{% block title %}Run Brief — BigData Briefs{% endblock %}
+{% block nav_run %}active{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns:340px 1fr;gap:1.5rem;align-items:start">
+
+  <!-- ── Left: form ── -->
+  <div>
+    <div class="card">
+      <div class="card-body">
+        <h1 class="card-title">Run Brief</h1>
+
+        <form
+          hx-post="/ui/batch/run"
+          hx-target="#run-output"
+          hx-swap="innerHTML"
+          id="run-form"
+        >
+          <div class="field">
+            <label for="entity-ids">Entity IDs</label>
+            <textarea
+              id="entity-ids"
+              name="entity_ids_raw"
+              placeholder="One ID per line or comma-separated"
+            ></textarea>
+            <p class="field-hint">Paste one or more entity IDs, one per line.</p>
+          </div>
+
+          {% if preset_names %}
+          <div class="or-divider">or</div>
+          <div class="field">
+            <label for="preset">Preset universe</label>
+            <select id="preset" name="preset_name">
+              <option value="">— select preset —</option>
+              {% for name in preset_names %}
+              <option value="{{ name }}">{{ name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
+
+          <div class="field" style="margin-top:1.25rem">
+            <label for="window-end">Window end <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+            <input type="datetime-local" id="window-end" name="window_end_str"/>
+            <p class="field-hint">Leave empty to use the default incremental window.</p>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:.5rem">
+            Run
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Right: live output ── -->
+  <div>
+    <aside class="brief-legend" aria-label="Novelty legend">
+      <h3>Legend</h3>
+      <ul class="legend-rows">
+        <li class="legend-row">
+          <span class="legend-swatch fully-novel" aria-hidden="true"></span>
+          <span><span class="legend-label-green">Green</span> — fully novel bullet.</span>
+        </li>
+        <li class="legend-row">
+          <span class="legend-swatch partially-novel" aria-hidden="true"></span>
+          <span><span class="legend-label-amber">Amber</span> — partially novel (rewritten or flagged).</span>
+        </li>
+      </ul>
+    </aside>
+
+    <div id="run-output"></div>
+  </div>
+
+</div>
+{% endblock %}

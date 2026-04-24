@@ -1,0 +1,52 @@
+{% extends "ui/base.html" %}
+{% block title %}{% if page == "history-details" %}History Details{% else %}History{% endif %} — BigData Briefs{% endblock %}
+{% block nav_history %}{% if page == "history" %}active{% endif %}{% endblock %}
+{% block nav_history_details %}{% if page == "history-details" %}active{% endif %}{% endblock %}
+
+{% block content %}
+<div class="history-layout">
+
+  <!-- ── Left: entity list ── -->
+  <div class="entity-list">
+    <div class="entity-list-header">Companies</div>
+    {% if entities %}
+      {% for entity_id, entity_name in entities %}
+      <a
+        class="entity-list-item"
+        hx-get="/ui/partials/{% if page == 'history-details' %}history-details{% else %}history{% endif %}?entity_id={{ entity_id }}"
+        hx-target="#history-panel"
+        hx-swap="innerHTML"
+        hx-on:click="document.querySelectorAll('.entity-list-item').forEach(el=>el.classList.remove('selected')); this.classList.add('selected')"
+      >
+        {{ entity_name }}
+        <span class="eid">{{ entity_id }}</span>
+      </a>
+      {% endfor %}
+    {% else %}
+      <p style="padding:1rem;font-size:.88rem;color:var(--muted)">No entities with completed runs yet.</p>
+    {% endif %}
+  </div>
+
+  <!-- ── Right: history content ── -->
+  <div>
+    <aside class="brief-legend" aria-label="Novelty legend">
+      <h3>Legend</h3>
+      <ul class="legend-rows">
+        <li class="legend-row">
+          <span class="legend-swatch fully-novel" aria-hidden="true"></span>
+          <span><span class="legend-label-green">Green</span> — fully novel bullet.</span>
+        </li>
+        <li class="legend-row">
+          <span class="legend-swatch partially-novel" aria-hidden="true"></span>
+          <span><span class="legend-label-amber">Amber</span> — partially novel (rewritten or flagged).</span>
+        </li>
+      </ul>
+    </aside>
+
+    <div id="history-panel">
+      <p style="color:var(--muted);font-size:.9rem">Select a company on the left to load its history.</p>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,7 @@
+<div id="history-panel">
+  {% if history_html %}
+    {{ history_html | safe }}
+  {% else %}
+    <p style="color:var(--muted);font-size:.9rem">No runs found for this entity.</p>
+  {% endif %}
+</div>
