@@ -37,10 +37,12 @@ class BulletPointEmbedding(BaseModel):
 
 
 class CitationDetail(BaseModel):
-    """A resolved citation: source ID + headline (title) + chunk text."""
-    id: str           # e.g. "CQS:REF0"
-    headline: str     # article / document title
-    text: str         # chunk text used as evidence
+    """A resolved citation: source ID, vendor label, headline, and chunk text."""
+
+    id: str  # e.g. CQS:{document_id}-{chunk_id}
+    headline: str  # article / document title
+    text: str  # chunk text used as evidence
+    source_name: str = ""  # e.g. Benzinga, Yahoo! Finance (from Bigdata chunk metadata)
 
 
 class GeneratedBulletPoint(BaseModel):

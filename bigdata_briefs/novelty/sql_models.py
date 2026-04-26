@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import Boolean
 from sqlmodel import JSON, Column, Field, SQLModel
@@ -53,7 +56,8 @@ class SQLGeneratedBulletPoint(SQLModel, table=True):
     # Bullet-level
     trace_id: str
     text: str
-    citations: list[str] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
+    # JSON list of objects: {id, headline, text, source_name?} per CitationDetail.model_dump()
+    citations: list[dict[str, Any]] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
     embedding_decision: str | None = Field(default=None, nullable=True)
     search_action: str | None = Field(default=None, nullable=True)
     # True when search verdict=="keep" but overall claim novelty is "mixed".

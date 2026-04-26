@@ -11,7 +11,7 @@ and can be linked via `trace_id`.
 
 Saved per bullet:
   run_id, entity_id, entity_name, report_window_start/end, created_at,
-  trace_id, text, citations, embedding_decision (KEEP|REWRITE),
+  trace_id, text, citations (id, headline, text, source_name), embedding_decision (KEEP|REWRITE),
   search_action (keep|rewrite|None).
 
 Service type: none (DB write, no LLM or search API).
@@ -95,7 +95,7 @@ def save_novel_bullet_points(
                 and record.novelty_search.search.overall_verdict == "mixed"
             )
 
-        # Resolve citation IDs → {id, headline, text} using source_references.
+        # Resolve citation IDs → {id, headline, text, source_name} using source_references.
         # Every ID should be resolvable (grounding already removed invalid refs),
         # but if one is missing we still persist it with empty fields so the data
         # is not silently lost.

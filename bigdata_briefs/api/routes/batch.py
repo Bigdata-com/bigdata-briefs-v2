@@ -31,6 +31,7 @@ from bigdata_briefs.api.dependencies import (
     get_rate_limiter,
 )
 from bigdata_briefs.query_service.rate_limit import RequestsPerMinuteController
+from bigdata_briefs.api.citation_mapping import stored_citation_dict_to_detail
 from bigdata_briefs.api.schemas import (
     BatchBulletsDetailRequest,
     BatchBulletsDetailResponse,
@@ -774,12 +775,9 @@ def batch_bullets(body: BatchBulletsRequest) -> BatchBulletsResponse:
                     trace_id=row.trace_id,
                     text=row.text,
                     citations=[
-                        CitationDetail(
-                            id=c["id"],
-                            headline=c["headline"],
-                            text=c["text"],
-                        )
+                        stored_citation_dict_to_detail(c)
                         for c in (row.citations or [])
+                        if isinstance(c, dict)
                     ],
                     embedding_decision=row.embedding_decision,
                     search_action=row.search_action,
@@ -1125,7 +1123,7 @@ def batch_bullets_detail(body: BatchBulletsDetailRequest) -> BatchBulletsDetailR
                     ).all()
                 cite_map = {
                     r.trace_id: [
-                        CitationDetail(id=c["id"], headline=c["headline"], text=c["text"])
+                        stored_citation_dict_to_detail(c)
                         for c in (r.citations or [])
                         if isinstance(c, dict)
                     ]

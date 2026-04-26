@@ -141,11 +141,13 @@ class TestSaveNovelBulletPoints:
                 "document_id": "DOCAAA", "chunk_id": 1,
                 "headline": "Apple Reports Q3 Results",
                 "text": "Apple revenue grew 8% YoY.",
+                "source_name": "Benzinga",
             },
             "CQS:REF1": {
                 "document_id": "DOCBBB", "chunk_id": 2,
                 "headline": "Services segment analysis",
                 "text": "Services margin reached 74%.",
+                "source_name": "Yahoo! Finance",
             },
         }
         state = _state(bullet_points=[bp], source_references=source_refs)
@@ -157,8 +159,10 @@ class TestSaveNovelBulletPoints:
         assert citations[0].id == "CQS:DOCAAA-1"
         assert citations[0].headline == "Apple Reports Q3 Results"
         assert citations[0].text == "Apple revenue grew 8% YoY."
+        assert citations[0].source_name == "Benzinga"
         assert citations[1].id == "CQS:DOCBBB-2"
         assert citations[1].headline == "Services segment analysis"
+        assert citations[1].source_name == "Yahoo! Finance"
 
     def test_citation_id_not_in_source_references_preserved_with_empty_fields(self):
         """IDs missing from source_references are kept with empty headline/text
@@ -169,6 +173,7 @@ class TestSaveNovelBulletPoints:
             "CQS:REF0": {
                 "document_id": "DOCAAA", "chunk_id": 1,
                 "headline": "Known Source", "text": "Known text.",
+                "source_name": "PubT",
             },
         }
         state = _state(bullet_points=[bp], source_references=source_refs)
@@ -179,6 +184,8 @@ class TestSaveNovelBulletPoints:
         assert len(citations) == 2
         assert citations[0].id == "CQS:DOCAAA-1"
         assert citations[0].headline == "Known Source"
+        assert citations[0].source_name == "PubT"
         assert citations[1].id == "CQS:MISSING-9"
         assert citations[1].headline == ""
         assert citations[1].text == ""
+        assert citations[1].source_name == ""

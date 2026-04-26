@@ -9,6 +9,8 @@ coverage-reports/
 .coverage
 .vscode/
 debug_logs/
+# Default pipeline debug/state dir (BRIEF_PIPELINE_STATE_DIR or cwd-relative runs)
+.brief_pipeline_state/
 docs/test_workflow/
 # Local workflow runs / analytics (large artifacts; not versioned)
 docs/test_wflow_py/

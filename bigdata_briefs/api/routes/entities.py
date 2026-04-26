@@ -14,10 +14,10 @@ from sqlalchemy import desc, func
 from sqlmodel import Session, select
 
 from bigdata_briefs.api.auth import require_api_key
+from bigdata_briefs.api.citation_mapping import stored_citation_dict_to_detail
 from bigdata_briefs.api.dependencies import get_engine
 from bigdata_briefs.api.schemas import (
     BulletPointItem,
-    CitationDetail,
     DeleteEntityResponse,
     DryRunRequest,
     DryRunResponse,
@@ -131,15 +131,13 @@ def get_latest_bullets(entity_id: str) -> LatestBulletsResponse:
                 trace_id=row.trace_id,
                 text=row.text,
                 citations=[
-                    CitationDetail(
-                        id=c["id"],
-                        headline=c["headline"],
-                        text=c["text"],
-                    )
+                    stored_citation_dict_to_detail(c)
                     for c in (row.citations or [])
+                    if isinstance(c, dict)
                 ],
                 embedding_decision=row.embedding_decision,
                 search_action=row.search_action,
+                not_fully_novel=row.not_fully_novel or False,
             )
             for row in rows
         ],

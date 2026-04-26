@@ -68,7 +68,7 @@ def _resolve_citation(cit_id: str, doc_index: dict) -> dict:
 
 
 def _build_trace_citations(entity_id: str, engine) -> dict:
-    """Build trace_id → list[{id, headline, text}] from generated_bullet_points.
+    """Build trace_id → list[{id, headline, text, source_name}] from generated_bullet_points.
 
     Queries ALL runs for the entity and indexes by trace_id (UUIDs unique per
     bullet) so that citations are found regardless of run_id mismatches.
@@ -84,7 +84,12 @@ def _build_trace_citations(entity_id: str, engine) -> dict:
             try:
                 cits = row.citations if isinstance(row.citations, list) else json.loads(row.citations)
                 result[row.trace_id] = [
-                    {"id": c.get("id", ""), "headline": c.get("headline", ""), "text": c.get("text", "")}
+                    {
+                        "id": c.get("id", ""),
+                        "headline": c.get("headline", ""),
+                        "text": c.get("text", ""),
+                        "source_name": c.get("source_name") or "",
+                    }
                     for c in (cits or []) if isinstance(c, dict)
                 ]
             except Exception:
