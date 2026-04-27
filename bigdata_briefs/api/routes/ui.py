@@ -863,13 +863,20 @@ def _render_discarded_detail_body(b: dict) -> str:
                         hl = html.escape(str(ev.get("headline") or "—"))
                         dt = html.escape(str(ev.get("date") or ""))
                         sid = html.escape(eid)
+                        tx = str(ev.get("text") or "").strip()
                         parts.append(
                             f'<div class="evidence-card">'
                             f'<div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.2rem">'
                             f'<span style="font-size:.72rem;font-family:monospace;color:var(--muted)">{sid}</span>'
                             f'<span style="font-size:.72rem;color:var(--muted)">{dt}</span>'
                             f'</div>'
+                            f'<div class="hl-label">Headline</div>'
                             f'<div class="hl-body">{_nl_to_br(hl)}</div>'
+                            + (
+                                f'<div class="tx-label">Text</div>'
+                                f'<div class="tx-body">{_nl_to_br(tx)}</div>'
+                                if tx else ""
+                            ) +
                             f'</div>'
                         )
                     parts.append('</div>')
