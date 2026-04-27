@@ -33,6 +33,7 @@ from bigdata_briefs.graph.nodes.novelty_search._search_impl import (
     _NSSearchResult,
     _REWRITE_PROMPT_MIXED,
     _REWRITE_PROMPT_MIXED_NOISE,
+    _REWRITE_PROMPT_SINGLE_PARTIALLY_NOVEL,
     _ns_build_rewrite_claims_and_verdicts,
     _ns_timestamp_to_date,
 )
@@ -169,7 +170,7 @@ def rewrite_search_bullets(
         if overall_verdict in ("mixed_weak", "discard_unsupported", "discard_not_new"):
             if overall_verdict == "mixed_weak":
                 reason = (
-                    "Bullet discarded: only partially_novel claims, no fully novel "
+                    "Bullet discarded: multiple partially_novel claims, no fully novel "
                     "material — insufficient to justify a rewrite."
                 )
             elif overall_verdict == "discard_unsupported":
@@ -190,22 +191,32 @@ def rewrite_search_bullets(
                 "overall_verdict_reason": reason,
             }
 
-        # --- LLM path: mixed (old context + pivot marker) or mixed_noise (strip only) ---
+        # --- LLM path: mixed / mixed_noise / single_partially_novel ---
 
-        claims_and_verdicts_text = _ns_build_rewrite_claims_and_verdicts(
-            claims, claim_verdicts
-        )
-
-        prompt_template = (
-            _REWRITE_PROMPT_MIXED_NOISE
-            if overall_verdict == "mixed_noise"
-            else _REWRITE_PROMPT_MIXED
-        )
-        user_content = prompt_template.format(
-            entity_name=entity_name,
-            sentence=sentence,
-            claims_and_verdicts=claims_and_verdicts_text,
-        )
+        if overall_verdict == "single_partially_novel":
+            # One claim that adds a specific new detail to a known topic.
+            # Pass the judge's reasoning so the rewriter knows what is known vs new
+            # without needing explicit old/novel labels.
+            reasoning_text = claim_verdicts[0].reasoning if claim_verdicts else ""
+            user_content = _REWRITE_PROMPT_SINGLE_PARTIALLY_NOVEL.format(
+                entity_name=entity_name,
+                sentence=sentence,
+                reasoning=reasoning_text,
+            )
+        else:
+            claims_and_verdicts_text = _ns_build_rewrite_claims_and_verdicts(
+                claims, claim_verdicts
+            )
+            prompt_template = (
+                _REWRITE_PROMPT_MIXED_NOISE
+                if overall_verdict == "mixed_noise"
+                else _REWRITE_PROMPT_MIXED
+            )
+            user_content = prompt_template.format(
+                entity_name=entity_name,
+                sentence=sentence,
+                claims_and_verdicts=claims_and_verdicts_text,
+            )
         rewrite_response = deps.llm_client.call_with_response_format(
             system=[],
             messages=[{"role": "user", "content": user_content}],
@@ -221,9 +232,10 @@ def rewrite_search_bullets(
             raise RuntimeError(f"rewrite returned None for bullet {bullet_idx}")
 
         logger.info(
-            "[novelty_search_rewrite] bullet=%d action=rewrite overall_verdict=%r",
+            "[novelty_search_rewrite] bullet=%d action=rewrite overall_verdict=%r prompt=%s",
             bullet_idx,
             overall_verdict,
+            "single_partially_novel" if overall_verdict == "single_partially_novel" else "mixed",
         )
         return {
             **base_result,

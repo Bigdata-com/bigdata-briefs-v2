@@ -417,6 +417,87 @@ OUTPUT (JSON):
 """
 
 
+_REWRITE_PROMPT_SINGLE_PARTIALLY_NOVEL = """\
+You are a financial news editor. You are given a sentence about a company and a judge's analysis.
+
+The judge found that the sentence is partially novel: the topic and surrounding context are already known from prior coverage, but the sentence adds one specific new detail — a concrete figure, a named partner, a geographic market, or a specific attribute — that does not appear in prior sources.
+
+Your task: rewrite the sentence so the known context is a subordinate clause and the new specific detail is introduced after a pivot marker.
+
+Structure:
+
+    {entity_name}, <subordinate clause with known context>, <pivot marker> <new specific detail>.
+
+ENTITY: "{entity_name}"
+The sentence must open with this exact name, character-for-character.
+
+PIVOT MARKERS — use exactly one from this list, no alternatives:
+- has now <verb> / have now <verb>
+- has just <verb>
+- has confirmed
+- has disclosed
+- has reported
+
+RULES:
+1. Open with "{entity_name}", exactly as written.
+2. Summarise the known context — what prior coverage already established about the topic — as a subordinate clause (e.g. "which reported ...", "after posting ...", "following ..."). Use past tense for the known part.
+3. Place the pivot marker between the known-context clause and the new detail.
+4. State the new specific detail after the pivot marker. Do not repeat the entity name after the pivot.
+5. Do not invent or infer facts not present in the original sentence.
+6. The result must be a single, coherent, publishable sentence.
+
+---
+
+EXAMPLES:
+
+Example 1 — new earnings figure, context is a known results topic:
+  Sentence: "Boeing Co. reported first quarter 2026 revenue of $22.22 billion, a 14% increase year over year, exceeding analyst estimates."
+  Judge's analysis: Evidence discusses Boeing's Q1 2026 results and shows analyst consensus estimates in the $21.6–21.95B range. The actual reported figure of $22.22B, the 14% YoY growth, and the beat are not in the evidence.
+  Rewritten: "Boeing Co., which faced analyst Q1 2026 revenue estimates in the $21.6–21.95 billion range, has now reported revenue of $22.22 billion, a 14% year-over-year increase that exceeded consensus."
+
+Example 2 — new specific figure within a known results topic:
+  Sentence: "UnitedHealth Group Inc. posted first-quarter 2026 pre-tax profit of $8.04 billion, exceeding the consensus estimate of $7.34 billion."
+  Judge's analysis: Evidence covers UnitedHealth's Q1 2026 results including revenues and earnings from operations of $9.0B. The specific pre-tax profit of $8.04B and the consensus of $7.34B are not in the evidence.
+  Rewritten: "UnitedHealth Group Inc., which reported Q1 2026 earnings from operations of $9.0 billion, has now disclosed a pre-tax profit of $8.04 billion, exceeding the consensus estimate of $7.34 billion."
+
+Example 3 — new geographic market in a known international rollout:
+  Sentence: "Amazon.com Inc. has launched Alexa+ in Spain as part of its international rollout, offering a generative AI-powered assistant that is conversational, deeply personalized, and capable of real-world actions."
+  Judge's analysis: Evidence documents Alexa+ rollouts in the U.S., Mexico, Canada, UK, and Italy. A launch in Spain is not mentioned in the evidence.
+  Rewritten: "Amazon.com Inc., which had already rolled out its Alexa+ generative AI assistant in the U.S., UK, Canada, Mexico, and Italy, has now launched the service in Spain."
+
+Example 4 — new regulatory approval in an already-approved product:
+  Sentence: "Merck & Co. Inc. received approval from the UK's Medicines and Healthcare products Regulatory Agency for Enflonsia, a vaccine to prevent respiratory syncytial virus lower respiratory tract disease in neonates and infants."
+  Judge's analysis: Evidence shows Enflonsia was approved by the European Commission and in the U.S., Canada, and Switzerland. No UK MHRA approval is mentioned in the evidence.
+  Rewritten: "Merck & Co. Inc., which had already received regulatory approvals for Enflonsia in the EU, U.S., Canada, and Switzerland, has now received approval from the UK's Medicines and Healthcare products Regulatory Agency."
+
+Example 5 — new precise percentages beyond confirmed headline numbers:
+  Sentence: "Apple Inc. achieved quarterly earnings per share of $2.84 in Q1 fiscal 2026, surpassing consensus estimates by 6.34%, and generated operating cash flow of $53.93 billion, up 80.14% year-over-year."
+  Judge's analysis: Evidence confirms Apple's EPS of $2.84 and operating cash flow of ~$53.9B and that results beat consensus. The specific beat of 6.34% and YoY cash flow growth of 80.14% are not in the evidence.
+  Rewritten: "Apple Inc., which reported Q1 fiscal 2026 EPS of $2.84 and operating cash flow of $53.93 billion above consensus expectations, has now confirmed that results surpassed estimates by 6.34% and that operating cash flow rose 80.14% year-over-year."
+
+---
+
+SENTENCE:
+
+{sentence}
+
+---
+
+JUDGE'S ANALYSIS:
+
+{reasoning}
+
+---
+
+OUTPUT (JSON):
+
+{{
+  "rewritten_sentence": "...",
+  "reasoning": "One sentence: what was treated as known context and what was the new specific detail."
+}}
+"""
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Utility functions
 # ══════════════════════════════════════════════════════════════════════════════
@@ -536,13 +617,14 @@ def _ns_compute_overall_verdict(verdicts: list[_NSClaimVerdict]) -> str:
 
     # Rule 2 — no fully novel, but at least one partially_novel
     if any(l == "partially_novel" for l in labels):
-        # NOTE (future improvement): "partially_novel" is currently a single bucket that covers
-        # both strong cases (claim adds a concrete new figure, named decision, or specific date)
-        # and weak cases (claim adds vague qualitative framing or an analytical inference).
-        # To recover more bullets, this branch could ask the judgment LLM for a
-        # partially_novel_strength score ("strong" / "weak") and route strong cases to the
-        # rewrite LLM instead of discarding them directly.
-        return "mixed_weak"  # currently always discarded — see note above
+        # Special case: exactly one claim and it is partially_novel.
+        # The topic is known from evidence but the sentence adds a specific new detail
+        # (a figure, a partner name, a geography, a specific attribute). Route to a
+        # dedicated rewriter that treats the known topic as subordinate context and
+        # introduces the new detail after a pivot marker.
+        if len(verdicts) == 1:
+            return "single_partially_novel"
+        return "mixed_weak"  # multiple partially_novel — discard
 
     # Rule 3 — only old / novel_trivial / novel_unsupported
     if any(l == "novel_unsupported" for l in labels):

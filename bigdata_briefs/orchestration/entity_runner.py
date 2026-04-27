@@ -428,7 +428,9 @@ def _flush_bullet_run_log(eng: Engine, run_id: uuid.UUID, entity_id: str, final_
         j = ne.get("judgment") or {}
 
         overall_verdict = s.get("overall_verdict")
-        not_fully_novel = bool(is_active and overall_verdict in ("mixed", "mixed_noise"))
+        # mixed: old context explicitly present in the rewritten sentence → amber
+        # mixed_noise / single_partially_novel: rewriter strips old/noise, result is fully novel → green
+        not_fully_novel = bool(is_active and overall_verdict == "mixed")
 
         ne_rewrite = (ne.get("rewrite") or {}).get("text_after")
         search_rewrite = s.get("rewritten_text")

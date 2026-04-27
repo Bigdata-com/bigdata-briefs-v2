@@ -591,7 +591,7 @@ def _convert_bp(bp: dict, source_refs: dict) -> dict:
     search_action = s.get("verdict")
     is_active = bp.get("is_active", True)
     overall_verdict = s.get("overall_verdict")
-    not_fully_novel = bool(is_active and overall_verdict in ("mixed", "mixed_noise"))
+    not_fully_novel = bool(is_active and overall_verdict == "mixed")
 
     ne_rewrite = (ne.get("rewrite") or {}).get("text_after")
     search_rewrite = s.get("rewritten_text")
