@@ -751,7 +751,10 @@ def _render_discarded_section(discarded: list[dict], section_id: str) -> str:
         return ""
     buckets: dict[str, list[dict]] = {}
     for b in discarded:
-        stage = _get_discard_stage(b)
+        # _convert_bp already computed the stage and stored it in b["discarded"]["stage"].
+        # Calling _get_discard_stage() here would always return "unknown" because the
+        # raw pipeline fields (relevance_scoring, entity_grounding, etc.) are gone.
+        stage = (b.get("discarded") or {}).get("stage") or _get_discard_stage(b)
         buckets.setdefault(stage, []).append(b)
 
     total = len(discarded)
