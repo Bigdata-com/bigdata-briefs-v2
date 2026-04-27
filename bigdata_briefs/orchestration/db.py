@@ -17,6 +17,28 @@ def ensure_orchestration_schema(engine: Engine) -> None:
     SQLModel.metadata.create_all(engine)
     _ensure_report_window_columns(engine)
     _ensure_not_fully_novel_column(engine)
+    _ensure_bullet_run_log_json_columns(engine)
+
+
+def _ensure_bullet_run_log_json_columns(engine: Engine) -> None:
+    """Add JSON display columns to sqlbulletrunlog for existing DBs."""
+    with engine.connect() as conn:
+        rows = conn.execute(text("PRAGMA table_info(sqlbulletrunlog)")).fetchall()
+    if not rows:
+        return  # table doesn't exist yet; create_all will handle it
+    colnames = {r[1] for r in rows}
+    new_cols = {
+        "citations_json": "TEXT NOT NULL DEFAULT '[]'",
+        "evaluator_details_json": "TEXT NOT NULL DEFAULT '[]'",
+        "claim_verdicts_json": "TEXT NOT NULL DEFAULT '[]'",
+        "evidence_map_json": "TEXT NOT NULL DEFAULT '{}'",
+        "grounding_citations_json": "TEXT NOT NULL DEFAULT '[]'",
+    }
+    for col, definition in new_cols.items():
+        if col not in colnames:
+            with engine.connect() as conn:
+                conn.execute(text(f"ALTER TABLE sqlbulletrunlog ADD COLUMN {col} {definition}"))
+                conn.commit()
 
 
 def _ensure_report_window_columns(engine: Engine) -> None:

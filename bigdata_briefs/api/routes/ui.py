@@ -79,8 +79,7 @@ class EntityRunStatus:
     error: str | None = None
     window_start: str | None = None
     window_end: str | None = None
-    bullet_points: list[dict] = field(default_factory=list)
-    source_references: dict = field(default_factory=dict)
+    run_id: str | None = None  # SQLEntityPipelineRunLog.run_id — used to load bullets from SQLBulletRunLog
 
 
 def _get_entity_name(engine, entity_id: str) -> str:
@@ -124,8 +123,7 @@ def _db_append_result(engine, batch_id: str, result: EntityRunStatus) -> None:
             "error": result.error,
             "window_start": result.window_start,
             "window_end": result.window_end,
-            "bullet_points": result.bullet_points,
-            "source_references": result.source_references,
+            "run_id": result.run_id,
         })
         row.results_json = json.dumps(existing)
         row.done += 1
@@ -237,20 +235,6 @@ def _run_one_ui_entity(
         ))
         return
 
-    bullet_points: list[dict] = []
-    source_references: dict = {}
-    if result.success and result.run_id:
-        with Session(engine) as session:
-            log = session.get(SQLEntityPipelineRunLog, result.run_id)
-            if log and log.output_json:
-                try:
-                    data = json.loads(log.output_json)
-                    if isinstance(data, dict):
-                        bullet_points = data.get("bullet_points") or []
-                        source_references = data.get("source_references") or {}
-                except (json.JSONDecodeError, TypeError):
-                    pass
-
     entity_name = _get_entity_name(engine, entity_id)
     window_start = window_end = None
     if result.report_dates:
@@ -264,8 +248,7 @@ def _run_one_ui_entity(
         error=result.error if not result.success else None,
         window_start=window_start,
         window_end=window_end,
-        bullet_points=bullet_points,
-        source_references=source_references,
+        run_id=str(result.run_id) if result.run_id else None,
     ))
 
 
@@ -315,17 +298,65 @@ def _ui_run_batch(
 # ── Data helpers ──────────────────────────────────────────────────────────────
 
 
-def _load_run_log_data(log: SQLEntityPipelineRunLog) -> tuple[list[dict], dict]:
-    """Parse output_json from a run log row into (bullet_points, source_references)."""
-    if not log.output_json:
-        return [], {}
-    try:
-        data = json.loads(log.output_json)
-        if isinstance(data, dict):
-            return data.get("bullet_points") or [], data.get("source_references") or {}
-        return [], {}
-    except (json.JSONDecodeError, TypeError):
-        return [], {}
+def _load_bullets_for_run(engine, run_id) -> list[dict]:
+    """Load display-ready bullet dicts from SQLBulletRunLog for a given run_id.
+
+    Returns a list of dicts in the same shape that _convert_bp used to produce
+    from output_json, so all downstream renderers work unchanged. No output_json
+    parsing needed.
+    """
+    with Session(engine) as session:
+        rows = session.exec(
+            select(SQLBulletRunLog)
+            .where(SQLBulletRunLog.run_id == run_id)
+            .order_by(SQLBulletRunLog.created_at)
+        ).all()
+
+    bullets = []
+    for r in rows:
+        citations = json.loads(r.citations_json or "[]")
+        evaluator_details = json.loads(r.evaluator_details_json or "[]")
+        claim_verdicts = json.loads(r.claim_verdicts_json or "[]")
+        evidence_map = json.loads(r.evidence_map_json or "{}")
+        grounding_citations = json.loads(r.grounding_citations_json or "[]")
+
+        passed_block = None
+        discarded_block = None
+        if r.is_active:
+            passed_block = {
+                "relevance_score": r.relevance_score,
+                "relevance_reason": r.relevance_reason or "",
+            }
+        else:
+            discarded_block = {
+                "stage": r.discard_stage or "unknown",
+                "reason": (
+                    r.relevance_reason or r.grounding_reason or
+                    r.embedding_reason or r.search_reason or ""
+                ),
+                "score": r.relevance_score if r.discard_stage == "relevance_score" else None,
+                "citations": grounding_citations,
+                "evaluator_details": evaluator_details,
+                "claim_verdicts": claim_verdicts,
+                "overall_verdict": r.search_overall_verdict or "",
+                "evidence_map": evidence_map,
+            }
+
+        bullets.append({
+            "trace_id": r.trace_id,
+            "text": r.text,
+            "final_text": r.text,
+            "original_text": r.original_text,
+            "theme": r.theme,
+            "citations": citations,
+            "is_active": r.is_active,
+            "not_fully_novel": r.not_fully_novel,
+            "embedding_decision": r.embedding_decision,
+            "search_action": r.search_verdict,
+            "passed": passed_block,
+            "discarded": discarded_block,
+        })
+    return bullets
 
 
 def _get_history_runs(engine, entity_id: str) -> list[SQLEntityPipelineRunLog]:
@@ -900,16 +931,15 @@ def _render_discarded_section(discarded: list[dict], section_id: str) -> str:
 
 
 def _render_run_bullets_html(
-    bullet_points: list[dict],
-    source_refs: dict,
+    bullets: list[dict],
     run_key: str,
     *,
     include_discarded: bool,
     include_details: bool,
 ) -> str:
-    converted = [_convert_bp(bp, source_refs) for bp in bullet_points]
-    active = [b for b in converted if b.get("is_active", True)]
-    discarded = [b for b in converted if not b.get("is_active", True)]
+    """Render bullets already in display-ready format (from _load_bullets_for_run)."""
+    active = [b for b in bullets if b.get("is_active", True)]
+    discarded = [b for b in bullets if not b.get("is_active", True)]
 
     # Sort active: fully-novel first, then amber
     active_sorted = sorted(active, key=lambda b: (
@@ -935,6 +965,7 @@ def _render_run_bullets_html(
 
 def _render_entity_history_html(
     runs: list[SQLEntityPipelineRunLog],
+    engine,
     *,
     include_discarded: bool,
     include_details: bool,
@@ -965,10 +996,10 @@ def _render_entity_history_html(
             parts.append(f'<section class="run-block">')
             if end_label:
                 parts.append(f'<div class="run-time-label">{html.escape(end_label.strip())}</div>')
-            bps, src_refs = _load_run_log_data(log)
             run_key = f"hist-{log.run_id}-{run_idx}"
+            bullets = _load_bullets_for_run(engine, log.run_id)
             parts.append(_render_run_bullets_html(
-                bps, src_refs, run_key,
+                bullets, run_key,
                 include_discarded=include_discarded,
                 include_details=include_details,
             ))
@@ -1090,7 +1121,8 @@ async def ui_run_status(request: Request, batch_id: str = "") -> HTMLResponse:
             {"batch_id": batch_id, "total": batch.total, "done": batch.done},
         )
 
-    # finished or cancelled — deserialise results and render final HTML
+    # finished or cancelled — read results and render
+    engine = get_engine()
     statuses: list[EntityRunStatus] = []
     for r in json.loads(batch.results_json):
         statuses.append(EntityRunStatus(
@@ -1100,18 +1132,17 @@ async def ui_run_status(request: Request, batch_id: str = "") -> HTMLResponse:
             error=r.get("error"),
             window_start=r.get("window_start"),
             window_end=r.get("window_end"),
-            bullet_points=r.get("bullet_points") or [],
-            source_references=r.get("source_references") or {},
+            run_id=r.get("run_id"),
         ))
 
-    results_html = _render_batch_results(statuses)
+    results_html = _render_batch_results(statuses, engine)
     return templates.TemplateResponse(
         request, "ui/partials/run_result.html",
         {"results_html": results_html},
     )
 
 
-def _render_batch_results(statuses: list[EntityRunStatus]) -> str:
+def _render_batch_results(statuses: list[EntityRunStatus], engine) -> str:
     parts: list[str] = []
     for s_idx, s in enumerate(statuses, 1):
         name_esc = html.escape(s.entity_name or s.entity_id)
@@ -1135,8 +1166,9 @@ def _render_batch_results(statuses: list[EntityRunStatus]) -> str:
             parts.append('<div class="run-block"><p class="run-empty-day">Skipped.</p></div>')
         else:
             run_key = f"res-e{s_idx}"
+            bullets = _load_bullets_for_run(engine, uuid.UUID(s.run_id)) if s.run_id else []
             bullets_html = _render_run_bullets_html(
-                s.bullet_points, s.source_references, run_key,
+                bullets, run_key,
                 include_discarded=True,
                 include_details=False,
             )
@@ -1153,7 +1185,7 @@ async def ui_history_partial(request: Request, entity_id: str = "") -> HTMLRespo
         return HTMLResponse("")
     engine = get_engine()
     runs = _get_history_runs(engine, entity_id)
-    history_html = _render_entity_history_html(runs, include_discarded=False, include_details=False)
+    history_html = _render_entity_history_html(runs, engine, include_discarded=False, include_details=False)
     return templates.TemplateResponse(
         request, "ui/partials/history_content.html",
         {"history_html": history_html},
@@ -1167,7 +1199,7 @@ async def ui_history_details_partial(request: Request, entity_id: str = "") -> H
         return HTMLResponse("")
     engine = get_engine()
     runs = _get_history_runs(engine, entity_id)
-    history_html = _render_entity_history_html(runs, include_discarded=True, include_details=True)
+    history_html = _render_entity_history_html(runs, engine, include_discarded=True, include_details=True)
     return templates.TemplateResponse(
         request, "ui/partials/history_content.html",
         {"history_html": history_html},

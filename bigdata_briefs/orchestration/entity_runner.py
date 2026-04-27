@@ -371,12 +371,48 @@ def _get_discard_stage(bp: dict) -> str | None:
     return "unknown"
 
 
+def _build_doc_index(source_refs: dict) -> dict:
+    """Build {document_id[-chunk_id]: {headline,text,source_name,date}} from source_references."""
+    index: dict = {}
+    for ref in source_refs.values():
+        doc_id = str(ref.get("document_id") or "").strip()
+        chunk_id = ref.get("chunk_id")
+        if not doc_id:
+            continue
+        ts = str(ref.get("ts") or "").replace("T", " ")[:19]
+        entry = {
+            "headline": ref.get("headline") or "",
+            "text": ref.get("text") or "",
+            "source_name": ref.get("source_name") or "",
+            "date": ts,
+        }
+        if chunk_id is not None:
+            index.setdefault(f"{doc_id}-{chunk_id}", entry)
+        index.setdefault(doc_id, entry)
+    return index
+
+
+def _resolve_citation(cit_id: str, doc_index: dict) -> dict:
+    tail = cit_id.split(":", 1)[-1]
+    meta = doc_index.get(tail) or doc_index.get(tail.rsplit("-", 1)[0]) or {}
+    return {
+        "id": cit_id,
+        "headline": meta.get("headline") or "",
+        "text": meta.get("text") or "",
+        "source_name": meta.get("source_name") or "",
+        "date": meta.get("date") or "",
+    }
+
+
 def _flush_bullet_run_log(eng: Engine, run_id: uuid.UUID, entity_id: str, final_state: dict) -> None:
-    """Write one SQLBulletRunLog row per bullet from the completed pipeline run."""
+    """Write one SQLBulletRunLog row per bullet, storing all display data so the UI
+    never needs to parse output_json again."""
     bullet_points: list[dict] = final_state.get("bullet_points") or []
     if not bullet_points:
         return
 
+    source_refs: dict = final_state.get("source_references") or {}
+    doc_index = _build_doc_index(source_refs)
     now = datetime.now(timezone.utc)
     rows: list[SQLBulletRunLog] = []
 
@@ -385,12 +421,11 @@ def _flush_bullet_run_log(eng: Engine, run_id: uuid.UUID, entity_id: str, final_
         ne = bp.get("novelty_embedding") or {}
         ns_block = bp.get("novelty_search") or {}
         s = ns_block.get("search") or {}
+        search_details = s.get("details") or {}
         rs = bp.get("relevance_scoring") or {}
         eg = (bp.get("entity_grounding") or {}).get("check") or {}
         gen = bp.get("generation") or {}
         j = ne.get("judgment") or {}
-        rc = ne.get("relevance_check") or {}
-        src = ns_block.get("relevance_check") or {}
 
         overall_verdict = s.get("overall_verdict")
         not_fully_novel = bool(is_active and overall_verdict in ("mixed", "mixed_noise"))
@@ -398,6 +433,25 @@ def _flush_bullet_run_log(eng: Engine, run_id: uuid.UUID, entity_id: str, final_
         ne_rewrite = (ne.get("rewrite") or {}).get("text_after")
         search_rewrite = s.get("rewritten_text")
         final_text = search_rewrite or ne_rewrite or bp.get("text", "")
+
+        # ── citations: resolve IDs → full metadata via doc_index ─────────────
+        citations = [
+            _resolve_citation(str(cid), doc_index)
+            for cid in (bp.get("citations") or [])
+        ]
+
+        # ── evaluator details (novelty embedding) ─────────────────────────────
+        evaluator_details = j.get("evaluator_details") or []
+
+        # ── novelty search claim verdicts + evidence map ──────────────────────
+        claim_verdicts = search_details.get("claim_verdicts") or []
+        evidence_map = search_details.get("evidence_map") or {}
+
+        # ── grounding citation IDs ────────────────────────────────────────────
+        grounding_citations = (
+            [str(c) for c in (bp.get("citations") or [])]
+            if _get_discard_stage(bp) == "grounding" else []
+        )
 
         rows.append(SQLBulletRunLog(
             run_id=run_id,
@@ -421,6 +475,11 @@ def _flush_bullet_run_log(eng: Engine, run_id: uuid.UUID, entity_id: str, final_
             search_overall_verdict=overall_verdict,
             search_reason=s.get("reason"),
             search_duration_seconds=s.get("duration_seconds"),
+            citations_json=json.dumps(citations, default=str),
+            evaluator_details_json=json.dumps(evaluator_details, default=str),
+            claim_verdicts_json=json.dumps(claim_verdicts, default=str),
+            evidence_map_json=json.dumps(evidence_map, default=str),
+            grounding_citations_json=json.dumps(grounding_citations),
             created_at=now,
         ))
 

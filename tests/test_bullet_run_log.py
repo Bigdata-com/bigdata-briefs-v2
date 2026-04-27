@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime, timezone
 
@@ -10,7 +11,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 
 from bigdata_briefs.orchestration.entity_runner import _flush_bullet_run_log, _get_discard_stage
 from bigdata_briefs.orchestration.models import SQLBulletRunLog
-from bigdata_briefs.api.routes.ui import _bullet_stats
+from bigdata_briefs.api.routes.ui import _bullet_stats, _load_bullets_for_run
 
 
 @pytest.fixture
@@ -322,3 +323,185 @@ def test_bullet_stats_only_counts_own_run(engine):
     assert stats_b["total"] == 2
     assert stats_b["discarded"] == 2
     assert stats_b["stages"] == {"grounding": 2}
+
+
+# ── JSON columns populated by _flush_bullet_run_log ───────────────────────────
+
+
+def _make_active_bp_with_refs(trace_id: str = "t1") -> dict:
+    return {
+        "trace_id": trace_id,
+        "is_active": True,
+        "text": "Final text",
+        "theme": "earnings",
+        "citations": ["CQS:DOC1-0"],
+        "generation": {"original_text": "Draft text"},
+        "relevance_scoring": {"score": 4, "passed": True, "reason": "relevant"},
+        "entity_grounding": {"check": {"decision": "valid", "reason": "ok"}},
+        "novelty_embedding": {"judgment": {"decision": "keep", "reason": "novel"}},
+        "novelty_search": {
+            "search": {
+                "verdict": "keep",
+                "overall_verdict": "novel",
+                "reason": "no match",
+                "duration_seconds": 1.2,
+                "details": {
+                    "claim_verdicts": [
+                        {
+                            "claim_index": 0,
+                            "claim_text": "A claim",
+                            "novelty": "novel",
+                            "reasoning": "fully novel",
+                            "evidence_ids": ["D1-C0"],
+                        }
+                    ],
+                    "evidence_map": {
+                        "D1-C0": {"headline": "Test headline", "date": "2025-01-01", "text": "Evidence text"}
+                    },
+                },
+            }
+        },
+    }
+
+
+SOURCE_REFS = {
+    "CQS:REF0": {
+        "document_id": "DOC1",
+        "chunk_id": 0,
+        "headline": "Intel Q4",
+        "ts": "2025-01-15T10:00:00",
+        "source_name": "Reuters",
+        "text": "Full article text",
+    }
+}
+
+
+def test_flush_saves_citations_json(engine):
+    run_id = uuid.uuid4()
+    bp = _make_active_bp_with_refs("cite-t")
+    final_state = {"bullet_points": [bp], "source_references": SOURCE_REFS}
+    _flush_bullet_run_log(engine, run_id, "E1", final_state)
+
+    with Session(engine) as s:
+        row = s.exec(select(SQLBulletRunLog).where(SQLBulletRunLog.trace_id == "cite-t")).first()
+
+    citations = json.loads(row.citations_json)
+    assert len(citations) == 1
+    assert citations[0]["id"] == "CQS:DOC1-0"
+    assert citations[0]["headline"] == "Intel Q4"
+    assert citations[0]["source_name"] == "Reuters"
+    assert citations[0]["text"] == "Full article text"
+
+
+def test_flush_saves_claim_verdicts_and_evidence_map(engine):
+    run_id = uuid.uuid4()
+    bp = _make_active_bp_with_refs("claim-t")
+    final_state = {"bullet_points": [bp], "source_references": SOURCE_REFS}
+    _flush_bullet_run_log(engine, run_id, "E1", final_state)
+
+    with Session(engine) as s:
+        row = s.exec(select(SQLBulletRunLog).where(SQLBulletRunLog.trace_id == "claim-t")).first()
+
+    verdicts = json.loads(row.claim_verdicts_json)
+    assert len(verdicts) == 1
+    assert verdicts[0]["claim_text"] == "A claim"
+    assert verdicts[0]["evidence_ids"] == ["D1-C0"]
+
+    ev_map = json.loads(row.evidence_map_json)
+    assert ev_map["D1-C0"]["headline"] == "Test headline"
+
+
+def test_flush_empty_source_refs_gives_empty_citations(engine):
+    run_id = uuid.uuid4()
+    bp = _make_active_bp_with_refs("no-refs")
+    final_state = {"bullet_points": [bp], "source_references": {}}
+    _flush_bullet_run_log(engine, run_id, "E1", final_state)
+
+    with Session(engine) as s:
+        row = s.exec(select(SQLBulletRunLog).where(SQLBulletRunLog.trace_id == "no-refs")).first()
+
+    citations = json.loads(row.citations_json)
+    # citation ID is in the bullet but not resolvable — id preserved, fields empty
+    assert citations[0]["id"] == "CQS:DOC1-0"
+    assert citations[0]["headline"] == ""
+
+
+# ── _load_bullets_for_run ─────────────────────────────────────────────────────
+
+
+def _insert_full_bullet(session, run_id, trace_id, is_active, discard_stage=None):
+    session.add(SQLBulletRunLog(
+        run_id=run_id,
+        entity_id="E1",
+        trace_id=trace_id,
+        is_active=is_active,
+        not_fully_novel=False,
+        discard_stage=discard_stage,
+        text="bullet text",
+        original_text="draft text",
+        theme="earnings",
+        relevance_score=4,
+        relevance_passed=True,
+        relevance_reason="relevant",
+        grounding_decision="valid",
+        grounding_reason=None,
+        embedding_decision="keep",
+        embedding_reason="novel",
+        search_verdict="keep",
+        search_overall_verdict="novel",
+        search_reason="no match",
+        citations_json=json.dumps([{"id": "C1", "headline": "H", "text": "T", "source_name": "S", "date": "2025-01-01"}]),
+        evaluator_details_json="[]",
+        claim_verdicts_json=json.dumps([{"claim_index": 0, "claim_text": "claim", "novelty": "novel", "reasoning": "ok", "evidence_ids": []}]),
+        evidence_map_json="{}",
+        grounding_citations_json="[]",
+        created_at=datetime.now(timezone.utc),
+    ))
+    session.commit()
+
+
+def test_load_bullets_returns_display_ready_dicts(engine):
+    run_id = uuid.uuid4()
+    with Session(engine) as s:
+        _insert_full_bullet(s, run_id, "t1", True)
+        _insert_full_bullet(s, run_id, "t2", False, "relevance_score")
+
+    bullets = _load_bullets_for_run(engine, run_id)
+    assert len(bullets) == 2
+
+    active = next(b for b in bullets if b["is_active"])
+    discarded = next(b for b in bullets if not b["is_active"])
+
+    assert active["text"] == "bullet text"
+    assert active["citations"][0]["headline"] == "H"
+    assert active["passed"]["relevance_score"] == 4
+    assert active["discarded"] is None
+
+    assert discarded["discarded"]["stage"] == "relevance_score"
+    assert discarded["passed"] is None
+
+
+def test_load_bullets_empty_run(engine):
+    run_id = uuid.uuid4()
+    bullets = _load_bullets_for_run(engine, run_id)
+    assert bullets == []
+
+
+def test_load_bullets_active_has_no_discarded_block(engine):
+    run_id = uuid.uuid4()
+    with Session(engine) as s:
+        _insert_full_bullet(s, run_id, "ta", True)
+
+    bullets = _load_bullets_for_run(engine, run_id)
+    assert bullets[0]["discarded"] is None
+    assert bullets[0]["passed"] is not None
+
+
+def test_load_bullets_discarded_has_no_passed_block(engine):
+    run_id = uuid.uuid4()
+    with Session(engine) as s:
+        _insert_full_bullet(s, run_id, "td", False, "grounding")
+
+    bullets = _load_bullets_for_run(engine, run_id)
+    assert bullets[0]["passed"] is None
+    assert bullets[0]["discarded"]["stage"] == "grounding"

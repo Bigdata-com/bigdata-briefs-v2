@@ -59,6 +59,25 @@ class SQLBulletRunLog(SQLModel, table=True):
     search_reason: str | None = Field(default=None, sa_type=Text)
     search_duration_seconds: float | None = None
 
+    # ── display data (JSON) ──────────────────────────────────────────────────
+    # These columns store the full nested data needed to render a bullet in the
+    # UI without ever touching output_json again. Written once at flush time.
+
+    # [{id, headline, text, source_name, date}] — citations resolved via source_references
+    citations_json: str = Field(default="[]", sa_type=Text)
+
+    # [{evaluator_name, decision, reason, retrieved_bullets:[{text,score,date}]}]
+    evaluator_details_json: str = Field(default="[]", sa_type=Text)
+
+    # [{claim_index, claim_text, novelty, reasoning, evidence_ids:[str]}]
+    claim_verdicts_json: str = Field(default="[]", sa_type=Text)
+
+    # {simple_id: {headline, date, text}} — lookup table for evidence_ids
+    evidence_map_json: str = Field(default="{}", sa_type=Text)
+
+    # [str] — citation IDs referenced during grounding check
+    grounding_citations_json: str = Field(default="[]", sa_type=Text)
+
     created_at: datetime
 
 
