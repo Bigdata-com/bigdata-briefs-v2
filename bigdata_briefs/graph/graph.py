@@ -1,7 +1,7 @@
 """
 Brief 2.0 LangGraph Pipeline
 
-Composes all 24 canonical nodes into a StateGraph.
+Composes all canonical nodes into a StateGraph.
 
 Graph topology:
 
@@ -17,11 +17,9 @@ Graph topology:
             ─[continue]→ entity_grounding_check
               → embed_and_retrieve
               → novelty_judgment_embedding
-              → rewrite_embedding
-              → relevance_check_embedding
-              → persist_novel_embeddings
-              → novelty_search_parse_and_plan
-              → novelty_search_fetch
+              → persist_novel_embeddings          ← rewrite_embedding and
+              → novelty_search_parse_and_plan       relevance_check_embedding
+              → novelty_search_fetch                removed (see note below)
               → novelty_search_judgment
               → novelty_search_rewrite
               → relevance_score_search
@@ -32,6 +30,16 @@ Graph topology:
                   → standalone_validation
                   → build_report → END
                 ─[build_report]─────────────────────────────────→ build_report → END
+
+NOTE — rewrite_embedding and relevance_check_embedding are disabled:
+  The embedding novelty check exists solely to decide keep / discard / rewrite.
+  Bullets marked "discard" are deactivated immediately by novelty_judgment_embedding.
+  Bullets marked "rewrite" (partially novel) are kept active with their original text
+  and passed directly to the novelty-via-search phase, which judges them with real
+  evidence and applies the appropriate pivot-structure rewrite. Running the embedding
+  rewriter first would produce an intermediate rewritten text that the search phase
+  would then re-judge and potentially rewrite again — wasted LLM calls with no benefit.
+  The nodes still exist in the codebase but are not wired into the graph.
 """
 
 from __future__ import annotations
@@ -56,9 +64,7 @@ from bigdata_briefs.graph.constants import (
     NODE_PERSIST_NOVEL_EMBEDDINGS,
     NODE_QUARTER_INFO,
     NODE_REDUNDANCY_CHECK,
-    NODE_RELEVANCE_CHECK_EMBEDDING,
     NODE_RELEVANCE_SCORE_SEARCH,
-    NODE_REWRITE_EMBEDDING,
     NODE_SAVE_NOVEL_BULLETS,
     NODE_STANDALONE_VALIDATION,
     NODE_THEMATIC_CONSOLIDATION,
@@ -73,9 +79,6 @@ from bigdata_briefs.graph.nodes.initialize.initialize_pipeline import initialize
 from bigdata_briefs.graph.nodes.grounding.validate_entity_grounding import (
     classify_grounding_validity,
 )
-from bigdata_briefs.graph.nodes.novelty_embedding.check_rewrite_relevance import (
-    score_embedding_rewrite_relevance,
-)
 from bigdata_briefs.graph.nodes.novelty_embedding.embed_and_retrieve_candidates import (
     compute_embeddings_and_retrieve_candidates,
 )
@@ -85,9 +88,8 @@ from bigdata_briefs.graph.nodes.novelty_embedding.judge_novelty_by_embedding imp
 from bigdata_briefs.graph.nodes.novelty_embedding.persist_novel_embeddings import (
     persist_embeddings_of_novel_bullets,
 )
-from bigdata_briefs.graph.nodes.novelty_embedding.rewrite_non_novel_bullets import (
-    rewrite_partially_novel_bullets,
-)
+# rewrite_non_novel_bullets and check_rewrite_relevance not imported:
+# those nodes are disabled (see module docstring).
 from bigdata_briefs.graph.nodes.novelty_search.check_search_rewrite_relevance import (
     score_search_rewrite_relevance,
 )
@@ -230,8 +232,9 @@ def build_brief_graph() -> StateGraph:
     # ── Novelty Embedding ────────────────────────────────────────────────────
     g.add_node(NODE_EMBED_AND_RETRIEVE, L(NODE_EMBED_AND_RETRIEVE, compute_embeddings_and_retrieve_candidates))
     g.add_node(NODE_NOVELTY_JUDGMENT_EMBEDDING, L(NODE_NOVELTY_JUDGMENT_EMBEDDING, evaluate_novelty_by_embedding_similarity))
-    g.add_node(NODE_REWRITE_EMBEDDING, L(NODE_REWRITE_EMBEDDING, rewrite_partially_novel_bullets))
-    g.add_node(NODE_RELEVANCE_CHECK_EMBEDDING, L(NODE_RELEVANCE_CHECK_EMBEDDING, score_embedding_rewrite_relevance))
+    # NODE_REWRITE_EMBEDDING and NODE_RELEVANCE_CHECK_EMBEDDING intentionally omitted:
+    # the embedding phase only discards old bullets; partially-novel ones go to novelty
+    # search with their original text so the search phase can judge and rewrite them.
     g.add_node(NODE_PERSIST_NOVEL_EMBEDDINGS, L(NODE_PERSIST_NOVEL_EMBEDDINGS, persist_embeddings_of_novel_bullets))
 
     # ── Novelty via Search ───────────────────────────────────────────────────
@@ -291,14 +294,10 @@ def build_brief_graph() -> StateGraph:
         {ROUTE_NO_DATA: END, ROUTE_CONTINUE: NODE_ENTITY_GROUNDING_CHECK},
     )
 
-    # Grounding → Novelty Embedding: linear chain
+    # Grounding → Novelty Embedding → persist (rewrite + relevance check steps removed)
     g.add_edge(NODE_ENTITY_GROUNDING_CHECK, NODE_EMBED_AND_RETRIEVE)
     g.add_edge(NODE_EMBED_AND_RETRIEVE, NODE_NOVELTY_JUDGMENT_EMBEDDING)
-    g.add_edge(NODE_NOVELTY_JUDGMENT_EMBEDDING, NODE_REWRITE_EMBEDDING)
-    g.add_edge(NODE_REWRITE_EMBEDDING, NODE_RELEVANCE_CHECK_EMBEDDING)
-
-    # Embedding persistence (right after embedding-novelty phase)
-    g.add_edge(NODE_RELEVANCE_CHECK_EMBEDDING, NODE_PERSIST_NOVEL_EMBEDDINGS)
+    g.add_edge(NODE_NOVELTY_JUDGMENT_EMBEDDING, NODE_PERSIST_NOVEL_EMBEDDINGS)
 
     # Novelty Search: linear chain (4 nodes)
     g.add_edge(NODE_PERSIST_NOVEL_EMBEDDINGS, NODE_NOVELTY_SEARCH_PARSE_AND_PLAN)
