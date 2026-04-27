@@ -32,7 +32,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import desc
 from sqlmodel import Session, select
 
-from sqlalchemy import delete as sa_delete
+from sqlalchemy import delete as sa_delete, and_
 
 from bigdata_briefs.api.dependencies import (
     get_connection_sem,
@@ -53,6 +53,7 @@ from bigdata_briefs.api.routes.scan import (
 from bigdata_briefs.orchestration.config_load import load_pipeline_config_dict, resolve_config_path
 from bigdata_briefs.orchestration.entity_runner import run_entity_incremental
 from bigdata_briefs.orchestration.models import (
+    SQLBatchParallelRun,
     SQLEntityOrchestrationState,
     SQLEntityPipelineRunLog,
     SQLUIBatchRun,
@@ -1272,3 +1273,245 @@ async def ui_scan_status(request: Request, scan_id: str = "") -> HTMLResponse:
             "results": results,
         },
     )
+
+
+# ── Details / timing routes ───────────────────────────────────────────────────
+
+
+def _fmt_duration(seconds: float | None) -> str:
+    if seconds is None:
+        return "—"
+    seconds = int(seconds)
+    if seconds < 60:
+        return f"{seconds}s"
+    m, s = divmod(seconds, 60)
+    if m < 60:
+        return f"{m}m {s:02d}s"
+    h, m = divmod(m, 60)
+    return f"{h}h {m:02d}m {s:02d}s"
+
+
+def _duration_seconds(start: datetime | None, end: datetime | None) -> float | None:
+    if start is None or end is None:
+        return None
+    s = start.replace(tzinfo=timezone.utc) if start.tzinfo is None else start
+    e = end.replace(tzinfo=timezone.utc) if end.tzinfo is None else end
+    return max(0.0, (e - s).total_seconds())
+
+
+def _entity_runs_in_window(
+    session,
+    entity_ids: list[str],
+    window_start: datetime,
+    window_end: datetime,
+) -> list[SQLEntityPipelineRunLog]:
+    """Return run logs for a set of entities started within [window_start, window_end]."""
+    # Pad slightly to catch runs started just before batch creation
+    pad_start = window_start.replace(tzinfo=timezone.utc) if window_start.tzinfo is None else window_start
+    pad_end = window_end.replace(tzinfo=timezone.utc) if window_end.tzinfo is None else window_end
+    from datetime import timedelta
+    pad_start = pad_start - timedelta(minutes=1)
+    pad_end = pad_end + timedelta(minutes=5)
+
+    rows = session.exec(
+        select(SQLEntityPipelineRunLog)
+        .where(SQLEntityPipelineRunLog.entity_id.in_(entity_ids))
+        .where(SQLEntityPipelineRunLog.process_started_at_utc >= pad_start)
+        .where(SQLEntityPipelineRunLog.process_started_at_utc <= pad_end)
+        .order_by(SQLEntityPipelineRunLog.process_started_at_utc)
+    ).all()
+    return list(rows)
+
+
+@router.get("/details", response_class=HTMLResponse)
+async def ui_details_page(request: Request) -> HTMLResponse:
+    templates = request.app.state.templates
+    engine = get_engine()
+
+    with Session(engine) as session:
+        ui_batches = session.exec(
+            select(SQLUIBatchRun).order_by(desc(SQLUIBatchRun.created_at)).limit(50)
+        ).all()
+        api_batches = session.exec(
+            select(SQLBatchParallelRun).order_by(desc(SQLBatchParallelRun.submitted_at)).limit(50)
+        ).all()
+        scans = session.exec(
+            select(SQLUIScanRun).order_by(desc(SQLUIScanRun.created_at)).limit(50)
+        ).all()
+        entity_runs = session.exec(
+            select(SQLEntityPipelineRunLog)
+            .order_by(desc(SQLEntityPipelineRunLog.process_started_at_utc))
+            .limit(200)
+        ).all()
+        orch_map: dict[str, str] = {
+            r.entity_id: (r.kg_name or r.entity_id)
+            for r in session.exec(select(SQLEntityOrchestrationState)).all()
+        }
+
+    def _enrich_ui_batch(b: SQLUIBatchRun) -> dict:
+        dur = _duration_seconds(b.created_at, b.updated_at)
+        results = json.loads(b.results_json)
+        return {
+            "id": b.batch_id,
+            "type": "UI Parallel",
+            "started": b.created_at,
+            "status": b.status,
+            "total": b.total,
+            "done": b.done,
+            "duration": _fmt_duration(dur),
+            "duration_s": dur,
+            "entity_ids": json.loads(b.entity_ids_json),
+            "window_start": b.created_at,
+            "window_end": b.updated_at,
+            "results": results,
+        }
+
+    def _enrich_api_batch(b: SQLBatchParallelRun) -> dict:
+        eids = json.loads(b.entity_ids_json)
+        run_ids_map: dict = json.loads(b.run_ids_json)
+        return {
+            "id": str(b.batch_id),
+            "type": "API Parallel",
+            "started": b.submitted_at,
+            "status": "submitted",
+            "total": b.total,
+            "done": b.total,
+            "duration": "—",
+            "duration_s": None,
+            "entity_ids": eids,
+            "window_start": b.submitted_at,
+            "window_end": None,
+            "run_ids_map": run_ids_map,
+        }
+
+    def _enrich_scan(s: SQLUIScanRun) -> dict:
+        dur = _duration_seconds(s.created_at, s.updated_at)
+        results = json.loads(s.results_json)
+        return {
+            "id": s.scan_id,
+            "entity_id": s.entity_id,
+            "entity_name": s.entity_name,
+            "started": s.created_at,
+            "status": s.status,
+            "windows_total": s.windows_total,
+            "windows_done": s.windows_done,
+            "duration": _fmt_duration(dur),
+            "duration_s": dur,
+            "results": results,
+        }
+
+    def _enrich_run(r: SQLEntityPipelineRunLog) -> dict:
+        dur = _duration_seconds(r.process_started_at_utc, r.process_completed_at_utc)
+        return {
+            "run_id": str(r.run_id),
+            "entity_id": r.entity_id,
+            "entity_name": orch_map.get(r.entity_id, r.entity_id),
+            "started": r.process_started_at_utc,
+            "completed": r.process_completed_at_utc,
+            "status": r.status,
+            "window_start": r.report_window_start,
+            "window_end": r.report_window_end,
+            "duration": _fmt_duration(dur),
+            "duration_s": dur,
+        }
+
+    return templates.TemplateResponse(
+        request, "ui/details.html",
+        {
+            "ui_batches": [_enrich_ui_batch(b) for b in ui_batches],
+            "api_batches": [_enrich_api_batch(b) for b in api_batches],
+            "scans": [_enrich_scan(s) for s in scans],
+            "entity_runs": [_enrich_run(r) for r in entity_runs],
+            "orch_map": orch_map,
+        },
+    )
+
+
+@router.get("/partials/batch-detail", response_class=HTMLResponse)
+async def ui_batch_detail_partial(request: Request, batch_id: str = "", batch_type: str = "") -> HTMLResponse:
+    """Expand per-entity run details for a batch row."""
+    engine = get_engine()
+
+    with Session(engine) as session:
+        orch_map: dict[str, str] = {
+            r.entity_id: (r.kg_name or r.entity_id)
+            for r in session.exec(select(SQLEntityOrchestrationState)).all()
+        }
+
+        if batch_type == "ui":
+            batch = session.get(SQLUIBatchRun, batch_id)
+            if not batch:
+                return HTMLResponse("<td colspan='6'><em>Not found.</em></td>")
+            eids = json.loads(batch.entity_ids_json)
+            runs = _entity_runs_in_window(session, eids, batch.created_at, batch.updated_at)
+        elif batch_type == "api":
+            import uuid as _uuid
+            try:
+                bid = _uuid.UUID(batch_id)
+            except ValueError:
+                return HTMLResponse("<td colspan='6'><em>Invalid ID.</em></td>")
+            batch = session.get(SQLBatchParallelRun, bid)
+            if not batch:
+                return HTMLResponse("<td colspan='6'><em>Not found.</em></td>")
+            eids = json.loads(batch.entity_ids_json)
+            window_start = batch.submitted_at
+            # Use 24h window as upper bound since API batches don't track end
+            from datetime import timedelta
+            window_end = batch.submitted_at + timedelta(hours=24)
+            runs = _entity_runs_in_window(session, eids, window_start, window_end)
+        else:
+            return HTMLResponse("<td colspan='6'><em>Unknown batch type.</em></td>")
+
+    rows_html = ""
+    for r in runs:
+        dur = _duration_seconds(r.process_started_at_utc, r.process_completed_at_utc)
+        name = html.escape(orch_map.get(r.entity_id, r.entity_id))
+        eid = html.escape(r.entity_id)
+        started = r.process_started_at_utc.strftime("%H:%M:%S") if r.process_started_at_utc else "—"
+        completed = r.process_completed_at_utc.strftime("%H:%M:%S") if r.process_completed_at_utc else "running"
+        status_cls = {"succeeded": "color:#166534", "failed": "color:#dc2626", "running": "color:#2563eb"}.get(r.status, "")
+        rows_html += (
+            f'<tr style="background:#f8fafc">'
+            f'<td style="padding:.35rem 1rem .35rem 2.5rem;font-size:.82rem;color:var(--muted)">↳ {name} <span style="font-family:monospace;font-size:.75rem">({eid})</span></td>'
+            f'<td style="padding:.35rem .75rem;font-size:.82rem">{started}</td>'
+            f'<td style="padding:.35rem .75rem;font-size:.82rem">{completed}</td>'
+            f'<td style="padding:.35rem .75rem;font-size:.82rem;font-weight:600;{status_cls}">{r.status}</td>'
+            f'<td style="padding:.35rem .75rem;font-size:.82rem;font-weight:600">{_fmt_duration(dur)}</td>'
+            f'<td></td>'
+            f'</tr>'
+        )
+    if not rows_html:
+        rows_html = '<tr style="background:#f8fafc"><td colspan="6" style="padding:.5rem 2.5rem;font-size:.82rem;color:var(--muted)">No individual run records found for this batch.</td></tr>'
+    return HTMLResponse(rows_html)
+
+
+@router.get("/partials/scan-detail", response_class=HTMLResponse)
+async def ui_scan_detail_partial(request: Request, scan_id: str = "") -> HTMLResponse:
+    """Expand per-window results for a scan row."""
+    engine = get_engine()
+    with Session(engine) as session:
+        scan = session.get(SQLUIScanRun, scan_id)
+    if not scan:
+        return HTMLResponse("<td colspan='6'><em>Not found.</em></td>")
+
+    results = json.loads(scan.results_json)
+    rows_html = ""
+    for r in results:
+        ws = (r.get("window_start") or "")[:16].replace("T", " ")
+        we = (r.get("window_end") or "")[:16].replace("T", " ")
+        status = r.get("status", "")
+        status_cls = {"succeeded": "color:#166534", "failed": "color:#dc2626", "cancelled": "color:#92400e"}.get(status, "")
+        err = html.escape(r.get("error") or "")
+        rows_html += (
+            f'<tr style="background:#f8fafc">'
+            f'<td style="padding:.35rem 1rem .35rem 2.5rem;font-size:.82rem;color:var(--muted)">↳ {ws} UTC</td>'
+            f'<td style="padding:.35rem .75rem;font-size:.82rem">{we} UTC</td>'
+            f'<td></td>'
+            f'<td style="padding:.35rem .75rem;font-size:.82rem;font-weight:600;{status_cls}">{status}</td>'
+            f'<td style="padding:.35rem .75rem;font-size:.82rem;color:#dc2626">{err}</td>'
+            f'<td></td>'
+            f'</tr>'
+        )
+    if not rows_html:
+        rows_html = '<tr style="background:#f8fafc"><td colspan="6" style="padding:.5rem 2.5rem;font-size:.82rem;color:var(--muted)">No window results yet.</td></tr>'
+    return HTMLResponse(rows_html)

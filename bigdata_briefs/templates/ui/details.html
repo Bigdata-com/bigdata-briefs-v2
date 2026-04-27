@@ -1,0 +1,169 @@
+{% extends "ui/base.html" %}
+{% block title %}Run Details — BigData Briefs{% endblock %}
+{% block nav_details %}active{% endblock %}
+
+{% block content %}
+<style>
+  .section-title {
+    font-size: .85rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .05em; color: var(--muted); margin: 2rem 0 .75rem;
+  }
+  .dt { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  .dt thead tr { border-bottom: 2px solid var(--border); }
+  .dt th {
+    text-align: left; padding: .5rem .75rem;
+    font-size: .75rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .04em; color: var(--muted); white-space: nowrap;
+  }
+  .dt tbody tr { border-bottom: 1px solid var(--border-soft); cursor: pointer; }
+  .dt tbody tr:hover { background: var(--pill-bg); }
+  .dt td { padding: .55rem .75rem; vertical-align: middle; }
+  .badge {
+    display: inline-block; font-size: .72rem; font-weight: 700;
+    padding: .15rem .45rem; border-radius: 5px;
+  }
+  .badge-ok   { color: #166534; background: #dcfce7; border: 1px solid #86efac; }
+  .badge-run  { color: #1d4ed8; background: #dbeafe; border: 1px solid #93c5fd; }
+  .badge-fail { color: #991b1b; background: #fee2e2; border: 1px solid #fca5a5; }
+  .badge-canc { color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; }
+  .badge-sub  { color: #4338ca; background: #eef2ff; border: 1px solid #c7d2fe; }
+  .dur { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .mono { font-family: ui-monospace, monospace; font-size: .8rem; color: var(--muted); }
+  .expand-btn { font-size: .78rem; color: var(--accent); text-decoration: underline; cursor: pointer; }
+  .empty-state { padding: 1.5rem; text-align: center; color: var(--muted); font-size: .9rem; }
+</style>
+
+{% macro status_badge(s) %}
+  {% if s == "succeeded" or s == "finished" %}<span class="badge badge-ok">{{ s }}</span>
+  {% elif s == "running" %}<span class="badge badge-run">running</span>
+  {% elif s == "failed" %}<span class="badge badge-fail">failed</span>
+  {% elif s == "cancelled" %}<span class="badge badge-canc">cancelled</span>
+  {% else %}<span class="badge badge-sub">{{ s }}</span>{% endif %}
+{% endmacro %}
+
+{% macro fmt_dt(dt) %}{% if dt %}{{ dt.strftime("%Y-%m-%d %H:%M") }}{% else %}—{% endif %}{% endmacro %}
+
+<!-- ═══════════════════════════════════ UI PARALLEL BATCHES ══ -->
+<div class="section-title">UI Parallel Batches</div>
+<div class="card" style="overflow:hidden">
+{% if ui_batches %}
+<table class="dt">
+  <thead><tr>
+    <th>Started</th><th>Status</th><th>Entities</th><th>Duration</th><th></th>
+  </tr></thead>
+  <tbody>
+  {% for b in ui_batches %}
+  <tr
+    hx-get="/ui/partials/batch-detail?batch_id={{ b.id }}&batch_type=ui"
+    hx-target="#detail-ui-{{ loop.index }}"
+    hx-swap="innerHTML"
+    hx-trigger="click"
+  >
+    <td class="mono">{{ fmt_dt(b.started) }}</td>
+    <td>{{ status_badge(b.status) }}</td>
+    <td>{{ b.done }}/{{ b.total }}</td>
+    <td class="dur">{{ b.duration }}</td>
+    <td><span class="expand-btn">expand ▾</span></td>
+  </tr>
+  <tr id="detail-ui-{{ loop.index }}"></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">No UI batch runs yet.</div>
+{% endif %}
+</div>
+
+<!-- ═══════════════════════════════════ API PARALLEL BATCHES ══ -->
+<div class="section-title">API Parallel Batches</div>
+<div class="card" style="overflow:hidden">
+{% if api_batches %}
+<table class="dt">
+  <thead><tr>
+    <th>Submitted</th><th>Status</th><th>Entities</th><th>Duration</th><th></th>
+  </tr></thead>
+  <tbody>
+  {% for b in api_batches %}
+  <tr
+    hx-get="/ui/partials/batch-detail?batch_id={{ b.id }}&batch_type=api"
+    hx-target="#detail-api-{{ loop.index }}"
+    hx-swap="innerHTML"
+    hx-trigger="click"
+  >
+    <td class="mono">{{ fmt_dt(b.started) }}</td>
+    <td>{{ status_badge(b.status) }}</td>
+    <td>{{ b.total }}</td>
+    <td class="dur">{{ b.duration }}</td>
+    <td><span class="expand-btn">expand ▾</span></td>
+  </tr>
+  <tr id="detail-api-{{ loop.index }}"></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">No API batch runs yet.</div>
+{% endif %}
+</div>
+
+<!-- ═══════════════════════════════════ SCANS ══ -->
+<div class="section-title">Historical Scans</div>
+<div class="card" style="overflow:hidden">
+{% if scans %}
+<table class="dt">
+  <thead><tr>
+    <th>Entity</th><th>Started</th><th>Status</th><th>Windows</th><th>Duration</th><th></th>
+  </tr></thead>
+  <tbody>
+  {% for s in scans %}
+  <tr
+    hx-get="/ui/partials/scan-detail?scan_id={{ s.id }}"
+    hx-target="#detail-scan-{{ loop.index }}"
+    hx-swap="innerHTML"
+    hx-trigger="click"
+  >
+    <td style="font-weight:600">{{ s.entity_name }}</td>
+    <td class="mono">{{ fmt_dt(s.started) }}</td>
+    <td>{{ status_badge(s.status) }}</td>
+    <td>{{ s.windows_done }}/{{ s.windows_total }}</td>
+    <td class="dur">{{ s.duration }}</td>
+    <td><span class="expand-btn">expand ▾</span></td>
+  </tr>
+  <tr id="detail-scan-{{ loop.index }}"></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">No scans yet.</div>
+{% endif %}
+</div>
+
+<!-- ═══════════════════════════════════ INDIVIDUAL ENTITY RUNS ══ -->
+<div class="section-title">Individual Entity Runs <span style="font-weight:400;font-size:.8rem">(last 200)</span></div>
+<div class="card" style="overflow:hidden">
+{% if entity_runs %}
+<table class="dt">
+  <thead><tr>
+    <th>Entity</th><th>Started</th><th>Window start</th><th>Window end</th><th>Status</th><th>Duration</th>
+  </tr></thead>
+  <tbody>
+  {% for r in entity_runs %}
+  <tr style="cursor:default">
+    <td>
+      <span style="font-weight:600">{{ r.entity_name }}</span><br>
+      <span class="mono">{{ r.entity_id }}</span>
+    </td>
+    <td class="mono">{{ fmt_dt(r.started) }}</td>
+    <td class="mono" style="font-size:.8rem">{{ fmt_dt(r.window_start) }}</td>
+    <td class="mono" style="font-size:.8rem">{{ fmt_dt(r.window_end) }}</td>
+    <td>{{ status_badge(r.status) }}</td>
+    <td class="dur">{{ r.duration }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">No entity runs yet.</div>
+{% endif %}
+</div>
+
+{% endblock %}
