@@ -105,6 +105,11 @@ class _NSRewriteResponseMixed(BaseModel):
     reasoning: str
 
 
+class _NSPivotRelevanceResult(BaseModel):
+    relevance_score: int
+    reason: str
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Prompts
 # ══════════════════════════════════════════════════════════════════════════════
@@ -496,6 +501,85 @@ OUTPUT (JSON):
   "reasoning": "One sentence: what was treated as known context and what was the new specific detail."
 }}
 """
+
+
+_PIVOT_RELEVANCE_CHECK_PROMPT = """\
+You are a financial analyst evaluating whether a specific new piece of information is material and actionable for an investor-focused market intelligence feed.
+
+The sentence below was produced by a rewriter that identified prior coverage (known context) and one new specific detail added on top. The sentence follows a fixed structure:
+
+    {entity_name}, <subordinate clause with known context>, <pivot marker> <new specific detail>.
+
+The pivot markers are: "has now", "has just", "has confirmed", "has disclosed", "has reported".
+
+YOUR TASK: evaluate the relevance of the NEW SPECIFIC DETAIL only — the part that comes after the pivot marker. Do not evaluate the subordinate clause (that is already known and is provided only as context). The question is: does the new detail add material, actionable information for investors?
+
+ENTITY: {entity_name}
+
+SCORING CRITERIA (apply to the new specific detail only):
+
+1 — Not material: the added detail is trivial, vague, or not actionable (e.g. a round number already implied, a non-specific qualifier, a minor geographic nuance with no investment relevance).
+
+2 — Marginally material: adds a specific datum but with limited actionability (e.g. a minor metric, a secondary operational detail, a routine update that does not change the investment picture).
+
+3 — Moderately material: adds a concrete fact with some actionability (e.g. a specific figure that contextualises a known result, a new partner name in an ongoing rollout, a specific regulatory approval in an additional market).
+
+4 — Material and actionable: the added detail meaningfully changes or quantifies the investment picture (e.g. actual earnings vs. consensus, a specific beat/miss percentage, a named strategic partner, a new geographic market with meaningful revenue potential).
+
+5 — Highly material: the added detail is a major data point that substantially affects valuation or strategy (e.g. a large unexpected earnings beat, a transformative new customer, a breakthrough metric not previously disclosed).
+
+ADDITIONAL RULES:
+- If the new detail is purely a percentage or ratio derived from figures already in the sentence (e.g. "up X% year-over-year" where both the current and prior figures are given), treat this as moderately material at most (score ≤ 3) unless the percentage itself reveals something qualitatively new.
+- If the new detail is a figure that confirms analyst expectations with no surprise, score ≤ 3.
+- If the new detail contains a figure that significantly beats or misses consensus, score 4–5.
+
+FULL SENTENCE (for context):
+{rewritten_sentence}
+
+Respond with JSON:
+{{"relevance_score": <1-5>, "reason": "<one sentence focusing on why the new added detail is or is not material>"}}
+"""
+
+
+def run_pivot_relevance_check(
+    rewritten_sentence: str,
+    entity_name: str,
+    llm_client,
+    *,
+    step_name: str,
+    debug_logger=None,
+    entity_metrics=None,
+    default_score: int = 4,
+) -> tuple[int, str | None]:
+    """Score the relevance of the new specific detail in a pivot-rewritten bullet.
+
+    Unlike the general relevance_check prompt (which evaluates the full sentence),
+    this prompt instructs the LLM to focus only on the part introduced after the
+    pivot marker — the genuinely new information — ignoring the known subordinate
+    context clause.
+
+    Returns (score, reason). On failure returns (default_score, None) so the bullet
+    is kept rather than silently dropped.
+    """
+    try:
+        user_content = _PIVOT_RELEVANCE_CHECK_PROMPT.format(
+            entity_name=entity_name,
+            rewritten_sentence=rewritten_sentence,
+        )
+        result = llm_client.call_with_response_format(
+            system=[],
+            messages=[{"role": "user", "content": user_content}],
+            text_format=_NSPivotRelevanceResult,
+            model=_NS_MODEL,
+            max_tokens=512,
+            reasoning_effort=_NS_REASONING_EFFORT,
+            step_name=step_name,
+            debug_logger=debug_logger,
+            entity_metrics=entity_metrics,
+        )
+        return result.relevance_score, result.reason
+    except Exception:
+        return default_score, None
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -35,8 +35,11 @@ from bigdata_briefs.graph.state import (
     bullet_to_record,
     record_to_bullet,
 )
+from bigdata_briefs.graph.nodes.novelty_search._search_impl import run_pivot_relevance_check
 from bigdata_briefs.novelty.novelty_service import run_relevance_check_for_bullet_text
 from bigdata_briefs.novelty.step_names import novelty_search_rewrite_relevance_check_step_name
+
+_PIVOT_VERDICTS = {"mixed", "single_partially_novel"}
 from bigdata_briefs.settings import settings
 
 
@@ -109,20 +112,37 @@ def score_search_rewrite_relevance(
 
     def check_single(bullet_idx: int) -> tuple[int, int, str | None]:
         bp = bullet_points[bullet_idx]
-        rewritten_text: str = ((bp.get("novelty_search") or {}).get("search") or {}).get("rewritten_text", "")
+        search_block = (bp.get("novelty_search") or {}).get("search") or {}
+        rewritten_text: str = search_block.get("rewritten_text", "")
+        overall_verdict: str = search_block.get("overall_verdict") or ""
         step_name = novelty_search_rewrite_relevance_check_step_name(bullet_idx)
-        score, reasoning = run_relevance_check_for_bullet_text(
-            rewritten_text=rewritten_text,
-            entity_name=entity_name,
-            entity_ticker=entity_ticker,
-            current_datetime_str=current_datetime_str,
-            current_quarter_title=current_quarter_title,
-            llm_client=deps.llm_client,
-            debug_logger=deps.debug_logger,
-            entity_metrics=deps.entity_metrics,
-            step_name=step_name,
-            bullet_index=bullet_idx,
-        )
+
+        # Pivot-rewritten bullets (mixed / single_partially_novel) get a dedicated
+        # relevance check that focuses only on the new detail added after the pivot
+        # marker, ignoring the known subordinate context clause.
+        if overall_verdict in _PIVOT_VERDICTS:
+            score, reasoning = run_pivot_relevance_check(
+                rewritten_sentence=rewritten_text,
+                entity_name=entity_name,
+                llm_client=deps.llm_client,
+                step_name=step_name,
+                debug_logger=deps.debug_logger,
+                entity_metrics=deps.entity_metrics,
+                default_score=threshold + 1,
+            )
+        else:
+            score, reasoning = run_relevance_check_for_bullet_text(
+                rewritten_text=rewritten_text,
+                entity_name=entity_name,
+                entity_ticker=entity_ticker,
+                current_datetime_str=current_datetime_str,
+                current_quarter_title=current_quarter_title,
+                llm_client=deps.llm_client,
+                debug_logger=deps.debug_logger,
+                entity_metrics=deps.entity_metrics,
+                step_name=step_name,
+                bullet_index=bullet_idx,
+            )
         return bullet_idx, score, reasoning
 
     max_workers = min(
