@@ -5,6 +5,7 @@ Pages (full HTML):
     GET  /ui/run              → Run Brief (form + live results)
     GET  /ui/history          → Company History (clean, passed bullets only)
     GET  /ui/history-details  → Company History (full detail + discards)
+    GET  /ui/admin            → Admin: reset DB / delete entity data
 
 HTMX partials (HTML fragments):
     POST /ui/batch/run                → trigger batch; returns progress fragment
@@ -12,6 +13,8 @@ HTMX partials (HTML fragments):
     GET  /ui/partials/run-status      → live progress / final results (polled every 3s)
     GET  /ui/partials/history         → bullet history for a selected entity
     GET  /ui/partials/history-details → bullet history + full details for a selected entity
+    POST /ui/admin/reset-db           → drop + recreate all tables
+    POST /ui/admin/delete-entity      → delete all data for a specific entity
 """
 
 from __future__ import annotations
@@ -28,6 +31,8 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import desc
 from sqlmodel import Session, select
+
+from sqlalchemy import delete as sa_delete
 
 from bigdata_briefs.api.dependencies import (
     get_connection_sem,
@@ -1046,3 +1051,70 @@ async def ui_history_details_partial(request: Request, entity_id: str = "") -> H
         request, "ui/partials/history_content.html",
         {"history_html": history_html},
     )
+
+
+# ── Admin routes ──────────────────────────────────────────────────────────────
+
+
+@router.get("/admin", response_class=HTMLResponse)
+async def ui_admin_page(request: Request) -> HTMLResponse:
+    templates = request.app.state.templates
+    engine = get_engine()
+    entities = _get_all_entities(engine)
+    return templates.TemplateResponse(
+        request, "ui/admin.html",
+        {"entities": entities},
+    )
+
+
+@router.post("/admin/reset-db", response_class=HTMLResponse)
+async def ui_admin_reset_db(request: Request) -> HTMLResponse:
+    from bigdata_briefs.orchestration.db import ensure_orchestration_schema
+    engine = get_engine()
+    from sqlmodel import SQLModel
+    SQLModel.metadata.drop_all(engine)
+    ensure_orchestration_schema(engine)
+    return HTMLResponse('<p class="admin-ok">Database reset. All tables recreated empty.</p>')
+
+
+@router.post("/admin/delete-entity", response_class=HTMLResponse)
+async def ui_admin_delete_entity(
+    request: Request,
+    entity_id: str = Form(default=""),
+) -> HTMLResponse:
+    if not entity_id.strip():
+        return HTMLResponse('<p class="admin-err">No entity ID provided.</p>')
+
+    from bigdata_briefs.novelty.sql_models import (
+        SQLBulletPointEmbedding,
+        SQLChunkTextHash,
+        SQLGeneratedBulletPoint,
+    )
+    from bigdata_briefs.novelty.sql_pipeline_checkpoint import SQLBulletPipelineCheckpoint
+
+    engine = get_engine()
+    eid = entity_id.strip()
+
+    with Session(engine) as session:
+        for model in (
+            SQLEntityPipelineRunLog,
+            SQLEntityOrchestrationState,
+            SQLBulletPointEmbedding,
+            SQLGeneratedBulletPoint,
+            SQLChunkTextHash,
+            SQLBulletPipelineCheckpoint,
+        ):
+            session.exec(sa_delete(model).where(model.entity_id == eid))
+        session.commit()
+
+    return HTMLResponse(f'<p class="admin-ok">All data for <code>{html.escape(eid)}</code> deleted.</p>')
+
+
+def _get_all_entities(engine) -> list[tuple[str, str]]:
+    """Return (entity_id, display_name) for all known entities."""
+    with Session(engine) as session:
+        rows = session.exec(
+            select(SQLEntityOrchestrationState)
+            .order_by(SQLEntityOrchestrationState.entity_id)
+        ).all()
+    return [(r.entity_id, r.kg_name or r.entity_id) for r in rows]

@@ -1,0 +1,77 @@
+{% extends "ui/base.html" %}
+{% block title %}Admin — BigData Briefs{% endblock %}
+{% block nav_admin %}active{% endblock %}
+
+{% block content %}
+<style>
+  .admin-section { margin-bottom: 2rem; }
+  .admin-section h2 { font-size: 1rem; font-weight: 700; margin: 0 0 1rem; }
+  .admin-ok { color: #166534; background: #dcfce7; border: 1px solid #86efac; padding: .6rem 1rem; border-radius: 8px; margin: .75rem 0 0; font-size: .9rem; }
+  .admin-err { color: #991b1b; background: #fee2e2; border: 1px solid #fca5a5; padding: .6rem 1rem; border-radius: 8px; margin: .75rem 0 0; font-size: .9rem; }
+  .danger-box { border: 1px solid #fca5a5; border-radius: 14px; padding: 1.25rem 1.5rem; background: #fff5f5; }
+  .danger-label { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #dc2626; margin-bottom: .75rem; }
+</style>
+
+<div style="max-width:640px">
+
+  <!-- ── Reset DB ── -->
+  <div class="card admin-section">
+    <div class="card-body">
+      <div class="danger-label">Destructive</div>
+      <h2>Reset entire database</h2>
+      <p style="font-size:.9rem;color:var(--muted);margin:0 0 1rem">
+        Drops all tables (runs, bullets, embeddings, checkpoints, hashes) and recreates them empty. Irreversible.
+      </p>
+      <div class="danger-box">
+        <form
+          hx-post="/ui/admin/reset-db"
+          hx-target="#reset-result"
+          hx-swap="innerHTML"
+          onsubmit="return confirm('Reset the entire database? This cannot be undone.')"
+        >
+          <button type="submit" class="btn btn-danger">Reset database</button>
+        </form>
+        <div id="reset-result"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Delete entity ── -->
+  <div class="card admin-section">
+    <div class="card-body">
+      <h2>Delete entity data</h2>
+      <p style="font-size:.9rem;color:var(--muted);margin:0 0 1rem">
+        Removes all runs, bullets, embeddings, and checkpoints for a single entity. Other entities are unaffected.
+      </p>
+
+      {% if entities %}
+      <div class="field">
+        <label for="entity-select">Select from known entities</label>
+        <select id="entity-select" onchange="document.getElementById('entity-id-input').value=this.value">
+          <option value="">— pick an entity —</option>
+          {% for eid, name in entities %}
+          <option value="{{ eid }}">{{ name }} ({{ eid }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="or-divider">or type manually</div>
+      {% endif %}
+
+      <form
+        hx-post="/ui/admin/delete-entity"
+        hx-target="#delete-result"
+        hx-swap="innerHTML"
+        onsubmit="return confirm('Delete all data for entity ' + document.getElementById('entity-id-input').value + '?')"
+      >
+        <div class="field">
+          <label for="entity-id-input">Entity ID</label>
+          <input type="text" id="entity-id-input" name="entity_id" placeholder="e.g. D8442A"/>
+        </div>
+        <button type="submit" class="btn btn-danger btn-sm">Delete entity</button>
+      </form>
+      <div id="delete-result"></div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
