@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Form, Request
+from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import desc
 from sqlmodel import Session, select
@@ -32,9 +32,11 @@ from sqlmodel import Session, select
 from bigdata_briefs.api.dependencies import (
     get_connection_sem,
     get_engine,
+    get_entity_executor,
     get_http_client,
     get_rate_limiter,
 )
+from bigdata_briefs.api.routes.universes import _UNIVERSES
 from bigdata_briefs.orchestration.config_load import load_pipeline_config_dict, resolve_config_path
 from bigdata_briefs.orchestration.entity_runner import run_entity_incremental
 from bigdata_briefs.orchestration.models import (
@@ -44,6 +46,8 @@ from bigdata_briefs.orchestration.models import (
 )
 from bigdata_briefs.orchestration.windows import WindowMode, build_report_dates_for_entity_run
 from bigdata_briefs.settings import settings
+
+_ENTITY_STAGGER_SECONDS = 3.0
 
 router = APIRouter(tags=["ui"])
 
@@ -151,102 +155,145 @@ def _db_is_cancelled(engine, batch_id: str) -> bool:
 # ── Background batch worker ───────────────────────────────────────────────────
 
 
+def _run_one_ui_entity(
+    *,
+    batch_id: str,
+    entity_id: str,
+    force_window_end: datetime | None,
+    engine,
+    rate_limiter,
+    connection_sem,
+    http_client,
+    startup_delay_seconds: float = 0.0,
+) -> None:
+    """Worker for one entity inside the parallel UI batch."""
+    import time as _time
+    if startup_delay_seconds > 0:
+        _time.sleep(startup_delay_seconds)
+
+    if _db_is_cancelled(engine, batch_id):
+        _db_append_result(engine, batch_id, EntityRunStatus(
+            entity_id=entity_id,
+            entity_name=_get_entity_name(engine, entity_id),
+            status="cancelled",
+        ))
+        return
+
+    pipeline_config = load_pipeline_config_dict(resolve_config_path(None))
+    state_dir = Path(".brief_pipeline_state")
+    entity_name = _get_entity_name(engine, entity_id)
+
+    try:
+        force_window_start: datetime | None = None
+        resolved_end = force_window_end
+        if force_window_end is not None:
+            with Session(engine) as _s:
+                orch = _s.get(SQLEntityOrchestrationState, entity_id)
+                last_end = orch.last_window_end if orch else None
+            try:
+                rd = build_report_dates_for_entity_run(
+                    now=force_window_end,
+                    last_window_end=last_end,
+                    window_mode=WindowMode.DAILY,
+                )
+                force_window_start = rd.start
+            except Exception:
+                force_window_start = None
+                resolved_end = None
+
+        result = run_entity_incremental(
+            entity_id=entity_id,
+            pipeline_config=pipeline_config,
+            state_dir=state_dir,
+            force_window_start=force_window_start,
+            force_window_end=resolved_end,
+            engine=engine,
+            rate_limiter=rate_limiter,
+            connection_sem=connection_sem,
+            http_client=http_client,
+        )
+    except Exception as exc:
+        _db_append_result(engine, batch_id, EntityRunStatus(
+            entity_id=entity_id,
+            entity_name=entity_name,
+            status="failed",
+            error=str(exc),
+        ))
+        return
+
+    bullet_points: list[dict] = []
+    source_references: dict = {}
+    if result.success and result.run_id:
+        with Session(engine) as session:
+            log = session.get(SQLEntityPipelineRunLog, result.run_id)
+            if log and log.output_json:
+                try:
+                    data = json.loads(log.output_json)
+                    if isinstance(data, dict):
+                        bullet_points = data.get("bullet_points") or []
+                        source_references = data.get("source_references") or {}
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+    entity_name = _get_entity_name(engine, entity_id)
+    window_start = window_end = None
+    if result.report_dates:
+        window_start = result.report_dates.start.strftime("%Y-%m-%d %H:%M UTC")
+        window_end = result.report_dates.end.strftime("%Y-%m-%d %H:%M UTC")
+
+    _db_append_result(engine, batch_id, EntityRunStatus(
+        entity_id=entity_id,
+        entity_name=entity_name,
+        status="succeeded" if result.success else "failed",
+        error=result.error if not result.success else None,
+        window_start=window_start,
+        window_end=window_end,
+        bullet_points=bullet_points,
+        source_references=source_references,
+    ))
+
+
 def _ui_run_batch(
     *,
     batch_id: str,
     entity_ids: list[str],
     force_window_end: datetime | None,
     engine,
+    executor,
     rate_limiter,
     connection_sem,
     http_client,
 ) -> None:
-    state_dir = Path(".brief_pipeline_state")
-    pipeline_config = load_pipeline_config_dict(resolve_config_path(None))
+    """Submit all entities to the shared ThreadPoolExecutor in parallel with stagger.
 
-    for entity_id in entity_ids:
-        if _db_is_cancelled(engine, batch_id):
-            _db_append_result(engine, batch_id, EntityRunStatus(
-                entity_id=entity_id,
-                entity_name=_get_entity_name(engine, entity_id),
-                status="cancelled",
-            ))
-            continue
+    Each entity writes its result to the DB when it completes, so the polling
+    route always reflects the current state even if entities finish out of order.
+    When all futures are done the batch is marked finished.
+    """
+    import threading as _threading
+    total = len(entity_ids)
+    done_count = [0]
+    lock = _threading.Lock()
 
-        entity_name = _get_entity_name(engine, entity_id)
-        try:
-            # When a custom window end is requested, compute the matching window
-            # start per-entity using the same daily-window logic, then pass both.
-            force_window_start: datetime | None = None
-            resolved_end = force_window_end
-            if force_window_end is not None:
-                with Session(engine) as _s:
-                    orch = _s.get(SQLEntityOrchestrationState, entity_id)
-                    last_end = orch.last_window_end if orch else None
-                try:
-                    rd = build_report_dates_for_entity_run(
-                        now=force_window_end,
-                        last_window_end=last_end,
-                        window_mode=WindowMode.DAILY,
-                    )
-                    force_window_start = rd.start
-                except Exception:
-                    force_window_start = None
-                    resolved_end = None
+    def _on_done(_future):
+        with lock:
+            done_count[0] += 1
+            if done_count[0] == total:
+                _db_finish_batch(engine, batch_id)
 
-            result = run_entity_incremental(
-                entity_id=entity_id,
-                pipeline_config=pipeline_config,
-                state_dir=state_dir,
-                force_window_start=force_window_start,
-                force_window_end=resolved_end,
-                engine=engine,
-                rate_limiter=rate_limiter,
-                connection_sem=connection_sem,
-                http_client=http_client,
-            )
-        except Exception as exc:
-            _db_append_result(engine, batch_id, EntityRunStatus(
-                entity_id=entity_id,
-                entity_name=entity_name,
-                status="failed",
-                error=str(exc),
-            ))
-            continue
-
-        bullet_points: list[dict] = []
-        source_references: dict = {}
-        if result.success and result.run_id:
-            with Session(engine) as session:
-                log = session.get(SQLEntityPipelineRunLog, result.run_id)
-                if log and log.output_json:
-                    try:
-                        data = json.loads(log.output_json)
-                        if isinstance(data, dict):
-                            bullet_points = data.get("bullet_points") or []
-                            source_references = data.get("source_references") or {}
-                    except (json.JSONDecodeError, TypeError):
-                        pass
-
-        entity_name = _get_entity_name(engine, entity_id)
-        window_start = window_end = None
-        if result.report_dates:
-            window_start = result.report_dates.start.strftime("%Y-%m-%d %H:%M UTC")
-            window_end = result.report_dates.end.strftime("%Y-%m-%d %H:%M UTC")
-
-        _db_append_result(engine, batch_id, EntityRunStatus(
+    for idx, entity_id in enumerate(entity_ids):
+        future = executor.submit(
+            _run_one_ui_entity,
+            batch_id=batch_id,
             entity_id=entity_id,
-            entity_name=entity_name,
-            status="succeeded" if result.success else "failed",
-            error=result.error if not result.success else None,
-            window_start=window_start,
-            window_end=window_end,
-            bullet_points=bullet_points,
-            source_references=source_references,
-        ))
-
-    # Mark finished regardless of how many entities succeeded/failed/were cancelled.
-    _db_finish_batch(engine, batch_id)
+            force_window_end=force_window_end,
+            engine=engine,
+            rate_limiter=rate_limiter,
+            connection_sem=connection_sem,
+            http_client=http_client,
+            startup_delay_seconds=idx * _ENTITY_STAGGER_SECONDS,
+        )
+        future.add_done_callback(_on_done)
 
 
 # ── Data helpers ──────────────────────────────────────────────────────────────
@@ -437,17 +484,56 @@ _DISCARD_STAGE_ORDER = [
 ]
 
 
+def _build_doc_index(source_refs: dict) -> dict:
+    """Build a lookup index from source_references for resolving citation IDs.
+
+    Citation IDs in bullet points use format 'CQS:{document_id}-{chunk}', but
+    source_references keys are 'CQS:REF0', 'CQS:REF1' etc. A direct lookup
+    always fails. This index maps '{document_id}-{chunk_id}' (and '{document_id}'
+    as fallback) to the metadata, matching the same logic used in report.py.
+    """
+    index: dict = {}
+    for ref in source_refs.values():
+        doc_id = str(ref.get("document_id") or "").strip()
+        chunk_id = ref.get("chunk_id")
+        if not doc_id:
+            continue
+        ts = str(ref.get("ts") or "").replace("T", " ")[:19]
+        entry = {
+            "headline": ref.get("headline") or "",
+            "text": ref.get("text") or "",
+            "source_name": ref.get("source_name") or "",
+            "date": ts,
+        }
+        if chunk_id is not None:
+            exact_key = f"{doc_id}-{chunk_id}"
+            if exact_key not in index:
+                index[exact_key] = entry
+        if doc_id not in index:
+            index[doc_id] = entry
+    return index
+
+
+def _resolve_citation(cit_id: str, doc_index: dict) -> dict:
+    tail = cit_id.split(":", 1)[-1]
+    doc_id_only = tail.rsplit("-", 1)[0]
+    meta = doc_index.get(tail) or doc_index.get(doc_id_only) or {}
+    return {
+        "id": cit_id,
+        "headline": meta.get("headline") or "",
+        "text": meta.get("text") or "",
+        "source_name": meta.get("source_name") or "",
+        "date": meta.get("date") or "",
+    }
+
+
 def _convert_bp(bp: dict, source_refs: dict) -> dict:
     """Convert a BulletPointRecord dict + source_refs into a display-ready dict."""
-    citations = []
-    for ref_id in bp.get("citations") or []:
-        ref = source_refs.get(str(ref_id)) or source_refs.get(ref_id) or {}
-        citations.append({
-            "id": str(ref_id),
-            "headline": str(ref.get("headline") or ""),
-            "text": str(ref.get("text") or ""),
-            "source_name": str(ref.get("source_name") or ""),
-        })
+    doc_index = _build_doc_index(source_refs)
+    citations = [
+        _resolve_citation(str(ref_id), doc_index)
+        for ref_id in (bp.get("citations") or [])
+    ]
 
     gen = bp.get("generation") or {}
     ne = bp.get("novelty_embedding") or {}
@@ -771,10 +857,12 @@ def _render_entity_history_html(
 @router.get("/run", response_class=HTMLResponse)
 async def ui_run_page(request: Request) -> HTMLResponse:
     templates = request.app.state.templates
-    preset_names = list(settings.ENTITY_LISTS.keys())
     return templates.TemplateResponse(
         request, "ui/run.html",
-        {"preset_names": preset_names, "entity_lists_json": json.dumps(settings.ENTITY_LISTS)},
+        {
+            "universe_names": sorted(_UNIVERSES.keys()),
+            "preset_names": list(settings.ENTITY_LISTS.keys()),
+        },
     )
 
 
@@ -806,16 +894,18 @@ async def ui_history_details_page(request: Request) -> HTMLResponse:
 @router.post("/batch/run", response_class=HTMLResponse)
 async def ui_batch_run(
     request: Request,
-    background_tasks: BackgroundTasks,
     entity_ids_raw: str = Form(default=""),
     preset_name: str = Form(default=""),
+    universe_name: str = Form(default=""),
     window_end_str: str = Form(default=""),
 ) -> HTMLResponse:
     templates = request.app.state.templates
 
-    # Resolve entity ID list
+    # Resolve entity ID list: universe > preset > raw IDs
     ids: list[str] = []
-    if preset_name and preset_name in settings.ENTITY_LISTS:
+    if universe_name and universe_name in _UNIVERSES:
+        ids = list(_UNIVERSES[universe_name])
+    elif preset_name and preset_name in settings.ENTITY_LISTS:
         ids = settings.ENTITY_LISTS[preset_name]
     elif entity_ids_raw.strip():
         import re
@@ -824,7 +914,6 @@ async def ui_batch_run(
     if not ids:
         return HTMLResponse('<p style="color:#dc2626">No entity IDs provided.</p>')
 
-    # Parse optional window end
     force_window_end: datetime | None = None
     if window_end_str.strip():
         try:
@@ -836,19 +925,15 @@ async def ui_batch_run(
     engine = get_engine()
     _db_create_batch(engine, batch_id, ids)
 
-    rate_limiter = get_rate_limiter(request)
-    connection_sem = get_connection_sem(request)
-    http_client = get_http_client(request)
-
-    background_tasks.add_task(
-        _ui_run_batch,
+    _ui_run_batch(
         batch_id=batch_id,
         entity_ids=ids,
         force_window_end=force_window_end,
         engine=engine,
-        rate_limiter=rate_limiter,
-        connection_sem=connection_sem,
-        http_client=http_client,
+        executor=get_entity_executor(request),
+        rate_limiter=get_rate_limiter(request),
+        connection_sem=get_connection_sem(request),
+        http_client=get_http_client(request),
     )
 
     return templates.TemplateResponse(

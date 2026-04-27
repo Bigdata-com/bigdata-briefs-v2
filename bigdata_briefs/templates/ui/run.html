@@ -27,10 +27,24 @@
             <p class="field-hint">Paste one or more entity IDs, one per line.</p>
           </div>
 
-          {% if preset_names %}
-          <div class="or-divider">or</div>
+          {% if universe_names or preset_names %}
+          <div class="or-divider">or select a list</div>
+
+          {% if universe_names %}
           <div class="field">
-            <label for="preset">Preset universe</label>
+            <label for="universe">Universe</label>
+            <select id="universe" name="universe_name">
+              <option value="">— select universe —</option>
+              {% for name in universe_names %}
+              <option value="{{ name }}">{{ name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
+
+          {% if preset_names %}
+          <div class="field">
+            <label for="preset">Custom preset</label>
             <select id="preset" name="preset_name">
               <option value="">— select preset —</option>
               {% for name in preset_names %}
@@ -38,6 +52,7 @@
               {% endfor %}
             </select>
           </div>
+          {% endif %}
           {% endif %}
 
           <div class="field" style="margin-top:1.25rem">
