@@ -41,13 +41,22 @@ from bigdata_briefs.api.dependencies import (
     get_http_client,
     get_rate_limiter,
 )
-from bigdata_briefs.api.routes.universes import _UNIVERSES
+from bigdata_briefs.api.routes.universes import _UNIVERSES, _UNIVERSES_DIR
+from bigdata_briefs.api.routes.scan import (
+    build_scan_windows,
+    db_cancel_scan,
+    db_create_scan,
+    db_get_scan,
+    resolve_scan_start,
+    run_scan_worker,
+)
 from bigdata_briefs.orchestration.config_load import load_pipeline_config_dict, resolve_config_path
 from bigdata_briefs.orchestration.entity_runner import run_entity_incremental
 from bigdata_briefs.orchestration.models import (
     SQLEntityOrchestrationState,
     SQLEntityPipelineRunLog,
     SQLUIBatchRun,
+    SQLUIScanRun,
 )
 from bigdata_briefs.orchestration.windows import WindowMode, build_report_dates_for_entity_run
 from bigdata_briefs.settings import settings
@@ -1118,3 +1127,148 @@ def _get_all_entities(engine) -> list[tuple[str, str]]:
             .order_by(SQLEntityOrchestrationState.entity_id)
         ).all()
     return [(r.entity_id, r.kg_name or r.entity_id) for r in rows]
+
+
+def _get_universe_entities_with_names() -> list[tuple[str, str]]:
+    """Return (entity_id, name) for all unique entities across all universes.
+
+    Names come from the CSV files (which have both id and name columns).
+    Sorted by name, deduplicated by entity_id.
+    """
+    import csv as _csv
+    seen: dict[str, str] = {}
+    for csv_path in sorted(_UNIVERSES_DIR.glob("*.csv")):
+        with csv_path.open(newline="", encoding="utf-8") as f:
+            for row in _csv.DictReader(f):
+                eid = (row.get("id") or "").strip()
+                name = (row.get("name") or eid).strip()
+                if eid and eid not in seen:
+                    seen[eid] = name
+    return sorted(seen.items(), key=lambda x: x[1])
+
+
+# ── Scan routes ───────────────────────────────────────────────────────────────
+
+
+@router.get("/scan", response_class=HTMLResponse)
+async def ui_scan_page(request: Request) -> HTMLResponse:
+    templates = request.app.state.templates
+    entities = _get_universe_entities_with_names()
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return templates.TemplateResponse(
+        request, "ui/scan.html",
+        {"entities": entities, "today": today},
+    )
+
+
+@router.post("/scan/run", response_class=HTMLResponse)
+async def ui_scan_run(
+    request: Request,
+    entity_id: str = Form(default=""),
+    start_date: str = Form(default=""),
+    end_date: str = Form(default=""),
+) -> HTMLResponse:
+    templates = request.app.state.templates
+
+    if not entity_id.strip() or not start_date.strip():
+        return HTMLResponse('<p style="color:#dc2626">Entity and start date are required.</p>')
+
+    try:
+        requested_start = datetime.strptime(start_date.strip(), "%Y-%m-%d").replace(
+            hour=0, minute=0, second=0, tzinfo=timezone.utc
+        )
+    except ValueError:
+        return HTMLResponse('<p style="color:#dc2626">Invalid start date.</p>')
+
+    if end_date.strip():
+        try:
+            end = datetime.strptime(end_date.strip(), "%Y-%m-%d").replace(
+                hour=23, minute=59, second=59, tzinfo=timezone.utc
+            )
+        except ValueError:
+            return HTMLResponse('<p style="color:#dc2626">Invalid end date.</p>')
+    else:
+        end = datetime.now(timezone.utc)
+
+    engine = get_engine()
+    effective_start = resolve_scan_start(engine, entity_id.strip(), requested_start)
+    windows = build_scan_windows(effective_start, end)
+
+    if not windows:
+        return HTMLResponse('<p style="color:#92400e">No windows to process — entity is already up to date for this range.</p>')
+
+    entity_name = entity_id.strip()
+    with Session(engine) as session:
+        orch = session.get(SQLEntityOrchestrationState, entity_id.strip())
+        if orch and orch.kg_name:
+            entity_name = orch.kg_name
+    # Fallback: look up name from CSV
+    if entity_name == entity_id.strip():
+        all_entities = dict(_get_universe_entities_with_names())
+        entity_name = all_entities.get(entity_id.strip(), entity_id.strip())
+
+    scan_id = str(uuid.uuid4())
+    db_create_scan(engine, scan_id, entity_id.strip(), entity_name, len(windows))
+
+    get_entity_executor(request).submit(
+        run_scan_worker,
+        scan_id=scan_id,
+        entity_id=entity_id.strip(),
+        windows=windows,
+        engine=engine,
+        rate_limiter=get_rate_limiter(request),
+        connection_sem=get_connection_sem(request),
+        http_client=get_http_client(request),
+    )
+
+    return templates.TemplateResponse(
+        request, "ui/partials/scan_progress.html",
+        {
+            "scan_id": scan_id,
+            "entity_name": entity_name,
+            "windows_total": len(windows),
+            "windows_done": 0,
+            "effective_start": effective_start.strftime("%Y-%m-%d"),
+            "end": end.strftime("%Y-%m-%d %H:%M UTC"),
+        },
+    )
+
+
+@router.post("/scan/stop", response_class=HTMLResponse)
+async def ui_scan_stop(request: Request, scan_id: str = Form(default="")) -> HTMLResponse:
+    engine = get_engine()
+    db_cancel_scan(engine, scan_id)
+    return HTMLResponse('<p style="color:#92400e;font-size:.9rem">Stop requested — waiting for current day to finish.</p>')
+
+
+@router.get("/partials/scan-status", response_class=HTMLResponse)
+async def ui_scan_status(request: Request, scan_id: str = "") -> HTMLResponse:
+    templates = request.app.state.templates
+    engine = get_engine()
+    scan = db_get_scan(engine, scan_id)
+
+    if scan is None:
+        return HTMLResponse('<p style="color:#dc2626">Scan not found.</p>')
+
+    if scan.status == "running":
+        return templates.TemplateResponse(
+            request, "ui/partials/scan_progress.html",
+            {
+                "scan_id": scan_id,
+                "entity_name": scan.entity_name,
+                "windows_total": scan.windows_total,
+                "windows_done": scan.windows_done,
+                "effective_start": "",
+                "end": "",
+            },
+        )
+
+    results = json.loads(scan.results_json)
+    return templates.TemplateResponse(
+        request, "ui/partials/scan_result.html",
+        {
+            "entity_name": scan.entity_name,
+            "status": scan.status,
+            "results": results,
+        },
+    )

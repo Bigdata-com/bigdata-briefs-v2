@@ -1,0 +1,41 @@
+<div id="scan-result">
+  <div class="card">
+    <div class="card-body">
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem">
+        <h2 style="margin:0;font-size:1.1rem;font-weight:700">{{ entity_name }}</h2>
+        {% if status == "cancelled" %}
+        <span style="font-size:.78rem;font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;padding:.2rem .55rem;border-radius:6px">Cancelled</span>
+        {% else %}
+        <span style="font-size:.78rem;font-weight:700;color:#166534;background:#dcfce7;border:1px solid #86efac;padding:.2rem .55rem;border-radius:6px">Done</span>
+        {% endif %}
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;font-size:.88rem">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border)">
+            <th style="text-align:left;padding:.4rem .75rem;color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em">Window start</th>
+            <th style="text-align:left;padding:.4rem .75rem;color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em">Window end</th>
+            <th style="text-align:left;padding:.4rem .75rem;color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in results %}
+          <tr style="border-bottom:1px solid var(--border-soft)">
+            <td style="padding:.45rem .75rem;font-family:ui-monospace,monospace;font-size:.82rem">{{ r.window_start[:16].replace("T"," ") }} UTC</td>
+            <td style="padding:.45rem .75rem;font-family:ui-monospace,monospace;font-size:.82rem">{{ r.window_end[:16].replace("T"," ") }} UTC</td>
+            <td style="padding:.45rem .75rem">
+              {% if r.status == "succeeded" %}
+              <span style="color:#166534;font-weight:600">✓ succeeded</span>
+              {% elif r.status == "cancelled" %}
+              <span style="color:#92400e">— cancelled</span>
+              {% else %}
+              <span style="color:#dc2626;font-weight:600" title="{{ r.error or '' }}">✗ failed</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

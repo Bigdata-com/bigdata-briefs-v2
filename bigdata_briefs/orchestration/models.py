@@ -8,6 +8,26 @@ from sqlalchemy import Text
 from sqlmodel import Field, SQLModel
 
 
+class SQLUIScanRun(SQLModel, table=True):
+    """Tracks a day-by-day historical scan for a single entity.
+
+    A scan takes an entity + start date and runs one pipeline window per day
+    (00:00:00 → 23:59:59) sequentially until today (or an explicit end date).
+    If the entity already has runs the scan resumes from the last window end,
+    skipping days that were already covered.
+    """
+
+    scan_id: str = Field(primary_key=True, max_length=36)
+    entity_id: str = Field(max_length=64)
+    entity_name: str = Field(max_length=256)
+    status: str = Field(max_length=32)   # running | finished | cancelled
+    windows_total: int
+    windows_done: int = Field(default=0)
+    results_json: str = Field(default="[]", sa_type=Text)  # list of per-window result dicts
+    created_at: datetime
+    updated_at: datetime
+
+
 class SQLUIBatchRun(SQLModel, table=True):
     """
     Persists the state of a UI batch run to SQLite.
