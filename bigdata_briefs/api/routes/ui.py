@@ -591,6 +591,9 @@ def _convert_bp(bp: dict, source_refs: dict) -> dict:
             "evaluator_details": ne_j.get("evaluator_details") or [] if stage == "novelty_embedding" else [],
             "claim_verdicts": search_details.get("claim_verdicts") or [] if stage == "novelty_search" else [],
             "overall_verdict": s.get("overall_verdict", "") if stage == "novelty_search" else "",
+            # evidence_map: simple_id → {headline, date, text} — needed to resolve
+            # evidence_ids referenced inside each claim_verdict
+            "evidence_map": search_details.get("evidence_map") or {} if stage == "novelty_search" else {},
         }
 
     return {
@@ -657,7 +660,7 @@ def _render_active_bullet(b: dict, idx: int, bid: str, include_details: bool) ->
             )
         if citations:
             detail_parts.append(
-                '<hr style="border:none;border-top:1px solid var(--border-soft);margin:.25rem 0"/>'
+                '<hr style="border:none;border-top:3px solid var(--border);margin:.5rem 0"/>'
                 '<div class="detail-panel"><div class="detail-label">Sources</div>'
                 f'{_render_citation_cards(citations)}</div>'
             )
@@ -781,6 +784,7 @@ def _render_discarded_detail_body(b: dict) -> str:
     # ── Novelty search / search relevance ─────────────────────────────────────
     elif stage in ("novelty_search", "novelty_search_relevance"):
         ov = str(d.get("overall_verdict") or "").strip()
+        evidence_map: dict = d.get("evidence_map") or {}
         header = '<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.6rem">'
         if ov:
             header += _verdict_badge(ov)
@@ -809,7 +813,9 @@ def _render_discarded_detail_body(b: dict) -> str:
                 nov = str(cv.get("novelty") or "")
                 rsn = str(cv.get("reasoning") or "").strip()
                 idx_s = f"#{html.escape(str(idx))}" if idx is not None else ""
-                evidence = [e for e in (cv.get("evidence") or []) if isinstance(e, dict)]
+                # evidence_ids are simple_id strings (e.g. "D18-C2"); resolve via evidence_map
+                evidence_ids: list[str] = [str(e) for e in (cv.get("evidence_ids") or []) if e]
+                evidence_items = [(eid, evidence_map.get(eid) or {}) for eid in evidence_ids]
                 parts.append(
                     f'<div class="claim-block">'
                     f'<div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-bottom:.35rem">'
@@ -819,13 +825,13 @@ def _render_discarded_detail_body(b: dict) -> str:
                     f'<div class="detail-body" style="margin-bottom:.3rem">{_nl_to_br(ctext or "—")}</div>'
                 )
                 if rsn:
-                    parts.append(f'<div style="font-size:.8rem;color:#475569;font-style:italic">{_nl_to_br(rsn)}</div>')
-                if evidence:
-                    parts.append('<div style="display:flex;flex-direction:column;gap:.3rem;margin-top:.4rem">')
-                    for ev in evidence:
+                    parts.append(f'<div style="font-size:.8rem;color:#475569;font-style:italic;margin-bottom:.4rem">{_nl_to_br(rsn)}</div>')
+                if evidence_items:
+                    parts.append('<div style="display:flex;flex-direction:column;gap:.3rem">')
+                    for eid, ev in evidence_items:
                         hl = html.escape(str(ev.get("headline") or "—"))
                         dt = html.escape(str(ev.get("date") or ""))
-                        sid = html.escape(str(ev.get("simple_id") or ""))
+                        sid = html.escape(eid)
                         parts.append(
                             f'<div class="evidence-card">'
                             f'<div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.2rem">'
