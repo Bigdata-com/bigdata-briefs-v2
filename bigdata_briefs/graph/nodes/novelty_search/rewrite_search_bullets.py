@@ -33,6 +33,7 @@ from bigdata_briefs.graph.nodes.novelty_search._search_impl import (
     _NSSearchResult,
     _REWRITE_PROMPT_MIXED,
     _REWRITE_PROMPT_MIXED_NOISE,
+    _REWRITE_PROMPT_MIXED_PARTIAL,
     _REWRITE_PROMPT_SINGLE_PARTIALLY_NOVEL,
     _ns_build_rewrite_claims_and_verdicts,
     _ns_timestamp_to_date,
@@ -202,6 +203,17 @@ def rewrite_search_bullets(
                 entity_name=entity_name,
                 sentence=sentence,
                 reasoning=reasoning_text,
+            )
+        elif overall_verdict == "mixed_partial":
+            # old claims + partially_novel claims: old context into subordinate clause,
+            # partially_novel material introduced after the pivot marker.
+            claims_and_verdicts_text = _ns_build_rewrite_claims_and_verdicts(
+                claims, claim_verdicts
+            )
+            user_content = _REWRITE_PROMPT_MIXED_PARTIAL.format(
+                entity_name=entity_name,
+                sentence=sentence,
+                claims_and_verdicts=claims_and_verdicts_text,
             )
         else:
             claims_and_verdicts_text = _ns_build_rewrite_claims_and_verdicts(

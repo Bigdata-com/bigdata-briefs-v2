@@ -39,7 +39,7 @@ from bigdata_briefs.graph.nodes.novelty_search._search_impl import run_pivot_rel
 from bigdata_briefs.novelty.novelty_service import run_relevance_check_for_bullet_text
 from bigdata_briefs.novelty.step_names import novelty_search_rewrite_relevance_check_step_name
 
-_PIVOT_VERDICTS = {"mixed", "single_partially_novel"}
+_PIVOT_VERDICTS = {"mixed", "single_partially_novel", "mixed_partial"}
 from bigdata_briefs.settings import settings
 
 

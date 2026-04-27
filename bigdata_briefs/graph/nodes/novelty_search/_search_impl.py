@@ -384,6 +384,87 @@ OUTPUT (JSON):
 """
 
 
+_REWRITE_PROMPT_MIXED_PARTIAL = """\
+You are a financial news editor. You are given a sentence and a list of its claims. Each claim is labeled either "old" (already covered in prior evidence) or "partially_novel" (the topic is known but the claim adds a specific new detail — a concrete figure, a named entity, a date, or a measurable attribute — not fully present in prior sources).
+
+Rewrite the sentence using this structure:
+
+    {entity_name}, <subordinate clause summarising the old claims>, <pivot marker> <the new material from partially_novel claims>.
+
+ENTITY: "{entity_name}"
+The sentence must open with this exact name, character-for-character.
+
+PIVOT MARKERS — use exactly one from this list, no alternatives:
+- has now <verb> / have now <verb>
+- has just <verb>
+- has confirmed
+- has disclosed
+- has reported
+
+RULES:
+1. Open with "{entity_name}", exactly as written.
+2. Summarise ALL claims labeled "old" as a single subordinate clause (e.g. "which guided for ...", "after reporting ...", "following ..."). Use past tense. Do not omit them.
+3. Place the pivot marker between the old-claim clause and the new material.
+4. After the pivot marker, include the full substance of ALL claims labeled "partially_novel". These claims add specific new details (figures, names, dates, attributes) not fully present in prior evidence — include all of them fluently. Do not repeat the entity name after the pivot.
+5. Claims labeled "novel_trivial" or "novel_unsupported" must be dropped entirely.
+6. The result must be a single, coherent, publishable sentence.
+
+---
+
+EXAMPLES:
+
+Example 1 — one old claim (guidance already known) + one partially_novel claim (analyst EPS figure not in evidence):
+  Sentence: "Amazon.com Inc. has guided for first-quarter revenue of $173.5B–$178.5B, implying ~13% year-over-year growth, while analysts expect earnings of $1.61 per share, up ~1.2% year-over-year."
+  Claims:
+    - [old] Amazon.com Inc. has guided for Q1 revenue of $173.5B–$178.5B, implying ~13% YoY growth
+    - [partially_novel] Analysts expect Q1 earnings of $1.61 per share, up approximately 1.2% year-over-year
+  Rewritten: "Amazon.com Inc., which has guided for first-quarter revenue of $173.5B–$178.5B implying ~13% year-over-year growth, has now disclosed analyst consensus for earnings of $1.61 per share, up approximately 1.2% year-over-year."
+
+Example 2 — old results topic + partially_novel specific metric:
+  Sentence: "Intel Corp. reported first-quarter 2026 results broadly in line with expectations, with operating income of $1.8 billion beating the $1.5 billion consensus."
+  Claims:
+    - [old] Intel Corp. reported first-quarter 2026 results broadly in line with expectations
+    - [partially_novel] Intel's operating income of $1.8 billion beat the consensus of $1.5 billion
+  Rewritten: "Intel Corp., which reported first-quarter 2026 results broadly in line with expectations, has now confirmed operating income of $1.8 billion, above the $1.5 billion consensus."
+
+Example 3 — old partnership context + partially_novel deal size:
+  Sentence: "Microsoft Corp. has expanded its partnership with OpenAI and committed $3 billion in additional investment over the next two years, on top of the $13 billion already deployed."
+  Claims:
+    - [old] Microsoft Corp. has an existing partnership with OpenAI with $13 billion already invested
+    - [partially_novel] Microsoft committed an additional $3 billion investment over the next two years
+  Rewritten: "Microsoft Corp., which had already invested $13 billion in OpenAI, has now committed an additional $3 billion over the next two years."
+
+Example 4 — multiple old claims + one partially_novel claim:
+  Sentence: "Pfizer Inc. reported Q1 2026 revenues of $14.9 billion, beating consensus by 4%, and raised its full-year EPS guidance to $3.20–$3.40 from the prior $2.80–$3.00 range."
+  Claims:
+    - [old] Pfizer reported Q1 2026 revenues of $14.9 billion beating consensus by 4%
+    - [old] Pfizer raised its full-year EPS guidance
+    - [partially_novel] The new full-year EPS guidance range is $3.20–$3.40, up from $2.80–$3.00
+  Rewritten: "Pfizer Inc., which reported Q1 2026 revenues of $14.9 billion beating consensus and raised its full-year EPS guidance, has now disclosed the updated range of $3.20–$3.40, up from the prior $2.80–$3.00."
+
+---
+
+SENTENCE:
+
+{sentence}
+
+---
+
+CLAIMS:
+
+{claims_and_verdicts}
+
+---
+
+OUTPUT (JSON):
+
+{{
+  "rewritten_sentence": "...",
+  "reasoning": "Brief explanation."
+}}
+"""
+
+
 _REWRITE_PROMPT_MIXED_NOISE = """\
 You are a financial news editor. You are given a sentence and a list of its claims. Some claims are labeled "novel" (keep these), others are labeled "novel_trivial" or "novel_unsupported" (drop these entirely).
 
@@ -718,7 +799,13 @@ def _ns_compute_overall_verdict(verdicts: list[_NSClaimVerdict]) -> str:
         # introduces the new detail after a pivot marker.
         if len(verdicts) == 1:
             return "single_partially_novel"
-        return "mixed_weak"  # multiple partially_novel — discard
+        # Special case: old + partially_novel (one or more claims old, one or more
+        # partially_novel). The old claims become the subordinate context clause;
+        # the partially_novel claims introduce the specific new material after the pivot.
+        has_old = any(l == "old" for l in labels)
+        if has_old:
+            return "mixed_partial"
+        return "mixed_weak"  # multiple partially_novel with no old context — discard
 
     # Rule 3 — only old / novel_trivial / novel_unsupported
     if any(l == "novel_unsupported" for l in labels):

@@ -103,7 +103,7 @@ class SearchNoveltyMetadata(BaseModel):
     # not_fully_novel bullets (overall_verdict == "mixed" and not discarded).
     overall_verdict: Literal[
         "novel", "mixed", "mixed_noise", "mixed_weak",
-        "single_partially_novel",
+        "single_partially_novel", "mixed_partial",
         "discard_not_new", "discard_unsupported", "old"
     ] | None = None
 
