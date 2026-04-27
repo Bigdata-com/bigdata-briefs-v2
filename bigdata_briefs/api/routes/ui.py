@@ -629,10 +629,26 @@ def _render_active_bullet(b: dict, idx: int, bid: str, include_details: bool) ->
         passed = b.get("passed") or {}
         rs = passed.get("relevance_score")
         rr = str(passed.get("relevance_reason") or "").strip()
-        score_html = f'<span class="score-pill">Score {int(rs)}/5</span>' if isinstance(rs, (int, float)) else ""
+        if isinstance(rs, (int, float)):
+            s = int(rs)
+            pips = "".join(
+                f'<span style="width:10px;height:10px;border-radius:50%;background:{"#166534" if i <= s else "#e5e7eb"};display:inline-block"></span>'
+                for i in range(1, 6)
+            )
+            score_html = (
+                f'<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem">'
+                f'<span style="font-size:.78rem;font-weight:700;color:#166534">{s}/5</span>'
+                f'<span style="display:inline-flex;gap:3px;align-items:center">{pips}</span>'
+                f'</div>'
+            )
+        else:
+            score_html = ""
         detail_parts.append(
-            f'<div class="detail-panel"><div class="detail-label">Relevance (passed){score_html}</div>'
-            f'<div class="detail-reason">{_nl_to_br(rr or "—")}</div></div>'
+            f'<div class="detail-panel">'
+            f'<div class="detail-label">Relevance</div>'
+            f'{score_html}'
+            f'<div class="detail-reason">{_nl_to_br(rr or "—")}</div>'
+            f'</div>'
         )
         if original and final and original != final:
             detail_parts.append(
@@ -641,6 +657,7 @@ def _render_active_bullet(b: dict, idx: int, bid: str, include_details: bool) ->
             )
         if citations:
             detail_parts.append(
+                '<hr style="border:none;border-top:1px solid var(--border-soft);margin:.25rem 0"/>'
                 '<div class="detail-panel"><div class="detail-label">Sources</div>'
                 f'{_render_citation_cards(citations)}</div>'
             )
