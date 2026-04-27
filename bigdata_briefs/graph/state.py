@@ -102,7 +102,9 @@ class SearchNoveltyMetadata(BaseModel):
     # Populated by rewrite_search_bullets; used by save_novel_bullets to flag
     # not_fully_novel bullets (overall_verdict == "mixed" and not discarded).
     overall_verdict: Literal[
-        "novel", "mixed", "mixed_noise", "mixed_weak", "discard_not_new", "discard_unsupported", "old"
+        "novel", "mixed", "mixed_noise", "mixed_weak",
+        "single_partially_novel",
+        "discard_not_new", "discard_unsupported", "old"
     ] | None = None
 
 

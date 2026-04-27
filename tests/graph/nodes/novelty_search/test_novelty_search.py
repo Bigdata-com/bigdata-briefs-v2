@@ -198,11 +198,19 @@ class TestNsComputeOverallVerdict:
         ]
         assert _ns_compute_overall_verdict(verdicts) == "mixed"
 
-    def test_partially_novel(self):
+    def test_partially_novel_single_claim(self):
+        # Single partially_novel claim now routes to the dedicated rewriter
         verdicts = [
             _NSClaimVerdict(claim_index=0, novelty="partially_novel", evidence_ids=[], reasoning=""),
         ]
-        assert _ns_compute_overall_verdict(verdicts) == "mixed"
+        assert _ns_compute_overall_verdict(verdicts) == "single_partially_novel"
+
+    def test_partially_novel_multiple_claims(self):
+        verdicts = [
+            _NSClaimVerdict(claim_index=0, novelty="partially_novel", evidence_ids=[], reasoning=""),
+            _NSClaimVerdict(claim_index=1, novelty="partially_novel", evidence_ids=[], reasoning=""),
+        ]
+        assert _ns_compute_overall_verdict(verdicts) == "mixed_weak"
 
     def test_empty_list_returns_old(self):
         assert _ns_compute_overall_verdict([]) == "old"
