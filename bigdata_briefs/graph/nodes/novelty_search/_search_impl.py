@@ -706,8 +706,6 @@ def _ns_build_search_payload(
             "filters": {
                 "timestamp": timestamp_filter,
                 "entity": {"any_of": [entity_id]},
-                "sentiment": {"ranges": _NS_SENTIMENT_RANGES},
-                "category": {"mode": "INCLUDE", "values": _NS_CATEGORY_VALUES},
             },
             "ranking_params": {
                 "source_boost": 1,
