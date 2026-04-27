@@ -5,9 +5,7 @@ Composes all canonical nodes into a StateGraph.
 
 Graph topology:
 
-  START → initialize_pipeline → initial_check
-    ─[no_data]────────────────────────────────────────────────────────→ END
-    ─[continue]→ exploratory_search
+  START → initialize_pipeline → exploratory_search
       ─[no_data]──────────────────────────────────────────────────────→ END
       ─[continue]→ quarter_info → concept_extraction → concept_search
         → concept_search_postprocessing
@@ -54,7 +52,6 @@ from bigdata_briefs.graph.constants import (
     NODE_EMBED_AND_RETRIEVE,
     NODE_ENTITY_GROUNDING_CHECK,
     NODE_EXPLORATORY_SEARCH,
-    NODE_INITIAL_CHECK,
     NODE_INITIALIZE_PIPELINE,
     NODE_NOVELTY_JUDGMENT_EMBEDDING,
     NODE_NOVELTY_SEARCH_FETCH,
@@ -105,9 +102,6 @@ from bigdata_briefs.graph.nodes.novelty_search.judge_novelty_by_search import (
 from bigdata_briefs.graph.nodes.novelty_search.rewrite_search_bullets import (
     rewrite_search_bullets,
 )
-from bigdata_briefs.graph.nodes.phase1_search.check_entity_data import (
-    verify_entity_has_search_results,
-)
 from bigdata_briefs.graph.nodes.phase1_search.deduplicate_and_filter import (
     deduplicate_and_filter_concept_results,
 )
@@ -147,13 +141,6 @@ from bigdata_briefs.settings import settings
 
 
 # ── Conditional edge functions ─────────────────────────────────────────────────
-
-
-def _route_initial_check(state: BriefGraphState) -> str:
-    """Route to END when no data found, else continue to exploratory search."""
-    if state.get("pipeline_status") == PIPELINE_STATUS_NO_DATA:
-        return ROUTE_NO_DATA
-    return ROUTE_CONTINUE
 
 
 def _route_exploratory_search(state: BriefGraphState) -> str:
@@ -215,7 +202,6 @@ def build_brief_graph() -> StateGraph:
     g.add_node(NODE_INITIALIZE_PIPELINE, L(NODE_INITIALIZE_PIPELINE, initialize_pipeline))
 
     # ── Phase 1: Search ──────────────────────────────────────────────────────
-    g.add_node(NODE_INITIAL_CHECK, L(NODE_INITIAL_CHECK, verify_entity_has_search_results))
     g.add_node(NODE_EXPLORATORY_SEARCH, L(NODE_EXPLORATORY_SEARCH, execute_broad_topic_search))
     g.add_node(NODE_QUARTER_INFO, L(NODE_QUARTER_INFO, resolve_fiscal_quarter_from_calendar))
     g.add_node(NODE_CONCEPT_EXTRACTION, L(NODE_CONCEPT_EXTRACTION, extract_thematic_concepts_from_chunks))
@@ -257,18 +243,12 @@ def build_brief_graph() -> StateGraph:
 
     # ── Edges ─────────────────────────────────────────────────────────────────
 
-    # START → initialize_pipeline → initial_check
+    # START → initialize_pipeline → exploratory_search (initial_check removed:
+    # exploratory_search already routes to END when no data is found)
     g.add_edge(START, NODE_INITIALIZE_PIPELINE)
-    g.add_edge(NODE_INITIALIZE_PIPELINE, NODE_INITIAL_CHECK)
+    g.add_edge(NODE_INITIALIZE_PIPELINE, NODE_EXPLORATORY_SEARCH)
 
-    # initial_check (conditional)
-    g.add_conditional_edges(
-        NODE_INITIAL_CHECK,
-        _route_initial_check,
-        {ROUTE_NO_DATA: END, ROUTE_CONTINUE: NODE_EXPLORATORY_SEARCH},
-    )
-
-    # exploratory_search (conditional)
+    # exploratory_search (conditional) — acts as the existence check
     g.add_conditional_edges(
         NODE_EXPLORATORY_SEARCH,
         _route_exploratory_search,

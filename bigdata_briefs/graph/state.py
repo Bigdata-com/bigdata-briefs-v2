@@ -206,7 +206,6 @@ class BriefGraphState(TypedDict):
     config: dict                        # source_filter, categories, flags, etc.
 
     # ── Phase 1 outputs ───────────────────────────────────────────────────────
-    initial_check_result: dict          # {has_results: bool, result_count: int}
     exploratory_chunks: list[dict]      # serialized Result objects
     current_quarter_title: str          # "" or "Q1 2026" etc.
     extracted_concepts: dict            # serialized ConceptExtraction
@@ -251,7 +250,6 @@ def record_to_bullet(record: BulletPointRecord) -> dict:
 def make_empty_state_defaults() -> dict:
     """Return default values for optional state fields (for partial invocations)."""
     return {
-        "initial_check_result": {},
         "exploratory_chunks": [],
         "current_quarter_title": "",
         "extracted_concepts": {},
