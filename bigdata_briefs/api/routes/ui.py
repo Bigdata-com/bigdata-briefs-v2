@@ -323,9 +323,18 @@ def _load_bullets_for_run(engine, run_id) -> list[dict]:
         passed_block = None
         discarded_block = None
         if r.is_active:
+            # For rewritten bullets use the post-rewrite search relevance check
+            # (the last gate the bullet actually passed). For all others use the
+            # initial relevance score from bullet generation.
+            if r.search_verdict == "rewrite" and r.search_relevance_score is not None:
+                display_score = r.search_relevance_score
+                display_reason = r.search_relevance_reason or ""
+            else:
+                display_score = r.relevance_score
+                display_reason = r.relevance_reason or ""
             passed_block = {
-                "relevance_score": r.relevance_score,
-                "relevance_reason": r.relevance_reason or "",
+                "relevance_score": display_score,
+                "relevance_reason": display_reason,
             }
         else:
             discarded_block = {

@@ -477,6 +477,8 @@ def _flush_bullet_run_log(eng: Engine, run_id: uuid.UUID, entity_id: str, final_
             search_overall_verdict=overall_verdict,
             search_reason=s.get("reason"),
             search_duration_seconds=s.get("duration_seconds"),
+            search_relevance_score=src.get("score"),
+            search_relevance_reason=src.get("reasoning"),
             citations_json=json.dumps(citations, default=str),
             evaluator_details_json=json.dumps(evaluator_details, default=str),
             claim_verdicts_json=json.dumps(claim_verdicts, default=str),

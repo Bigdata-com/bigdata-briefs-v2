@@ -33,6 +33,8 @@ def _ensure_bullet_run_log_json_columns(engine: Engine) -> None:
         "claim_verdicts_json": "TEXT NOT NULL DEFAULT '[]'",
         "evidence_map_json": "TEXT NOT NULL DEFAULT '{}'",
         "grounding_citations_json": "TEXT NOT NULL DEFAULT '[]'",
+        "search_relevance_score": "INTEGER",
+        "search_relevance_reason": "TEXT",
     }
     for col, definition in new_cols.items():
         if col not in colnames:

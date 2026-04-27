@@ -58,6 +58,11 @@ class SQLBulletRunLog(SQLModel, table=True):
     search_overall_verdict: str | None = Field(default=None, max_length=32)  # novel | mixed | …
     search_reason: str | None = Field(default=None, sa_type=Text)
     search_duration_seconds: float | None = None
+    # Post-rewrite relevance check — only present when search_verdict == "rewrite".
+    # This is the LAST relevance check the bullet passed; display it instead of
+    # the initial relevance_score for rewritten bullets.
+    search_relevance_score: int | None = None
+    search_relevance_reason: str | None = Field(default=None, sa_type=Text)
 
     # ── display data (JSON) ──────────────────────────────────────────────────
     # These columns store the full nested data needed to render a bullet in the
