@@ -652,96 +652,180 @@ def _render_active_bullet(b: dict, idx: int, bid: str, include_details: bool) ->
     return "".join(parts)
 
 
+_NOVELTY_VERDICT_COLORS: dict[str, str] = {
+    "novel":               ("color:#166534", "background:#dcfce7", "border:1px solid #86efac"),
+    "mixed":               ("color:#92400e", "background:#fef3c7", "border:1px solid #fcd34d"),
+    "mixed_noise":         ("color:#92400e", "background:#fef3c7", "border:1px solid #fcd34d"),
+    "mixed_weak":          ("color:#991b1b", "background:#fee2e2", "border:1px solid #fca5a5"),
+    "discard_not_new":     ("color:#991b1b", "background:#fee2e2", "border:1px solid #fca5a5"),
+    "discard_unsupported": ("color:#991b1b", "background:#fee2e2", "border:1px solid #fca5a5"),
+    "old":                 ("color:#6b7280", "background:#f3f4f6", "border:1px solid #d1d5db"),
+    "discard":             ("color:#991b1b", "background:#fee2e2", "border:1px solid #fca5a5"),
+    "keep":                ("color:#166534", "background:#dcfce7", "border:1px solid #86efac"),
+    "rewrite":             ("color:#92400e", "background:#fef3c7", "border:1px solid #fcd34d"),
+}
+
+_EVALUATOR_DECISION_COLORS: dict[str, tuple] = {
+    "discard": ("color:#991b1b", "background:#fee2e2", "border:1px solid #fca5a5"),
+    "keep":    ("color:#166534", "background:#dcfce7", "border:1px solid #86efac"),
+    "rewrite": ("color:#92400e", "background:#fef3c7", "border:1px solid #fcd34d"),
+}
+
+
+def _verdict_badge(verdict: str) -> str:
+    style_parts = _NOVELTY_VERDICT_COLORS.get(verdict.lower() if verdict else "", ("color:#374151", "background:#f3f4f6", "border:1px solid #d1d5db"))
+    style = ";".join(style_parts)
+    label = verdict.replace("_", " ") if verdict else "—"
+    return f'<span style="display:inline-block;font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:5px;{style}">{html.escape(label)}</span>'
+
+
 def _render_discarded_detail_body(b: dict) -> str:
     d = b.get("discarded") or {}
     stage = str(d.get("stage") or "unknown")
     reason = str(d.get("reason") or "").strip()
-    parts = [
-        '<div class="detail-panel">',
-        f'<div class="detail-label">Stage: {html.escape(_DISCARD_STAGE_LABELS.get(stage, stage))}</div>',
-        f'<div class="detail-reason">{_nl_to_br(reason or "—")}</div>',
-    ]
-    score = d.get("score")
-    if isinstance(score, (int, float)):
-        parts.append(f'<div class="detail-block"><div class="detail-label">Score</div>'
-                     f'<div class="detail-body"><span class="score-pill">Score {int(score)}/5</span></div></div>')
+    parts = ['<div class="detail-panel">']
 
-    # Text compare for rewrite stages
-    original = str(b.get("original_text") or "").strip()
-    final = str(b.get("final_text") or "").strip()
-    if stage in ("novelty_embedding_relevance", "novelty_search_relevance") and original and final and original != final:
-        parts.append(
-            '<div class="detail-block"><div class="detail-label">Original vs rewritten</div>'
-            '<div class="text-compare">'
-            f'<div class="text-compare-col"><h5>Original</h5><div class="detail-body">{_nl_to_br(original)}</div></div>'
-            f'<div class="text-compare-col"><h5>After rewrite</h5><div class="detail-body">{_nl_to_br(final)}</div></div>'
-            '</div></div>'
-        )
-
-    # Evaluator details (novelty_embedding stage)
-    for ev in (d.get("evaluator_details") or []):
-        if not isinstance(ev, dict):
-            continue
-        ename = html.escape(str(ev.get("evaluator_name") or "evaluator"))
-        decision = html.escape(str(ev.get("decision") or ""))
-        ev_reason = str(ev.get("reason") or "").strip()
-        parts.append(
-            f'<div class="evaluator-block"><div class="detail-label">{ename} ({decision})</div>'
-        )
-        if ev_reason:
-            parts.append(f'<div class="detail-reason">{_nl_to_br(ev_reason)}</div>')
-        for rb in (ev.get("retrieved_bullets") or []):
-            if not isinstance(rb, dict):
-                continue
-            rb_text = str(rb.get("text") or "")
-            rb_score = rb.get("score")
-            rb_date = str(rb.get("date") or "")
-            score_s = f"{float(rb_score):.3f}" if isinstance(rb_score, (int, float)) else "—"
-            parts.append(
-                f'<div class="retrieved-bullet-card">'
-                f'<div class="retrieved-bullet-meta">similarity {score_s} · {html.escape(rb_date)}</div>'
-                f'<div class="tx-body">{_nl_to_br(rb_text)}</div></div>'
+    # ── Relevance scoring ─────────────────────────────────────────────────────
+    if stage == "relevance_score":
+        score = d.get("score")
+        header = '<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">'
+        if isinstance(score, (int, float)):
+            s = int(score)
+            pips = "".join(
+                f'<span style="width:10px;height:10px;border-radius:50%;background:{"#dc2626" if i <= s else "#e5e7eb"};display:inline-block"></span>'
+                for i in range(1, 6)
             )
-        parts.append("</div>")
+            header += (
+                f'<span style="font-size:.78rem;font-weight:700;color:#dc2626">{s}/5</span>'
+                f'<span style="display:inline-flex;gap:3px;align-items:center">{pips}</span>'
+            )
+        header += '</div>'
+        parts.append(header)
+        if reason:
+            parts.append(f'<div class="detail-reason">{_nl_to_br(reason)}</div>')
 
-    # Claim verdicts (novelty_search stage)
-    ov = str(d.get("overall_verdict") or "").strip()
-    if ov:
-        parts.append(
-            f'<div class="detail-block"><div class="detail-label">Overall verdict</div>'
-            f'<div class="detail-body">{html.escape(ov)}</div></div>'
-        )
-    for cv in (d.get("claim_verdicts") or []):
-        if not isinstance(cv, dict):
-            continue
-        idx = cv.get("claim_index")
-        ctext = str(cv.get("claim_text") or "")
-        nov = str(cv.get("novelty") or "")
-        rsn = str(cv.get("reasoning") or "").strip()
-        idx_s = html.escape(str(idx)) if idx is not None else "—"
-        parts.append(
-            f'<div class="claim-block">'
-            f'<div class="claim-meta">Claim #{idx_s} · novelty: <strong>{html.escape(nov)}</strong></div>'
-            f'<div class="detail-body">{_nl_to_br(ctext.strip() or "—")}</div>'
-        )
-        if rsn:
-            parts.append(f'<div class="detail-block"><div class="detail-label">Reasoning</div>'
-                         f'<div class="detail-reason">{_nl_to_br(rsn)}</div></div>')
-        for ev in (cv.get("evidence") or []):
+    # ── Entity grounding ──────────────────────────────────────────────────────
+    elif stage == "grounding":
+        if reason:
+            parts.append(f'<div class="detail-reason">{_nl_to_br(reason)}</div>')
+
+    # ── Novelty embedding / embedding relevance ───────────────────────────────
+    elif stage in ("novelty_embedding", "novelty_embedding_relevance"):
+        if reason:
+            parts.append(f'<div class="detail-reason" style="margin-bottom:.75rem">{_nl_to_br(reason)}</div>')
+
+        # Text diff for rewrite+relevance fail
+        original = str(b.get("original_text") or "").strip()
+        final = str(b.get("final_text") or "").strip()
+        if original and final and original != final:
+            parts.append(
+                '<div class="text-compare" style="margin-bottom:.75rem">'
+                f'<div class="text-compare-col"><h5>Original</h5><div class="detail-body">{_nl_to_br(original)}</div></div>'
+                f'<div class="text-compare-col"><h5>Rewritten</h5><div class="detail-body">{_nl_to_br(final)}</div></div>'
+                '</div>'
+            )
+
+        for ev in (d.get("evaluator_details") or []):
             if not isinstance(ev, dict):
                 continue
-            hl = str(ev.get("headline") or "")
-            tx = str(ev.get("text") or "")
-            dt = str(ev.get("date") or "")
-            sid = str(ev.get("simple_id") or "—")
+            ename = html.escape(str(ev.get("evaluator_name") or "evaluator"))
+            decision = str(ev.get("decision") or "")
+            ev_reason = str(ev.get("reason") or "").strip()
+            ev_style = ";".join(_EVALUATOR_DECISION_COLORS.get(decision, ("color:#374151", "background:#f3f4f6", "border:1px solid #d1d5db")))
             parts.append(
-                f'<div class="evidence-card">'
-                f'<div class="source-line"><strong>{html.escape(sid)}</strong> · {html.escape(dt)}</div>'
-                f'<div class="hl-label">Headline</div><div class="hl-body">{_nl_to_br(hl or "—")}</div>'
-                f'<div class="tx-label">Text</div><div class="tx-body">{_nl_to_br(tx)}</div>'
+                f'<div class="evaluator-block">'
+                f'<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.35rem">'
+                f'<span style="font-size:.78rem;font-weight:700;color:#475569">{ename}</span>'
+                f'<span style="font-size:.72rem;font-weight:700;padding:.1rem .4rem;border-radius:4px;{ev_style}">{html.escape(decision)}</span>'
                 f'</div>'
             )
-        parts.append("</div>")
+            if ev_reason:
+                parts.append(f'<div class="detail-reason" style="margin-bottom:.4rem">{_nl_to_br(ev_reason)}</div>')
+            rbs = [r for r in (ev.get("retrieved_bullets") or []) if isinstance(r, dict)]
+            if rbs:
+                parts.append('<div style="display:flex;flex-direction:column;gap:.35rem">')
+                for rb in rbs:
+                    rb_text = html.escape(str(rb.get("text") or ""))
+                    rb_score = rb.get("score")
+                    rb_date = html.escape(str(rb.get("date") or ""))
+                    score_s = f"{float(rb_score):.2f}" if isinstance(rb_score, (int, float)) else "—"
+                    parts.append(
+                        f'<div class="retrieved-bullet-card">'
+                        f'<div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.25rem">'
+                        f'<span style="font-size:.72rem;font-weight:700;color:#1e40af;background:#dbeafe;padding:.1rem .35rem;border-radius:4px">sim {score_s}</span>'
+                        f'<span style="font-size:.75rem;color:var(--muted)">{rb_date}</span>'
+                        f'</div>'
+                        f'<div class="tx-body">{_nl_to_br(rb_text)}</div>'
+                        f'</div>'
+                    )
+                parts.append('</div>')
+            parts.append('</div>')
+
+    # ── Novelty search / search relevance ─────────────────────────────────────
+    elif stage in ("novelty_search", "novelty_search_relevance"):
+        ov = str(d.get("overall_verdict") or "").strip()
+        header = '<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.6rem">'
+        if ov:
+            header += _verdict_badge(ov)
+        if reason:
+            header += f'<span style="font-size:.85rem;color:#374151">{_nl_to_br(reason)}</span>'
+        header += '</div>'
+        parts.append(header)
+
+        # Text diff for search rewrite+relevance fail
+        original = str(b.get("original_text") or "").strip()
+        final = str(b.get("final_text") or "").strip()
+        if original and final and original != final:
+            parts.append(
+                '<div class="text-compare" style="margin-bottom:.75rem">'
+                f'<div class="text-compare-col"><h5>Original</h5><div class="detail-body">{_nl_to_br(original)}</div></div>'
+                f'<div class="text-compare-col"><h5>Rewritten</h5><div class="detail-body">{_nl_to_br(final)}</div></div>'
+                '</div>'
+            )
+
+        claims = [c for c in (d.get("claim_verdicts") or []) if isinstance(c, dict)]
+        if claims:
+            parts.append('<div style="display:flex;flex-direction:column;gap:.5rem">')
+            for cv in claims:
+                idx = cv.get("claim_index")
+                ctext = str(cv.get("claim_text") or "").strip()
+                nov = str(cv.get("novelty") or "")
+                rsn = str(cv.get("reasoning") or "").strip()
+                idx_s = f"#{html.escape(str(idx))}" if idx is not None else ""
+                evidence = [e for e in (cv.get("evidence") or []) if isinstance(e, dict)]
+                parts.append(
+                    f'<div class="claim-block">'
+                    f'<div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-bottom:.35rem">'
+                    f'<span style="font-size:.75rem;font-weight:700;color:var(--muted)">{idx_s}</span>'
+                    + _verdict_badge(nov) +
+                    f'</div>'
+                    f'<div class="detail-body" style="margin-bottom:.3rem">{_nl_to_br(ctext or "—")}</div>'
+                )
+                if rsn:
+                    parts.append(f'<div style="font-size:.8rem;color:#475569;font-style:italic">{_nl_to_br(rsn)}</div>')
+                if evidence:
+                    parts.append('<div style="display:flex;flex-direction:column;gap:.3rem;margin-top:.4rem">')
+                    for ev in evidence:
+                        hl = html.escape(str(ev.get("headline") or "—"))
+                        dt = html.escape(str(ev.get("date") or ""))
+                        sid = html.escape(str(ev.get("simple_id") or ""))
+                        parts.append(
+                            f'<div class="evidence-card">'
+                            f'<div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.2rem">'
+                            f'<span style="font-size:.72rem;font-family:monospace;color:var(--muted)">{sid}</span>'
+                            f'<span style="font-size:.72rem;color:var(--muted)">{dt}</span>'
+                            f'</div>'
+                            f'<div class="hl-body">{_nl_to_br(hl)}</div>'
+                            f'</div>'
+                        )
+                    parts.append('</div>')
+                parts.append('</div>')
+            parts.append('</div>')
+
+    # ── Fallback (unknown stage) ───────────────────────────────────────────────
+    else:
+        if reason:
+            parts.append(f'<div class="detail-reason">{_nl_to_br(reason)}</div>')
 
     parts.append("</div>")
     return "".join(parts)
