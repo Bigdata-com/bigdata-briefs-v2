@@ -337,13 +337,31 @@ def _load_bullets_for_run(engine, run_id) -> list[dict]:
                 "relevance_reason": display_reason,
             }
         else:
+            stage = r.discard_stage or "unknown"
+            # Pick the reason field that matches the actual discard stage
+            if stage == "relevance_score":
+                discard_reason = r.relevance_reason or ""
+            elif stage == "grounding":
+                discard_reason = r.grounding_reason or ""
+            elif stage in ("novelty_embedding", "novelty_embedding_relevance"):
+                discard_reason = r.embedding_reason or ""
+            elif stage == "novelty_search":
+                discard_reason = r.search_reason or ""
+            elif stage == "novelty_search_relevance":
+                discard_reason = r.search_relevance_reason or ""
+            else:
+                discard_reason = ""
+            # Pick the score that matches the actual discard stage
+            if stage == "relevance_score":
+                discard_score = r.relevance_score
+            elif stage == "novelty_search_relevance":
+                discard_score = r.search_relevance_score
+            else:
+                discard_score = None
             discarded_block = {
-                "stage": r.discard_stage or "unknown",
-                "reason": (
-                    r.relevance_reason or r.grounding_reason or
-                    r.embedding_reason or r.search_reason or ""
-                ),
-                "score": r.relevance_score if r.discard_stage == "relevance_score" else None,
+                "stage": stage,
+                "reason": discard_reason,
+                "score": discard_score,
                 "citations": grounding_citations,
                 "evaluator_details": evaluator_details,
                 "claim_verdicts": claim_verdicts,
@@ -828,6 +846,20 @@ def _render_discarded_detail_body(b: dict) -> str:
         header = '<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.6rem">'
         if ov:
             header += _verdict_badge(ov)
+        # For novelty_search_relevance, show the score with pip dots (same style as
+        # initial relevance_score stage so the reader knows why it was cut)
+        if stage == "novelty_search_relevance":
+            score = d.get("score")
+            if isinstance(score, (int, float)):
+                s = int(score)
+                pips = "".join(
+                    f'<span style="width:10px;height:10px;border-radius:50%;background:{"#dc2626" if i <= s else "#e5e7eb"};display:inline-block"></span>'
+                    for i in range(1, 6)
+                )
+                header += (
+                    f'<span style="font-size:.78rem;font-weight:700;color:#dc2626">{s}/5</span>'
+                    f'<span style="display:inline-flex;gap:3px;align-items:center">{pips}</span>'
+                )
         if reason:
             header += f'<span style="font-size:.85rem;color:#374151">{_nl_to_br(reason)}</span>'
         header += '</div>'
