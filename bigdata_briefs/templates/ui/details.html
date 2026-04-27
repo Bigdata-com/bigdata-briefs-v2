@@ -143,7 +143,7 @@
 {% if entity_runs %}
 <table class="dt">
   <thead><tr>
-    <th>Entity</th><th>Started</th><th>Window start</th><th>Window end</th><th>Status</th><th>Duration</th>
+    <th>Entity</th><th>Started</th><th>Window</th><th>Status</th><th>Duration</th><th>Bullets</th><th>Discarded by stage</th>
   </tr></thead>
   <tbody>
   {% for r in entity_runs %}
@@ -153,10 +153,23 @@
       <span class="mono">{{ r.entity_id }}</span>
     </td>
     <td class="mono">{{ fmt_dt(r.started) }}</td>
-    <td class="mono" style="font-size:.8rem">{{ fmt_dt(r.window_start) }}</td>
-    <td class="mono" style="font-size:.8rem">{{ fmt_dt(r.window_end) }}</td>
+    <td class="mono" style="font-size:.78rem">
+      {{ fmt_dt(r.window_start) }}<br>→ {{ fmt_dt(r.window_end) }}
+    </td>
     <td>{{ status_badge(r.status) }}</td>
     <td class="dur">{{ r.duration }}</td>
+    <td>
+      {% if r.bullets_total %}
+      <span style="color:#166534;font-weight:600">{{ r.bullets_active }}✓</span>
+      <span style="color:var(--muted)"> / </span>
+      <span style="color:#dc2626">{{ r.bullets_discarded }}✗</span>
+      {% else %}<span style="color:var(--muted)">—</span>{% endif %}
+    </td>
+    <td style="font-size:.78rem;color:var(--muted)">
+      {% for stage, count in r.discard_stages.items() %}
+      <span style="display:inline-block;margin-right:.4rem">{{ stage }}: {{ count }}</span>
+      {% endfor %}
+    </td>
   </tr>
   {% endfor %}
   </tbody>

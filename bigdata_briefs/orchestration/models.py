@@ -8,6 +8,60 @@ from sqlalchemy import Text
 from sqlmodel import Field, SQLModel
 
 
+class SQLBulletRunLog(SQLModel, table=True):
+    """One row per bullet per pipeline run — structured metadata from output_json.
+
+    output_json stores the entire BulletPointRecord trace as raw JSON (can be
+    several MB per run). Parsing it at query time to show the Details page is
+    too expensive. This table denormalises the fields that matter for analysis
+    into typed columns written once, at the end of each run.
+
+    All stage fields are nullable: a bullet that was discarded at relevance
+    scoring never reaches novelty, so those columns stay NULL.
+    """
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+
+    # ── provenance ──────────────────────────────────────────────────────────
+    run_id: uuid.UUID = Field(index=True)   # FK → SQLEntityPipelineRunLog.run_id
+    entity_id: str = Field(index=True, max_length=64)
+    trace_id: str = Field(index=True, max_length=64)  # unique per bullet
+
+    # ── final outcome ────────────────────────────────────────────────────────
+    is_active: bool                         # True = published, False = discarded
+    not_fully_novel: bool = False           # True = amber (rewritten / mixed verdict)
+    discard_stage: str | None = Field(default=None, max_length=64)
+    # relevance_score | grounding | novelty_embedding |
+    # novelty_embedding_relevance | novelty_search | novelty_search_relevance
+
+    # ── text ────────────────────────────────────────────────────────────────
+    text: str = Field(sa_type=Text)         # final published text
+    original_text: str = Field(default="", sa_type=Text)
+    theme: str = Field(default="", max_length=256)
+
+    # ── relevance scoring ────────────────────────────────────────────────────
+    relevance_score: int | None = None      # 1-5
+    relevance_passed: bool | None = None
+    relevance_reason: str | None = Field(default=None, sa_type=Text)
+
+    # ── entity grounding ────────────────────────────────────────────────────
+    grounding_decision: str | None = Field(default=None, max_length=16)  # valid | invalid
+    grounding_reason: str | None = Field(default=None, sa_type=Text)
+
+    # ── novelty embedding ────────────────────────────────────────────────────
+    embedding_decision: str | None = Field(default=None, max_length=16)  # keep | discard | rewrite
+    embedding_reason: str | None = Field(default=None, sa_type=Text)
+    embedding_rewritten: bool = False       # True if a rewrite was produced
+
+    # ── novelty search ───────────────────────────────────────────────────────
+    search_verdict: str | None = Field(default=None, max_length=32)      # keep | discard | rewrite
+    search_overall_verdict: str | None = Field(default=None, max_length=32)  # novel | mixed | …
+    search_reason: str | None = Field(default=None, sa_type=Text)
+    search_duration_seconds: float | None = None
+
+    created_at: datetime
+
+
 class SQLUIScanRun(SQLModel, table=True):
     """Tracks a day-by-day historical scan for a single entity.
 

@@ -54,6 +54,7 @@ from bigdata_briefs.orchestration.config_load import load_pipeline_config_dict, 
 from bigdata_briefs.orchestration.entity_runner import run_entity_incremental
 from bigdata_briefs.orchestration.models import (
     SQLBatchParallelRun,
+    SQLBulletRunLog,
     SQLEntityOrchestrationState,
     SQLEntityPipelineRunLog,
     SQLUIBatchRun,
@@ -1281,6 +1282,26 @@ async def ui_scan_status(request: Request, scan_id: str = "") -> HTMLResponse:
 # ── Details / timing routes ───────────────────────────────────────────────────
 
 
+def _bullet_stats(session, run_id) -> dict:
+    """Return bullet counts from SQLBulletRunLog for a given run_id."""
+    rows = session.exec(
+        select(SQLBulletRunLog).where(SQLBulletRunLog.run_id == run_id)
+    ).all()
+    if not rows:
+        return {"total": 0, "active": 0, "discarded": 0, "stages": {}}
+    active = sum(1 for r in rows if r.is_active)
+    stages: dict[str, int] = {}
+    for r in rows:
+        if not r.is_active and r.discard_stage:
+            stages[r.discard_stage] = stages.get(r.discard_stage, 0) + 1
+    return {
+        "total": len(rows),
+        "active": active,
+        "discarded": len(rows) - active,
+        "stages": stages,
+    }
+
+
 def _fmt_duration(seconds: float | None) -> str:
     if seconds is None:
         return "—"
@@ -1405,6 +1426,8 @@ async def ui_details_page(request: Request) -> HTMLResponse:
 
     def _enrich_run(r: SQLEntityPipelineRunLog) -> dict:
         dur = _duration_seconds(r.process_started_at_utc, r.process_completed_at_utc)
+        with Session(engine) as _s:
+            stats = _bullet_stats(_s, r.run_id)
         return {
             "run_id": str(r.run_id),
             "entity_id": r.entity_id,
@@ -1416,6 +1439,10 @@ async def ui_details_page(request: Request) -> HTMLResponse:
             "window_end": r.report_window_end,
             "duration": _fmt_duration(dur),
             "duration_s": dur,
+            "bullets_total": stats["total"],
+            "bullets_active": stats["active"],
+            "bullets_discarded": stats["discarded"],
+            "discard_stages": stats["stages"],
         }
 
     return templates.TemplateResponse(
@@ -1468,11 +1495,19 @@ async def ui_batch_detail_partial(request: Request, batch_id: str = "", batch_ty
     rows_html = ""
     for r in runs:
         dur = _duration_seconds(r.process_started_at_utc, r.process_completed_at_utc)
+        with Session(engine) as _s:
+            stats = _bullet_stats(_s, r.run_id)
         name = html.escape(orch_map.get(r.entity_id, r.entity_id))
         eid = html.escape(r.entity_id)
         started = r.process_started_at_utc.strftime("%H:%M:%S") if r.process_started_at_utc else "—"
         completed = r.process_completed_at_utc.strftime("%H:%M:%S") if r.process_completed_at_utc else "running"
         status_cls = {"succeeded": "color:#166534", "failed": "color:#dc2626", "running": "color:#2563eb"}.get(r.status, "")
+        bullets_html = ""
+        if stats["total"]:
+            bullets_html = (
+                f'<span style="color:#166534;font-weight:600">{stats["active"]}✓</span> '
+                f'<span style="color:#dc2626">{stats["discarded"]}✗</span>'
+            )
         rows_html += (
             f'<tr style="background:#f8fafc">'
             f'<td style="padding:.35rem 1rem .35rem 2.5rem;font-size:.82rem;color:var(--muted)">↳ {name} <span style="font-family:monospace;font-size:.75rem">({eid})</span></td>'
@@ -1480,7 +1515,7 @@ async def ui_batch_detail_partial(request: Request, batch_id: str = "", batch_ty
             f'<td style="padding:.35rem .75rem;font-size:.82rem">{completed}</td>'
             f'<td style="padding:.35rem .75rem;font-size:.82rem;font-weight:600;{status_cls}">{r.status}</td>'
             f'<td style="padding:.35rem .75rem;font-size:.82rem;font-weight:600">{_fmt_duration(dur)}</td>'
-            f'<td></td>'
+            f'<td style="padding:.35rem .75rem;font-size:.82rem">{bullets_html}</td>'
             f'</tr>'
         )
     if not rows_html:

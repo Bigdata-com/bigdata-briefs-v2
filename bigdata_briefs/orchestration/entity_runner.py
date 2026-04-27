@@ -27,7 +27,7 @@ from bigdata_briefs.novelty.storage import (
 )
 from bigdata_briefs.orchestration.db import ensure_orchestration_schema
 from bigdata_briefs.orchestration.kg_entities import entity_from_kg_record, fetch_kg_entities_by_ids
-from bigdata_briefs.orchestration.models import SQLEntityOrchestrationState, SQLEntityPipelineRunLog
+from bigdata_briefs.orchestration.models import SQLBulletRunLog, SQLEntityOrchestrationState, SQLEntityPipelineRunLog
 from bigdata_briefs.orchestration.output import fetch_new_novelty_ok_bullets, fetch_previous_bullets
 from bigdata_briefs.orchestration.windows import WindowEndNotAfterStartError, WindowMode, build_report_dates_for_entity_run
 from bigdata_briefs.graph.dependencies import RuntimeDependencies
@@ -344,6 +344,94 @@ def _node_metrics_to_step_summary(node_metrics: list[dict]) -> dict[str, bool]:
     }
 
 
+def _get_discard_stage(bp: dict) -> str | None:
+    """Return the pipeline stage that discarded this bullet, or None if active."""
+    if bp.get("is_active", True):
+        return None
+    rs = bp.get("relevance_scoring") or {}
+    if rs and not rs.get("passed", True):
+        return "relevance_score"
+    eg = (bp.get("entity_grounding") or {}).get("check") or {}
+    if eg.get("decision") == "invalid":
+        return "grounding"
+    ne = bp.get("novelty_embedding") or {}
+    j = ne.get("judgment") or {}
+    if j.get("decision") == "discard":
+        return "novelty_embedding"
+    rc = ne.get("relevance_check") or {}
+    if rc and not rc.get("passed", True):
+        return "novelty_embedding_relevance"
+    ns = bp.get("novelty_search") or {}
+    s = ns.get("search") or {}
+    if s.get("verdict") == "discard":
+        return "novelty_search"
+    src = ns.get("relevance_check") or {}
+    if src and not src.get("passed", True):
+        return "novelty_search_relevance"
+    return "unknown"
+
+
+def _flush_bullet_run_log(eng: Engine, run_id: uuid.UUID, entity_id: str, final_state: dict) -> None:
+    """Write one SQLBulletRunLog row per bullet from the completed pipeline run."""
+    bullet_points: list[dict] = final_state.get("bullet_points") or []
+    if not bullet_points:
+        return
+
+    now = datetime.now(timezone.utc)
+    rows: list[SQLBulletRunLog] = []
+
+    for bp in bullet_points:
+        is_active: bool = bp.get("is_active", True)
+        ne = bp.get("novelty_embedding") or {}
+        ns_block = bp.get("novelty_search") or {}
+        s = ns_block.get("search") or {}
+        rs = bp.get("relevance_scoring") or {}
+        eg = (bp.get("entity_grounding") or {}).get("check") or {}
+        gen = bp.get("generation") or {}
+        j = ne.get("judgment") or {}
+        rc = ne.get("relevance_check") or {}
+        src = ns_block.get("relevance_check") or {}
+
+        overall_verdict = s.get("overall_verdict")
+        not_fully_novel = bool(is_active and overall_verdict in ("mixed", "mixed_noise"))
+
+        ne_rewrite = (ne.get("rewrite") or {}).get("text_after")
+        search_rewrite = s.get("rewritten_text")
+        final_text = search_rewrite or ne_rewrite or bp.get("text", "")
+
+        rows.append(SQLBulletRunLog(
+            run_id=run_id,
+            entity_id=entity_id,
+            trace_id=str(bp.get("trace_id") or ""),
+            is_active=is_active,
+            not_fully_novel=not_fully_novel,
+            discard_stage=_get_discard_stage(bp),
+            text=final_text,
+            original_text=str(gen.get("original_text") or bp.get("text") or ""),
+            theme=str(bp.get("theme") or ""),
+            relevance_score=rs.get("score"),
+            relevance_passed=rs.get("passed"),
+            relevance_reason=rs.get("reason"),
+            grounding_decision=eg.get("decision"),
+            grounding_reason=eg.get("reason"),
+            embedding_decision=j.get("decision"),
+            embedding_reason=j.get("reason"),
+            embedding_rewritten=bool(ne.get("rewrite")),
+            search_verdict=s.get("verdict"),
+            search_overall_verdict=overall_verdict,
+            search_reason=s.get("reason"),
+            search_duration_seconds=s.get("duration_seconds"),
+            created_at=now,
+        ))
+
+    try:
+        with Session(eng) as session:
+            session.add_all(rows)
+            session.commit()
+    except Exception:
+        pass  # never let bullet log failures break the run
+
+
 def run_entity_incremental(
     *,
     entity_id: str,
@@ -576,6 +664,9 @@ def run_entity_incremental(
                 exit_code=1,
                 output_json=bullet_trace_json,  # preserve partial state even on failure
             )
+
+    if final_state and pipeline_ok:
+        _flush_bullet_run_log(eng, run_log.run_id, entity_id, final_state)
 
     previous = fetch_previous_bullets(eng, entity_id, report_dates)
     new_ok: list[dict[str, Any]] = []
