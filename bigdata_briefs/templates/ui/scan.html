@@ -3,6 +3,24 @@
 {% block nav_scan %}active{% endblock %}
 
 {% block content %}
+<script>
+const ENTITIES_BY_UNIVERSE = {{ entities_by_universe_json | safe }};
+
+function filterByUniverse() {
+  const universe = document.getElementById('universe-select').value;
+  const entitySelect = document.getElementById('entity-select');
+  const allowed = universe ? new Set(ENTITIES_BY_UNIVERSE[universe] || []) : null;
+  let first = true;
+  for (const opt of entitySelect.options) {
+    if (!opt.value) continue;
+    const show = !allowed || allowed.has(opt.value);
+    opt.style.display = show ? '' : 'none';
+    if (show && first) { entitySelect.value = opt.value; first = false; }
+  }
+  if (allowed) entitySelect.value = '';
+}
+</script>
+
 <div style="display:grid;grid-template-columns:360px 1fr;gap:1.5rem;align-items:start">
 
   <!-- ── Left: form ── -->
@@ -10,7 +28,8 @@
     <div class="card-body">
       <h1 class="card-title">Historical Scan</h1>
       <p style="font-size:.88rem;color:var(--muted);margin:-.5rem 0 1.25rem">
-        Runs the pipeline day by day for a single entity. Resumes automatically from the last completed run.
+        Runs the pipeline day by day. Select a single entity or an entire universe.
+        Resumes automatically from the last completed run.
       </p>
 
       <form
@@ -18,10 +37,23 @@
         hx-target="#scan-output"
         hx-swap="innerHTML"
       >
+        {% if universe_names %}
         <div class="field">
-          <label for="entity-select">Entity</label>
-          <select id="entity-select" name="entity_id" required>
-            <option value="">— select entity —</option>
+          <label for="universe-select">Universe <span style="font-weight:400;color:var(--muted)">(optional — filters the list below)</span></label>
+          <select id="universe-select" name="universe_name" onchange="filterByUniverse()">
+            <option value="">— all entities —</option>
+            {% for name in universe_names %}
+            <option value="{{ name }}">{{ name }}</option>
+            {% endfor %}
+          </select>
+          <p class="field-hint">Selecting a universe and leaving entity empty scans all entities in it.</p>
+        </div>
+        {% endif %}
+
+        <div class="field">
+          <label for="entity-select">Entity <span style="font-weight:400;color:var(--muted)">(leave empty to scan full universe)</span></label>
+          <select id="entity-select" name="entity_id">
+            <option value="">— all entities in selected universe —</option>
             {% for eid, name in entities %}
             <option value="{{ eid }}">{{ name }}</option>
             {% endfor %}
@@ -32,8 +64,7 @@
           <label for="start-date">Start date</label>
           <input type="date" id="start-date" name="start_date" required max="{{ today }}"/>
           <p class="field-hint">
-            Scan runs from 00:00:00 UTC of this date. If the entity already has runs,
-            the scan resumes from the last window end automatically.
+            Scan runs from 00:00:00 UTC of this date. Resumes from last window end if runs exist.
           </p>
         </div>
 
@@ -45,7 +76,6 @@
           <input type="date" id="end-date" name="end_date" max="{{ today }}"/>
           <p class="field-hint">
             If set, the last window ends at 23:59:59 UTC of this day.
-            Leave empty to scan up to the current time.
           </p>
         </div>
 

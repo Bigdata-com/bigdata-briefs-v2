@@ -1305,24 +1305,41 @@ def _get_universe_entities_with_names() -> list[tuple[str, str]]:
 async def ui_scan_page(request: Request) -> HTMLResponse:
     templates = request.app.state.templates
     entities = _get_universe_entities_with_names()
+    entities_by_universe = {name: list(ids) for name, ids in _UNIVERSES.items()}
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     return templates.TemplateResponse(
         request, "ui/scan.html",
-        {"entities": entities, "today": today},
+        {
+            "entities": entities,
+            "universe_names": sorted(_UNIVERSES.keys()),
+            "entities_by_universe_json": json.dumps(entities_by_universe),
+            "today": today,
+        },
     )
+
+
+def _resolve_entity_name(engine, entity_id: str) -> str:
+    with Session(engine) as session:
+        orch = session.get(SQLEntityOrchestrationState, entity_id)
+        if orch and orch.kg_name:
+            return orch.kg_name
+    return dict(_get_universe_entities_with_names()).get(entity_id, entity_id)
 
 
 @router.post("/scan/run", response_class=HTMLResponse)
 async def ui_scan_run(
     request: Request,
     entity_id: str = Form(default=""),
+    universe_name: str = Form(default=""),
     start_date: str = Form(default=""),
     end_date: str = Form(default=""),
 ) -> HTMLResponse:
     templates = request.app.state.templates
 
-    if not entity_id.strip() or not start_date.strip():
-        return HTMLResponse('<p style="color:#dc2626">Entity and start date are required.</p>')
+    if not start_date.strip():
+        return HTMLResponse('<p style="color:#dc2626">Start date is required.</p>')
+    if not entity_id.strip() and not universe_name.strip():
+        return HTMLResponse('<p style="color:#dc2626">Select an entity or a universe.</p>')
 
     try:
         requested_start = datetime.strptime(start_date.strip(), "%Y-%m-%d").replace(
@@ -1342,34 +1359,74 @@ async def ui_scan_run(
         end = datetime.now(timezone.utc)
 
     engine = get_engine()
-    effective_start = resolve_scan_start(engine, entity_id.strip(), requested_start)
+    executor = get_entity_executor(request)
+    rate_limiter = get_rate_limiter(request)
+    connection_sem = get_connection_sem(request)
+    http_client = get_http_client(request)
+
+    # ── Universe scan: one scan per entity, show list of progress bars ────────
+    if universe_name.strip():
+        entity_ids = _UNIVERSES.get(universe_name.strip())
+        if not entity_ids:
+            return HTMLResponse(f'<p style="color:#dc2626">Universe "{universe_name}" not found.</p>')
+
+        all_entity_names = dict(_get_universe_entities_with_names())
+        scan_items: list[dict] = []
+        for eid in entity_ids:
+            effective_start = resolve_scan_start(engine, eid, requested_start)
+            windows = build_scan_windows(effective_start, end)
+            if not windows:
+                continue
+            entity_name = _resolve_entity_name(engine, eid)
+            scan_id = str(uuid.uuid4())
+            db_create_scan(engine, scan_id, eid, entity_name, len(windows))
+            executor.submit(
+                run_scan_worker,
+                scan_id=scan_id,
+                entity_id=eid,
+                windows=windows,
+                engine=engine,
+                rate_limiter=rate_limiter,
+                connection_sem=connection_sem,
+                http_client=http_client,
+            )
+            scan_items.append({
+                "scan_id": scan_id,
+                "entity_name": entity_name,
+                "windows_total": len(windows),
+                "effective_start": effective_start.strftime("%Y-%m-%d"),
+                "end": end.strftime("%Y-%m-%d %H:%M UTC"),
+            })
+
+        if not scan_items:
+            return HTMLResponse('<p style="color:#92400e">All entities in this universe are already up to date.</p>')
+
+        return templates.TemplateResponse(
+            request, "ui/partials/scan_universe_progress.html",
+            {"scans": scan_items},
+        )
+
+    # ── Single entity scan ────────────────────────────────────────────────────
+    eid = entity_id.strip()
+    effective_start = resolve_scan_start(engine, eid, requested_start)
     windows = build_scan_windows(effective_start, end)
 
     if not windows:
         return HTMLResponse('<p style="color:#92400e">No windows to process — entity is already up to date for this range.</p>')
 
-    entity_name = entity_id.strip()
-    with Session(engine) as session:
-        orch = session.get(SQLEntityOrchestrationState, entity_id.strip())
-        if orch and orch.kg_name:
-            entity_name = orch.kg_name
-    # Fallback: look up name from CSV
-    if entity_name == entity_id.strip():
-        all_entities = dict(_get_universe_entities_with_names())
-        entity_name = all_entities.get(entity_id.strip(), entity_id.strip())
-
+    entity_name = _resolve_entity_name(engine, eid)
     scan_id = str(uuid.uuid4())
-    db_create_scan(engine, scan_id, entity_id.strip(), entity_name, len(windows))
+    db_create_scan(engine, scan_id, eid, entity_name, len(windows))
 
-    get_entity_executor(request).submit(
+    executor.submit(
         run_scan_worker,
         scan_id=scan_id,
-        entity_id=entity_id.strip(),
+        entity_id=eid,
         windows=windows,
         engine=engine,
-        rate_limiter=get_rate_limiter(request),
-        connection_sem=get_connection_sem(request),
-        http_client=get_http_client(request),
+        rate_limiter=rate_limiter,
+        connection_sem=connection_sem,
+        http_client=http_client,
     )
 
     return templates.TemplateResponse(

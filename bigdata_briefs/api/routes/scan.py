@@ -210,13 +210,17 @@ def run_scan_worker(
 # ── REST endpoint ─────────────────────────────────────────────────────────────
 
 
+from fastapi import HTTPException
 from pydantic import BaseModel
+
+from bigdata_briefs.api.routes.universes import _UNIVERSES
 
 
 class ScanRequest(BaseModel):
-    entity_id: str
-    start_date: str        # YYYY-MM-DD
-    end_date: str | None = None  # YYYY-MM-DD, defaults to today
+    entity_id: str | None = None   # required unless universe is set
+    universe: str | None = None    # scan all entities in this universe
+    start_date: str                # YYYY-MM-DD
+    end_date: str | None = None    # YYYY-MM-DD, defaults to today
 
 
 class ScanResponse(BaseModel):
@@ -227,16 +231,84 @@ class ScanResponse(BaseModel):
     end: str
 
 
+class UniverseScanResponse(BaseModel):
+    scans: list[ScanResponse]
+    total_entities: int
+    universe: str
+
+
+def _parse_dates(start_date: str, end_date: str | None) -> tuple[datetime, datetime]:
+    try:
+        requested_start = datetime.strptime(start_date, "%Y-%m-%d").replace(
+            hour=0, minute=0, second=0, tzinfo=timezone.utc
+        )
+    except ValueError:
+        raise HTTPException(status_code=422, detail="start_date must be YYYY-MM-DD")
+    if end_date:
+        try:
+            end = datetime.strptime(end_date, "%Y-%m-%d").replace(
+                hour=23, minute=59, second=59, tzinfo=timezone.utc
+            )
+        except ValueError:
+            raise HTTPException(status_code=422, detail="end_date must be YYYY-MM-DD")
+    else:
+        end = datetime.now(timezone.utc)
+    return requested_start, end
+
+
+def _start_one_scan(
+    entity_id: str,
+    requested_start: datetime,
+    end: datetime,
+    engine,
+    executor,
+    rate_limiter,
+    connection_sem,
+    http_client,
+) -> ScanResponse | None:
+    """Create and submit one scan. Returns None if already up to date."""
+    effective_start = resolve_scan_start(engine, entity_id, requested_start)
+    windows = build_scan_windows(effective_start, end)
+    if not windows:
+        return None
+
+    entity_name = entity_id
+    with Session(engine) as session:
+        orch = session.get(SQLEntityOrchestrationState, entity_id)
+        if orch and orch.kg_name:
+            entity_name = orch.kg_name
+
+    scan_id = str(uuid.uuid4())
+    db_create_scan(engine, scan_id, entity_id, entity_name, len(windows))
+    executor.submit(
+        run_scan_worker,
+        scan_id=scan_id,
+        entity_id=entity_id,
+        windows=windows,
+        engine=engine,
+        rate_limiter=rate_limiter,
+        connection_sem=connection_sem,
+        http_client=http_client,
+    )
+    return ScanResponse(
+        scan_id=scan_id,
+        entity_id=entity_id,
+        windows_total=len(windows),
+        start=effective_start.isoformat(),
+        end=end.isoformat(),
+    )
+
+
 @router.post(
     "/scan",
-    response_model=ScanResponse,
     dependencies=[Depends(require_api_key)],
-    summary="Start a historical day-by-day scan for one entity",
+    summary="Start a historical day-by-day scan for one entity or an entire universe",
     description=(
-        "Runs the pipeline once per calendar day from `start_date` to `end_date` "
-        "(default: today) for the given entity. If the entity already has runs, "
-        "the scan resumes from the last window end. Returns a `scan_id` to poll "
-        "for progress."
+        "Provide either `entity_id` (single entity) or `universe` (all entities in a "
+        "named universe). Runs the pipeline once per calendar day from `start_date` to "
+        "`end_date` (default: today). Resumes from the last completed window automatically.\n\n"
+        "Single entity → returns a `ScanResponse` with one `scan_id`.\n"
+        "Universe → returns a `UniverseScanResponse` with one `scan_id` per entity."
     ),
 )
 def start_scan(
@@ -245,62 +317,33 @@ def start_scan(
     rate_limiter: RequestsPerMinuteController = Depends(get_rate_limiter),
     connection_sem: Semaphore = Depends(get_connection_sem),
     http_client: httpx.Client = Depends(get_http_client),
-) -> ScanResponse:
+):
+    if not body.entity_id and not body.universe:
+        raise HTTPException(status_code=422, detail="Provide either entity_id or universe.")
+    if body.entity_id and body.universe:
+        raise HTTPException(status_code=422, detail="Provide either entity_id or universe, not both.")
+
     engine = get_engine()
+    requested_start, end = _parse_dates(body.start_date, body.end_date)
 
-    try:
-        requested_start = datetime.strptime(body.start_date, "%Y-%m-%d").replace(
-            hour=0, minute=0, second=0, tzinfo=timezone.utc
-        )
-    except ValueError:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=422, detail="start_date must be YYYY-MM-DD")
-
-    if body.end_date:
-        try:
-            end = datetime.strptime(body.end_date, "%Y-%m-%d").replace(
-                hour=23, minute=59, second=59, tzinfo=timezone.utc
+    if body.universe:
+        entity_ids = _UNIVERSES.get(body.universe)
+        if entity_ids is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Universe '{body.universe}' not found. Available: {list(_UNIVERSES)}",
             )
-        except ValueError:
-            from fastapi import HTTPException
-            raise HTTPException(status_code=422, detail="end_date must be YYYY-MM-DD")
-    else:
-        end = datetime.now(timezone.utc)
+        scans: list[ScanResponse] = []
+        for eid in entity_ids:
+            resp = _start_one_scan(eid, requested_start, end, engine, executor, rate_limiter, connection_sem, http_client)
+            if resp:
+                scans.append(resp)
+        return UniverseScanResponse(scans=scans, total_entities=len(entity_ids), universe=body.universe)
 
-    effective_start = resolve_scan_start(engine, body.entity_id, requested_start)
-    windows = build_scan_windows(effective_start, end)
-
-    if not windows:
-        from fastapi import HTTPException
+    resp = _start_one_scan(body.entity_id, requested_start, end, engine, executor, rate_limiter, connection_sem, http_client)
+    if resp is None:
         raise HTTPException(status_code=422, detail="No windows to process — already up to date.")
-
-    entity_name = body.entity_id
-    with Session(engine) as session:
-        orch = session.get(SQLEntityOrchestrationState, body.entity_id)
-        if orch and orch.kg_name:
-            entity_name = orch.kg_name
-
-    scan_id = str(uuid.uuid4())
-    db_create_scan(engine, scan_id, body.entity_id, entity_name, len(windows))
-
-    executor.submit(
-        run_scan_worker,
-        scan_id=scan_id,
-        entity_id=body.entity_id,
-        windows=windows,
-        engine=engine,
-        rate_limiter=rate_limiter,
-        connection_sem=connection_sem,
-        http_client=http_client,
-    )
-
-    return ScanResponse(
-        scan_id=scan_id,
-        entity_id=body.entity_id,
-        windows_total=len(windows),
-        start=effective_start.isoformat(),
-        end=end.isoformat(),
-    )
+    return resp
 
 
 @router.get(
