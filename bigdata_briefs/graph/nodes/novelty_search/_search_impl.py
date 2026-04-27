@@ -504,34 +504,44 @@ OUTPUT (JSON):
 
 
 _PIVOT_RELEVANCE_CHECK_PROMPT = """\
-You are a financial analyst evaluating whether a specific new piece of information is material and actionable for an investor-focused market intelligence feed.
+You are a financial analyst evaluating the relevance of individual news items for an investor-focused market intelligence feed. Your job is to assess how material and actionable each item is for the specified entity.
 
-The sentence below was produced by a rewriter that identified prior coverage (known context) and one new specific detail added on top. The sentence follows a fixed structure:
+The sentence below was produced by a rewriter. It follows a fixed structure:
 
     {entity_name}, <subordinate clause with known context>, <pivot marker> <new specific detail>.
 
 The pivot markers are: "has now", "has just", "has confirmed", "has disclosed", "has reported".
 
-YOUR TASK: evaluate the relevance of the NEW SPECIFIC DETAIL only — the part that comes after the pivot marker. Do not evaluate the subordinate clause (that is already known and is provided only as context). The question is: does the new detail add material, actionable information for investors?
+The subordinate clause is already known from prior coverage — it is provided only as context. Your task is to evaluate the relevance of the NEW SPECIFIC DETAIL only: the part that comes after the pivot marker. Apply the scoring criteria below to that added part, as if it were a standalone news item about {entity_name}.
 
-ENTITY: {entity_name}
+Assign a relevance score from 1 (low) to 5 (high) based on how significantly the new detail affects or meaningfully relates to **{entity_name}**, considering actionability, materiality, influence, or real-world impact on the entity's status, behavior, or perception.
 
-SCORING CRITERIA (apply to the new specific detail only):
+**Scoring criteria:**
 
-1 — Not material: the added detail is trivial, vague, or not actionable (e.g. a round number already implied, a non-specific qualifier, a minor geographic nuance with no investment relevance).
+**1 — Irrelevant**: The added detail contains no meaningful new information about {entity_name}.
+  Examples: recycled data already in the subordinate clause, trivial mentions, tangential references, general market or industry commentary that does not specifically affect {entity_name}.
 
-2 — Marginally material: adds a specific datum but with limited actionability (e.g. a minor metric, a secondary operational detail, a routine update that does not change the investment picture).
+**2 — Barely relevant**: The added detail is weakly actionable.
+  Examples: passing mentions, routine appearances, non-specific trends, minor rumors, non-material updates.
 
-3 — Moderately material: adds a concrete fact with some actionability (e.g. a specific figure that contextualises a known result, a new partner name in an ongoing rollout, a specific regulatory approval in an additional market).
+**3 — Moderately relevant**: The added detail has limited actionability or impact.
+  Examples: awards, routine updates, mild public scrutiny, minor product or policy changes, small-scale incidents, class-action filings, local or short-lived effects on {entity_name}.
 
-4 — Material and actionable: the added detail meaningfully changes or quantifies the investment picture (e.g. actual earnings vs. consensus, a specific beat/miss percentage, a named strategic partner, a new geographic market with meaningful revenue potential).
+**4 — Relevant and actionable**: The added detail has potential material or reputational impact.
+  Examples:
+    • For companies/products: product launches, earnings in line with or slightly above expectations, large layoffs, notable settlements, regulatory warnings.
+    • For people: major appointments, significant controversies, legally meaningful actions, endorsements with broad reach.
 
-5 — Highly material: the added detail is a major data point that substantially affects valuation or strategy (e.g. a large unexpected earnings beat, a transformative new customer, a breakthrough metric not previously disclosed).
+**5 — Highly relevant**: The added detail has substantial direct impact on {entity_name}.
+  Examples:
+    • For companies/products: M&A, bankruptcy, major regulatory actions, key contract wins/losses, massive surprises (earnings beats or misses, failures, breakthroughs).
+    • For people: resignations or appointments to major roles, large-scale legal events, major awards or scandals with global attention.
 
-ADDITIONAL RULES:
-- If the new detail is purely a percentage or ratio derived from figures already in the sentence (e.g. "up X% year-over-year" where both the current and prior figures are given), treat this as moderately material at most (score ≤ 3) unless the percentage itself reveals something qualitatively new.
-- If the new detail is a figure that confirms analyst expectations with no surprise, score ≤ 3.
-- If the new detail contains a figure that significantly beats or misses consensus, score 4–5.
+**Additional rules:**
+
+**Temporal relevance rule**: If the added detail is constructed entirely around past events, expired fiscal periods, or historical data — without highlighting a new development, a change, an evolution, or a meaningful comparison — it should score no higher than 2. References to past data are acceptable when used to support or contextualise something new (e.g. comparing past and present performance, framing a trajectory, or highlighting a shift). Note: the subordinate clause will always contain past context — apply this rule only to the new detail after the pivot marker.
+
+**Date integrity rule**: If the new detail presents a fact or data point explicitly anchored to a date strictly after the current analysis date, the score must be 1 or 2, with no exceptions.
 
 FULL SENTENCE (for context):
 {rewritten_sentence}
