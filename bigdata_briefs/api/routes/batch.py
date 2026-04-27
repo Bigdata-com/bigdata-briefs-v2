@@ -61,7 +61,7 @@ from bigdata_briefs.novelty.sql_models import SQLGeneratedBulletPoint
 from bigdata_briefs.novelty.storage import SQLiteGeneratedBulletPointStorage
 from bigdata_briefs.orchestration.config_load import load_pipeline_config_dict, resolve_config_path
 from bigdata_briefs.orchestration.entity_runner import run_entity_incremental
-from bigdata_briefs.orchestration.models import SQLBatchParallelRun, SQLEntityOrchestrationState, SQLEntityPipelineRunLog
+from bigdata_briefs.orchestration.models import SQLBatchParallelRun, SQLBulletRunLog, SQLEntityOrchestrationState, SQLEntityPipelineRunLog
 from bigdata_briefs.api.routes.universes import _UNIVERSES
 from bigdata_briefs.settings import settings
 
@@ -73,6 +73,20 @@ def _all_entity_ids(engine) -> list[str]:
             select(SQLEntityPipelineRunLog.entity_id).distinct()
         ).all()
     return list(rows)
+
+
+def _stage_to_category(discard_stage: str | None) -> str | None:
+    """Map SQLBulletRunLog.discard_stage to the three batch API categories."""
+    if discard_stage == "relevance_score":
+        return "relevance"
+    if discard_stage == "grounding":
+        return "grounding"
+    if discard_stage in (
+        "novelty_embedding", "novelty_embedding_relevance",
+        "novelty_search", "novelty_search_relevance",
+    ):
+        return "novelty"
+    return None
 
 
 def _classify_discarded(bp: dict) -> str | None:
@@ -124,8 +138,8 @@ def _load_discarded_for_runs(
 ) -> dict[str, dict[str, list[str]]]:
     """
     For each generated run_id, find the matching SQLEntityPipelineRunLog row by
-    (entity_id, report_window_start, report_window_end) and parse its output_json
-    to return discarded bullets grouped by category.
+    (entity_id, report_window_start, report_window_end), then read discarded
+    bullets from SQLBulletRunLog instead of parsing output_json.
 
     NOTE: ``SQLGeneratedBulletPoint.run_id`` == ``state["request_id"]`` (internal UUID),
     which is *different* from ``SQLEntityPipelineRunLog.run_id`` (API-level UUID).
@@ -147,7 +161,7 @@ def _load_discarded_for_runs(
             buckets: dict[str, list[str]] = {"relevance": [], "grounding": [], "novelty": []}
 
             # Match by entity + window — UUIDs are from different namespaces
-            row = session.exec(
+            log_row = session.exec(
                 select(SQLEntityPipelineRunLog)
                 .where(SQLEntityPipelineRunLog.entity_id == entity_id)
                 .where(SQLEntityPipelineRunLog.report_window_start == window_start)
@@ -156,25 +170,20 @@ def _load_discarded_for_runs(
                 .order_by(desc(SQLEntityPipelineRunLog.process_completed_at_utc))
             ).first()
 
-            if not row or not row.output_json:
+            if not log_row:
                 result[run_id_str] = buckets
                 continue
 
-            try:
-                parsed = json.loads(row.output_json)
-                bullet_points: list[dict] = (
-                    parsed if isinstance(parsed, list) else parsed.get("bullet_points") or []
-                )
-            except (json.JSONDecodeError, TypeError):
-                result[run_id_str] = buckets
-                continue
+            bullet_rows = session.exec(
+                select(SQLBulletRunLog)
+                .where(SQLBulletRunLog.run_id == log_row.run_id)
+                .where(SQLBulletRunLog.is_active == False)  # noqa: E712
+            ).all()
 
-            for bp in bullet_points:
-                category = _classify_discarded(bp)
-                if category:
-                    text = bp.get("text", "")
-                    if text:
-                        buckets[category].append(text)
+            for br in bullet_rows:
+                category = _stage_to_category(br.discard_stage)
+                if category and br.text:
+                    buckets[category].append(br.text)
 
             result[run_id_str] = buckets
 
@@ -683,18 +692,18 @@ def _build_entity_result_from_run_log(
     runs: list[RunBulletsResult] = []
     for row in run_rows:
         buckets: dict[str, list[str]] = {"relevance": [], "grounding": [], "novelty": []}
-        if row.output_json:
-            try:
-                parsed = json.loads(row.output_json)
-                bps = parsed if isinstance(parsed, list) else parsed.get("bullet_points") or []
-                for bp in bps:
-                    category = _classify_discarded(bp)
-                    if category:
-                        text = bp.get("text", "")
-                        if text:
-                            buckets[category].append(text)
-            except (json.JSONDecodeError, TypeError):
-                pass
+
+        with Session(engine) as session:
+            bullet_rows = session.exec(
+                select(SQLBulletRunLog)
+                .where(SQLBulletRunLog.run_id == row.run_id)
+                .where(SQLBulletRunLog.is_active == False)  # noqa: E712
+            ).all()
+
+        for br in bullet_rows:
+            category = _stage_to_category(br.discard_stage)
+            if category and br.text:
+                buckets[category].append(br.text)
 
         bullets_discarded = sum(len(v) for v in buckets.values())
         run_created_at = row.process_completed_at_utc or row.process_started_at_utc
