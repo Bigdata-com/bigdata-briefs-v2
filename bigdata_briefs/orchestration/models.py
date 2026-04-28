@@ -182,3 +182,39 @@ class SQLEntityPipelineRunLog(SQLModel, table=True):
     error_summary: str | None = Field(default=None, sa_type=Text, nullable=True)
     exit_code: int | None = Field(default=None, nullable=True)
     output_json: str | None = Field(default=None, sa_type=Text, nullable=True)
+
+
+class SQLRunMetrics(SQLModel, table=True):
+    """Cost and usage metrics for one pipeline run.
+
+    Written once at run completion via _flush_run_metrics(). One row per run.
+    Enables cost tracking per entity, per model, and per time window without
+    parsing the multi-MB output_json.
+    """
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    run_id: uuid.UUID = Field(index=True)   # FK → SQLEntityPipelineRunLog.run_id
+    entity_id: str = Field(index=True, max_length=64)
+    report_window_start: datetime
+    report_window_end: datetime
+
+    # LLM usage: JSON array of {model, prompt_tokens, completion_tokens, total_tokens, n_calls, cost_usd}
+    llm_per_model_json: str = Field(default="[]", sa_type=Text)
+
+    # Embedding usage
+    embedding_model: str = Field(default="N/A", max_length=128)
+    embedding_tokens: int = Field(default=0)
+    embedding_cost_usd: float = Field(default=0.0)
+
+    # Chunks retrieved across all search phases (exploratory + concept + novelty search)
+    chunks_total: int = Field(default=0)
+
+    # Per-step breakdown: JSON dict of {step_name: {llm_cost_usd, llm_tokens, chunks_retrieved, ...}}
+    step_detail_json: str = Field(default="{}", sa_type=Text)
+
+    # Scalar totals for easy filtering / aggregation
+    total_llm_cost_usd: float = Field(default=0.0)
+    total_embedding_cost_usd: float = Field(default=0.0)
+    total_cost_usd: float = Field(default=0.0)
+
+    created_at: datetime

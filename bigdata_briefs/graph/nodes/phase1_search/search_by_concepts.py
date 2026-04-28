@@ -81,6 +81,11 @@ def execute_parallel_concept_queries(
 
     total_chunks = sum(len(r.chunks) for r in all_results) if all_results else 0
 
+    if deps.entity_metrics:
+        if total_chunks:
+            deps.entity_metrics.track_chunks(total_chunks, attributee_step="concept_search")
+        deps.entity_metrics.track_api_call(total_concepts, attributee_step="concept_search")
+
     wall_ms = (time.monotonic() - t0) * 1000
     metrics = NodeMetricsRecord(
         node_id=NODE_CONCEPT_SEARCH,

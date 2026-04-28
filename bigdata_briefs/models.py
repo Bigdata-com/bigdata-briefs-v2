@@ -898,11 +898,17 @@ class StepUsage(BaseModel):
     # Cost and token metrics
     llm_cost_usd: float = 0.0
     llm_tokens: int = 0
+    llm_prompt_tokens: int = 0
+    llm_completion_tokens: int = 0
     llm_calls: int = 0
     embedding_cost_usd: float = 0.0
     embedding_tokens: int = 0
     duration_seconds: float = 0.0
     
+    # BigData API metrics
+    api_calls: int = 0
+    api_query_units: float = 0.0
+
     # Operational metrics
     chunks_retrieved: int = 0
     bullets_generated: int = 0
@@ -918,6 +924,8 @@ class StepUsage(BaseModel):
         result = {
             "llm_cost_usd": round(self.llm_cost_usd, 6),
             "llm_tokens": self.llm_tokens,
+            "llm_prompt_tokens": self.llm_prompt_tokens,
+            "llm_completion_tokens": self.llm_completion_tokens,
             "llm_calls": self.llm_calls,
             "embedding_cost_usd": round(self.embedding_cost_usd, 6),
             "embedding_tokens": self.embedding_tokens,
@@ -926,6 +934,8 @@ class StepUsage(BaseModel):
         }
         # Only include non-zero operational metrics
         ops = {}
+        if self.api_calls: ops["api_calls"] = self.api_calls
+        if self.api_query_units: ops["api_query_units"] = round(self.api_query_units, 4)
         if self.chunks_retrieved: ops["chunks_retrieved"] = self.chunks_retrieved
         if self.bullets_generated: ops["bullets_generated"] = self.bullets_generated
         if self.bullets_discarded: ops["bullets_discarded"] = self.bullets_discarded

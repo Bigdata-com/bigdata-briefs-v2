@@ -143,7 +143,7 @@
 {% if entity_runs %}
 <table class="dt">
   <thead><tr>
-    <th>Entity</th><th>Started</th><th>Window</th><th>Status</th><th>Duration</th><th>Bullets</th><th>Discarded by stage</th>
+    <th>Entity</th><th>Started</th><th>Window</th><th>Status</th><th>Duration</th><th>Bullets</th><th>Discarded by stage</th><th>Cost</th>
   </tr></thead>
   <tbody>
   {% for r in entity_runs %}
@@ -169,6 +169,14 @@
       {% for stage, count in r.discard_stages.items() %}
       <span style="display:inline-block;margin-right:.4rem">{{ stage }}: {{ count }}</span>
       {% endfor %}
+    </td>
+    <td style="font-size:.78rem;white-space:nowrap">
+      {% if r.cost_total is not none %}
+      <span style="color:var(--muted)">LLM</span> ${{ "%.4f"|format(r.cost_llm + r.cost_embedding) }}<br>
+      <span style="color:var(--muted)">API</span> ${{ "%.4f"|format(r.cost_chunks) }} <span style="color:var(--muted)">({{ r.chunks_total }})</span><br>
+      <span style="font-weight:600">${{ "%.4f"|format(r.cost_total) }}</span><br>
+      <a href="/ui/cost-details/{{ r.run_id }}" style="font-size:.72rem;color:var(--accent);text-decoration:underline">breakdown ↗</a>
+      {% else %}<span style="color:var(--muted)">—</span>{% endif %}
     </td>
   </tr>
   {% endfor %}

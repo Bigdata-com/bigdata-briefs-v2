@@ -1,13 +1,13 @@
 """
 Node: exploratory_search
 
-Runs a broad multi-topic search to gather content chunks about the entity.
+Runs a single broad search to gather content chunks about the entity.
 The retrieved chunks feed directly into concept extraction.
 
 Note: quarter_info is intentionally split into its own node (fetch_quarter_info).
 This node does NOT call the events-calendar API.
 
-Service type: search (parallel POST /v1/search per topic)
+Service type: search (single POST /v1/search)
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ def execute_broad_topic_search(
     """
     LangGraph node — exploratory_search.
 
-    Executes parallel search queries for all configured topics. The retrieved
+    Executes a single broad search query for the entity. The retrieved
     ``Result`` objects are serialized and stored in ``exploratory_chunks``.
 
     Sets ``pipeline_status`` to ``"no_data"`` when nothing is found.
@@ -56,19 +56,14 @@ def execute_broad_topic_search(
     )
     cfg = state.get("config") or {}
 
-    topics = cfg.get("topics", [entity.name])
     source_filter = cfg.get("source_filter")
     categories = cfg.get("categories")
     source_rank_boost = cfg.get("source_rank_boost")
     freshness_boost = cfg.get("freshness_boost")
 
-    # Size the pool to the shared connection semaphore. The 450 QPM limit is
-    # enforced independently by RequestsPerMinuteController; oversubscribing
-    # threads beyond the connection pool just wastes thread slots.
     with ThreadPoolExecutor(max_workers=settings.API_SIMULTANEOUS_REQUESTS) as executor:
         results = deps.query_service.run_exploratory_search(
             entity=entity,
-            topics=topics,
             report_dates=report_dates,
             executor=executor,
             source_filter=source_filter,
@@ -84,6 +79,11 @@ def execute_broad_topic_search(
     has_results = bool(results)
     total_chunks = sum(len(r.chunks) for r in results) if results else 0
 
+    if deps.entity_metrics:
+        if total_chunks:
+            deps.entity_metrics.track_chunks(total_chunks, attributee_step="exploratory_search")
+        deps.entity_metrics.track_api_call(1, attributee_step="exploratory_search")
+
     wall_ms = (time.monotonic() - t0) * 1000
     metrics = NodeMetricsRecord(
         node_id=NODE_EXPLORATORY_SEARCH,
@@ -91,7 +91,7 @@ def execute_broad_topic_search(
         started_at=started_at,
         ended_at=datetime.now(timezone.utc).isoformat(),
         wall_time_ms=wall_ms,
-        search_calls=len(topics),
+        search_calls=1,
         extra={"result_count": len(results) if results else 0, "total_chunks": total_chunks},
     )
 

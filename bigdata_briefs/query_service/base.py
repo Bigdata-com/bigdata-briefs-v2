@@ -49,7 +49,6 @@ class BaseQueryService(ABC):
         categories: list[str] | None = None,
         sentiment_threshold: float | None = None,
         chunk_limit: int | None = None,
-        use_topics: bool = True,
         rerank_threshold: float | None = None,
         source_rank_boost: int | None,
         freshness_boost: int | None,
@@ -62,7 +61,6 @@ class BaseQueryService(ABC):
     def run_exploratory_search(
         self,
         entity: Entity,
-        topics: list[str],
         report_dates: ReportDates,
         executor: ThreadPoolExecutor,
         *,
@@ -70,7 +68,6 @@ class BaseQueryService(ABC):
         categories: list[str] | None = None,
         sentiment_threshold: float | None = None,
         chunk_limit: int | None = None,
-        use_topics: bool = True,
         rerank_threshold: float | None = None,
         source_rank_boost: int | None,
         freshness_boost: int | None,

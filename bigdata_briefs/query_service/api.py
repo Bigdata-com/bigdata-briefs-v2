@@ -320,24 +320,19 @@ class APIQueryService(BaseQueryService):
     def run_exploratory_search(
         self,
         entity: Entity,
-        topics: list[str],
         report_dates: ReportDates,
         executor: ThreadPoolExecutor,
         source_filter: list[str] | None = None,
         categories: list[str] | None = None,
         sentiment_threshold: float | None = settings.EXPLORATORY_SENTIMENT_THRESHOLD,
         chunk_limit: int | None = settings.API_CHUNKS_LIMIT_EXPLORATORY,
-        use_topics: bool = True,
         rerank_threshold: float | None = settings.API_RERANK_EXPLORATORY,
         source_rank_boost: int | None = settings.API_SOURCE_RANK_BOOST,
         freshness_boost: int | None = settings.API_FRESHNESS_BOOST,
         debug_logger: "DebugLogger | None" = None,
     ) -> list[Result]:
-        # Concept workflow: single query with 10x chunk_limit
-        increased_chunk_limit = chunk_limit * 10 if chunk_limit else 150
         logger.info(
-            f"Concept workflow for {entity.name}: "
-            f"single query with chunk_limit={increased_chunk_limit}"
+            f"Exploratory search for {entity.name}: chunk_limit={chunk_limit}"
         )
         return self._run_single_exploratory_search(
             entity_id=entity.id,
@@ -345,7 +340,7 @@ class APIQueryService(BaseQueryService):
             source_filter=source_filter,
             categories=categories,
             sentiment_threshold=sentiment_threshold,
-            chunk_limit=increased_chunk_limit,
+            chunk_limit=chunk_limit,
             rerank_threshold=rerank_threshold,
             source_rank_boost=source_rank_boost,
             freshness_boost=freshness_boost,

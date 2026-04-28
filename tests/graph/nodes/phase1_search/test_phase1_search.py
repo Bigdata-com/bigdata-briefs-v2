@@ -43,11 +43,12 @@ def _state(**overrides):
     return {**BASE_STATE, **overrides}
 
 
-def _fake_result(chunks=1):
+def _fake_result(chunks=1, source_rank=1):
     """Build a minimal mock Result object."""
     result = MagicMock()
     result.model_dump.return_value = {"headline": "Test", "chunks": []}
     result.chunks = [MagicMock() for _ in range(chunks)]
+    result.source_rank = source_rank
     return result
 
 
@@ -127,23 +128,6 @@ class TestExecuteBroadTopicSearch:
         result = execute_broad_topic_search(_state(), make_config(deps))
 
         assert result["node_metrics"][0]["node_id"] == NODE_EXPLORATORY_SEARCH
-
-    def test_topics_from_config_used(self):
-        deps = make_deps()
-        deps.query_service.run_exploratory_search.return_value = []
-        state = _state(config={"topics": ["earnings", "guidance"]})
-        execute_broad_topic_search(state, make_config(deps))
-
-        call_kwargs = deps.query_service.run_exploratory_search.call_args.kwargs
-        assert call_kwargs["topics"] == ["earnings", "guidance"]
-
-    def test_defaults_to_entity_name_as_topic(self):
-        deps = make_deps()
-        deps.query_service.run_exploratory_search.return_value = []
-        execute_broad_topic_search(_state(config={}), make_config(deps))
-
-        call_kwargs = deps.query_service.run_exploratory_search.call_args.kwargs
-        assert call_kwargs["topics"] == ["Test Corp"]
 
     def test_service_exception_propagates(self):
         deps = make_deps()

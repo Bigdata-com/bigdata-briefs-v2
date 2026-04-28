@@ -27,7 +27,7 @@ from bigdata_briefs.novelty.storage import (
 )
 from bigdata_briefs.orchestration.db import ensure_orchestration_schema
 from bigdata_briefs.orchestration.kg_entities import entity_from_kg_record, fetch_kg_entities_by_ids
-from bigdata_briefs.orchestration.models import SQLBulletRunLog, SQLEntityOrchestrationState, SQLEntityPipelineRunLog
+from bigdata_briefs.orchestration.models import SQLBulletRunLog, SQLEntityOrchestrationState, SQLEntityPipelineRunLog, SQLRunMetrics
 from bigdata_briefs.orchestration.output import fetch_new_novelty_ok_bullets, fetch_previous_bullets
 from bigdata_briefs.orchestration.windows import WindowEndNotAfterStartError, WindowMode, build_report_dates_for_entity_run
 from bigdata_briefs.graph.dependencies import RuntimeDependencies
@@ -477,8 +477,8 @@ def _flush_bullet_run_log(eng: Engine, run_id: uuid.UUID, entity_id: str, final_
             search_overall_verdict=overall_verdict,
             search_reason=s.get("reason"),
             search_duration_seconds=s.get("duration_seconds"),
-            search_relevance_score=src.get("score"),
-            search_relevance_reason=src.get("reasoning"),
+            search_relevance_score=(ns_block.get("relevance_check") or {}).get("score"),
+            search_relevance_reason=(ns_block.get("relevance_check") or {}).get("reasoning"),
             citations_json=json.dumps(citations, default=str),
             evaluator_details_json=json.dumps(evaluator_details, default=str),
             claim_verdicts_json=json.dumps(claim_verdicts, default=str),
@@ -493,6 +493,55 @@ def _flush_bullet_run_log(eng: Engine, run_id: uuid.UUID, entity_id: str, final_
             session.commit()
     except Exception:
         pass  # never let bullet log failures break the run
+
+
+def _flush_run_metrics(
+    eng: Engine,
+    run_id: uuid.UUID,
+    entity_id: str,
+    report_dates: ReportDates,
+    entity_metrics: EntityStepMetrics,
+) -> None:
+    """Write one SQLRunMetrics row for the completed run.
+
+    Reads the already-accumulated data from ``entity_metrics`` — no LLM calls
+    are made here. Silently swallowed on failure so it never breaks the run.
+    """
+    try:
+        totals = entity_metrics.get_totals()
+        emb = entity_metrics.get_embedding_summary()
+        step_summary = entity_metrics.get_step_summary()
+        llm_models = entity_metrics.get_llm_model_summary()
+
+        with entity_metrics.lock:
+            chunks_total = entity_metrics._total_chunks
+
+        # Use the per-entity embedding accumulator for the totals so the cost
+        # is correct even when embeddings were tracked outside a named step.
+        total_llm_cost = totals["total_llm_cost_usd"]
+        total_emb_cost = round(emb["cost_usd"], 6)
+
+        row = SQLRunMetrics(
+            run_id=run_id,
+            entity_id=entity_id,
+            report_window_start=report_dates.start,
+            report_window_end=report_dates.end,
+            llm_per_model_json=json.dumps(llm_models, default=str),
+            embedding_model=emb["model"],
+            embedding_tokens=emb["tokens"],
+            embedding_cost_usd=total_emb_cost,
+            chunks_total=chunks_total,
+            step_detail_json=json.dumps(step_summary, default=str),
+            total_llm_cost_usd=total_llm_cost,
+            total_embedding_cost_usd=total_emb_cost,
+            total_cost_usd=round(total_llm_cost + total_emb_cost, 6),
+            created_at=datetime.now(timezone.utc),
+        )
+        with Session(eng) as session:
+            session.add(row)
+            session.commit()
+    except Exception:
+        pass  # never let metrics flush failures break the run
 
 
 def run_entity_incremental(
@@ -730,6 +779,9 @@ def run_entity_incremental(
 
     if final_state and pipeline_ok:
         _flush_bullet_run_log(eng, run_log.run_id, entity_id, final_state)
+
+    if deps.entity_metrics is not None:
+        _flush_run_metrics(eng, run_log.run_id, entity_id, report_dates, deps.entity_metrics)
 
     previous = fetch_previous_bullets(eng, entity_id, report_dates)
     new_ok: list[dict[str, Any]] = []

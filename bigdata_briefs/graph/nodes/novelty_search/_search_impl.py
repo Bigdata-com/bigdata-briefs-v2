@@ -34,7 +34,7 @@ _NS_REASONING_EFFORT: str = "low"
 
 # ── Search config ─────────────────────────────────────────────────────────────
 
-_NS_MAX_CHUNKS: int = 20
+_NS_MAX_CHUNKS: int = 15
 _NS_RERANKER_THRESHOLD: float = 0.5
 _NS_SEARCH_URL: str = "https://api.bigdata.com/v1/search"
 _NS_SENTIMENT_RANGES: list[dict] = [
@@ -295,20 +295,24 @@ Rewrite the sentence using this structure:
     {entity_name}, <clause recalling the old claims>, <pivot marker> <novel claims>.
 
 ENTITY: "{entity_name}"
-The sentence must open with this exact name, character-for-character.
 
-PIVOT MARKERS — use exactly one from this list, no alternatives:
+SUBJECT RULE:
+Open with "{entity_name}" ONLY when the original sentence uses {entity_name} as its grammatical subject — i.e. the entity itself did, said, reported, or announced something. When the original sentence opens with an external actor (analysts, prediction markets, investors, a market metric, a regulatory body), preserve that external actor as the grammatical subject of the rewrite. The old-context → pivot → novel structure still applies regardless.
+
+PIVOT MARKERS — when the grammatical subject is {entity_name}, use exactly one from this list:
 - has now <verb> / have now <verb>
 - has just <verb>
 - has confirmed
 - has disclosed
 - has reported
 
+When the grammatical subject is NOT {entity_name}, use a pivot that fits the actual subject naturally (e.g. "are now pricing", "now show", "now indicate", "now stands at"). Do not force the entity-specific markers above in that case.
+
 RULES:
-1. Open with "{entity_name}", exactly as written.
-2. State the old claims as a subordinate clause (e.g. "which reported ...", "after lowering ...", "following ..."). Do not omit them.
+1. If the original sentence opens with "{entity_name}" as subject, open the rewrite with "{entity_name}", exactly as written. Otherwise, preserve the natural subject of the sentence.
+2. State the old claims as a subordinate clause (e.g. "which reported ...", "after lowering ...", "following ...", "with ... already at ..."). Do not omit them.
 3. Place the pivot marker between the old-claim clause and the novel material.
-4. The novel material must convey the substance of claims labeled "novel" — but write it as a fluent continuation of the sentence, not a copy-paste of the claim text. The subject after the pivot marker is already "{entity_name}", so do not repeat the entity name. Integrate naturally.
+4. The novel material must convey the substance of claims labeled "novel" — write it as a fluent continuation, not a copy-paste. If the subject is already "{entity_name}", do not repeat the entity name after the pivot.
 5. Drop claims labeled "novel_trivial" or "novel_unsupported" — do not include them anywhere.
 6. The result must read as a single, coherent, publishable sentence — not as two clauses mechanically stitched together.
 
@@ -316,28 +320,28 @@ RULES:
 
 EXAMPLES:
 
-Example 1
+Example 1 — entity as subject, single old + single novel claim
   Sentence: "{entity_name} faced criticism over its pricing strategy and announced a 15% price reduction across its core product range."
   Claims:
     - [old] faced criticism over its pricing strategy
     - [novel] {entity_name} announced a 15% price reduction across its core product range
   Rewritten: "{entity_name}, which had faced criticism over its pricing strategy, has now cut prices across its core product range by 15%."
 
-Example 2
+Example 2 — entity as subject, old guidance + novel CFO statement
   Sentence: "{entity_name} lowered its FY26 guidance in March, with the CFO stating that further downward revisions are possible."
   Claims:
     - [old] lowered FY26 guidance in March
     - [novel] the CFO stated that further downward revisions are possible
   Rewritten: "{entity_name}, after lowering its FY26 guidance in March, has now disclosed that further downward revisions remain possible."
 
-Example 3 — tense shift: old claims move to past in the subordinate clause
+Example 3 — entity as subject, tense shift: old claims move to past in the subordinate clause
   Sentence: "{entity_name} suspended operations in a major export market in 2022 and confirmed the permanent closure of its regional offices."
   Claims:
     - [old] suspended operations in that market in 2022
     - [novel] confirmed the permanent closure of its regional offices
   Rewritten: "{entity_name}, which had suspended operations in that market in 2022, has confirmed the permanent closure of its regional offices."
 
-Example 4 — multiple novel claims combined into one fluent clause
+Example 4 — entity as subject, multiple novel claims combined into one fluent clause
   Sentence: "{entity_name} signaled softer margins earlier in the year, reported a Q4 operating margin of 8.2%, and said cost savings would accelerate in the second half."
   Claims:
     - [old] signaled softer margins earlier in the year
@@ -345,7 +349,7 @@ Example 4 — multiple novel claims combined into one fluent clause
     - [novel] cost savings would accelerate in the second half
   Rewritten: "{entity_name}, which had signaled softer margins, has reported a Q4 operating margin of 8.2% and guided for accelerating cost savings in the second half."
 
-Example 5 — novel_trivial claim is dropped
+Example 5 — entity as subject, novel_trivial claim is dropped
   Sentence: "{entity_name} posted a net loss in Q2, issued a USD 500m bond to refinance near-term debt, and now operates across 52 markets."
   Claims:
     - [old] posted a net loss in Q2
@@ -353,13 +357,30 @@ Example 5 — novel_trivial claim is dropped
     - [novel_trivial] now operates across 52 markets
   Rewritten: "{entity_name}, which posted a net loss in Q2, has now issued a USD 500m bond to refinance near-term debt."
 
-Example 6 — novel_unsupported claim is dropped
+Example 6 — entity as subject, novel_unsupported claim is dropped
   Sentence: "{entity_name} reported weaker demand in Europe and said the trend could accelerate margin pressure, while disclosing a new USD 300m share buyback programme."
   Claims:
     - [old] reported weaker demand in Europe
     - [novel_unsupported] the trend could accelerate margin pressure
     - [novel] disclosed a new USD 300m share buyback programme
   Rewritten: "{entity_name}, which reported weaker demand in Europe, has disclosed a new USD 300m share buyback programme."
+
+Example 7 — EXTERNAL subject: original sentence opens with market data, not an entity action
+  Sentence: "The analyst consensus target price for {entity_name} is $47.23, while prediction markets are pricing a 56% probability that {entity_name} beats its upcoming quarterly earnings."
+  Claims:
+    - [old] The analyst consensus target price for {entity_name} is $47.23
+    - [novel] Prediction markets are pricing a 56% probability that {entity_name} beats its upcoming quarterly earnings
+  Rewritten: "With analyst consensus for {entity_name} at $47.23, prediction markets are now pricing a 56% probability of an earnings beat."
+  Note: the original opens with "The analyst consensus..." — an external data point — so the rewrite preserves that framing. "are now pricing" fits the actual subject "prediction markets"; do not substitute "{entity_name} has disclosed...".
+
+Example 8 — EXTERNAL subject: original sentence opens with share price action; one old claim + two novel claims
+  Sentence: "{entity_name} shares fell 12% after the company reported weaker-than-expected Q3 results, marking the stock's worst single-day drop in two years and pushing it to a 52-week low."
+  Claims:
+    - [old] {entity_name} shares fell after weaker-than-expected Q3 results
+    - [novel] the drop was the stock's worst single-day decline in two years
+    - [novel] the decline pushed the stock to a 52-week low
+  Rewritten: "{entity_name} shares, which fell after the company reported weaker-than-expected Q3 results, have now marked their worst single-day decline in two years, pushing the stock to a 52-week low."
+  Note: the original opens with "{entity_name} shares..." — the market instrument is the subject, not the entity as an actor — so the rewrite preserves that framing and uses "have now marked" as the pivot. Do not rewrite as "{entity_name} has disclosed that its shares fell...".
 
 ---
 
@@ -389,23 +410,27 @@ You are a financial news editor. You are given a sentence and a list of its clai
 
 Rewrite the sentence using this structure:
 
-    {entity_name}, <subordinate clause summarising the old claims>, <pivot marker> <the new material from partially_novel claims>.
+    <subject>, <subordinate clause summarising the old claims>, <pivot marker> <the new material from partially_novel claims>.
 
 ENTITY: "{entity_name}"
-The sentence must open with this exact name, character-for-character.
 
-PIVOT MARKERS — use exactly one from this list, no alternatives:
+SUBJECT RULE:
+Open with "{entity_name}" ONLY when the original sentence uses {entity_name} as its grammatical subject — i.e. the entity itself did, said, reported, or announced something. When the original sentence opens with an external actor (analysts, prediction markets, investors, a market metric, a regulatory body), preserve that external actor as the grammatical subject of the rewrite. The old-context → pivot → novel structure still applies regardless.
+
+PIVOT MARKERS — when the grammatical subject is {entity_name}, use exactly one from this list:
 - has now <verb> / have now <verb>
 - has just <verb>
 - has confirmed
 - has disclosed
 - has reported
 
+When the grammatical subject is NOT {entity_name}, use a pivot that fits the actual subject naturally (e.g. "are now pricing", "now stands at", "now show"). Do not force the entity-specific markers above in that case.
+
 RULES:
-1. Open with "{entity_name}", exactly as written.
-2. Summarise ALL claims labeled "old" as a single subordinate clause (e.g. "which guided for ...", "after reporting ...", "following ..."). Use past tense. Do not omit them.
+1. If the original sentence opens with "{entity_name}" as subject, open the rewrite with "{entity_name}", exactly as written. Otherwise, preserve the natural subject of the sentence.
+2. Summarise ALL claims labeled "old" as a single subordinate clause (e.g. "which guided for ...", "after reporting ...", "with ... already at ..."). Use past tense. Do not omit them.
 3. Place the pivot marker between the old-claim clause and the new material.
-4. After the pivot marker, include the full substance of ALL claims labeled "partially_novel". These claims add specific new details (figures, names, dates, attributes) not fully present in prior evidence — include all of them fluently. Do not repeat the entity name after the pivot.
+4. After the pivot marker, include the full substance of ALL claims labeled "partially_novel". These claims add specific new details (figures, names, dates, attributes) not fully present in prior evidence — include all of them fluently. Do not repeat the entity name after the pivot when the subject is {entity_name}.
 5. Claims labeled "novel_trivial" or "novel_unsupported" must be dropped entirely.
 6. The result must be a single, coherent, publishable sentence.
 
@@ -413,34 +438,50 @@ RULES:
 
 EXAMPLES:
 
-Example 1 — one old claim (guidance already known) + one partially_novel claim (analyst EPS figure not in evidence):
+Example 1 — entity as subject, one old claim + one partially_novel claim (analyst EPS figure not in evidence):
   Sentence: "Amazon.com Inc. has guided for first-quarter revenue of $173.5B–$178.5B, implying ~13% year-over-year growth, while analysts expect earnings of $1.61 per share, up ~1.2% year-over-year."
   Claims:
     - [old] Amazon.com Inc. has guided for Q1 revenue of $173.5B–$178.5B, implying ~13% YoY growth
     - [partially_novel] Analysts expect Q1 earnings of $1.61 per share, up approximately 1.2% year-over-year
   Rewritten: "Amazon.com Inc., which has guided for first-quarter revenue of $173.5B–$178.5B implying ~13% year-over-year growth, has now disclosed analyst consensus for earnings of $1.61 per share, up approximately 1.2% year-over-year."
 
-Example 2 — old results topic + partially_novel specific metric:
+Example 2 — entity as subject, one old topic + one partially_novel specific metric:
   Sentence: "Intel Corp. reported first-quarter 2026 results broadly in line with expectations, with operating income of $1.8 billion beating the $1.5 billion consensus."
   Claims:
     - [old] Intel Corp. reported first-quarter 2026 results broadly in line with expectations
     - [partially_novel] Intel's operating income of $1.8 billion beat the consensus of $1.5 billion
   Rewritten: "Intel Corp., which reported first-quarter 2026 results broadly in line with expectations, has now confirmed operating income of $1.8 billion, above the $1.5 billion consensus."
 
-Example 3 — old partnership context + partially_novel deal size:
+Example 3 — entity as subject, one old partnership context + one partially_novel deal size:
   Sentence: "Microsoft Corp. has expanded its partnership with OpenAI and committed $3 billion in additional investment over the next two years, on top of the $13 billion already deployed."
   Claims:
     - [old] Microsoft Corp. has an existing partnership with OpenAI with $13 billion already invested
     - [partially_novel] Microsoft committed an additional $3 billion investment over the next two years
   Rewritten: "Microsoft Corp., which had already invested $13 billion in OpenAI, has now committed an additional $3 billion over the next two years."
 
-Example 4 — multiple old claims + one partially_novel claim:
+Example 4 — entity as subject, multiple old claims + one partially_novel claim:
   Sentence: "Pfizer Inc. reported Q1 2026 revenues of $14.9 billion, beating consensus by 4%, and raised its full-year EPS guidance to $3.20–$3.40 from the prior $2.80–$3.00 range."
   Claims:
     - [old] Pfizer reported Q1 2026 revenues of $14.9 billion beating consensus by 4%
     - [old] Pfizer raised its full-year EPS guidance
     - [partially_novel] The new full-year EPS guidance range is $3.20–$3.40, up from $2.80–$3.00
   Rewritten: "Pfizer Inc., which reported Q1 2026 revenues of $14.9 billion beating consensus and raised its full-year EPS guidance, has now disclosed the updated range of $3.20–$3.40, up from the prior $2.80–$3.00."
+
+Example 5 — EXTERNAL subject: original sentence opens with analyst data, not an entity action; one old claim + one partially_novel specific figure
+  Sentence: "The analyst consensus target price for Intel Corp. is $47.23, implying meaningful downside from current levels, while prediction markets are pricing a 56% probability that Intel beats its upcoming quarterly earnings."
+  Claims:
+    - [old] The analyst consensus target price for Intel Corp. is $47.23, implying meaningful downside
+    - [partially_novel] Prediction markets are pricing a 56% probability that Intel beats its upcoming quarterly earnings (specific probability not in prior evidence)
+  Rewritten: "With analyst consensus for Intel Corp. at $47.23 implying meaningful downside, prediction markets are now pricing a 56% probability of an earnings beat."
+  Note: the original opens with "The analyst consensus..." — an external data point — so the rewrite preserves that framing. "are now pricing" is the pivot for the subject "prediction markets"; do not substitute "Intel Corp. has disclosed...".
+
+Example 6 — EXTERNAL subject: original sentence opens with short interest data; one old claim + one partially_novel specific figure not in evidence
+  Sentence: "Short interest in Intel Corp. has remained elevated for several months, with the latest data showing 8.7% of the float sold short, the highest level since Q2 2023."
+  Claims:
+    - [old] Short interest in Intel Corp. has remained elevated for several months
+    - [partially_novel] The latest short interest stands at 8.7% of the float, the highest since Q2 2023 (specific percentage not in prior evidence)
+  Rewritten: "With short interest in Intel Corp. already elevated for several months, the latest data now shows 8.7% of the float sold short — the highest level since Q2 2023."
+  Note: the original opens with "Short interest in..." — a market positioning metric, not an entity action — so the rewrite preserves that framing. "now shows" fits the actual subject "the latest data"; do not substitute "Intel Corp. has disclosed that short interest is 8.7%...".
 
 ---
 
@@ -471,14 +512,36 @@ You are a financial news editor. You are given a sentence and a list of its clai
 Your task: produce a clean sentence containing only the information from claims labeled "novel". Do not add, infer, or paraphrase beyond what is necessary for grammatical correctness. Do not use a pivot marker — there is no known context to contrast with.
 
 ENTITY: "{entity_name}"
-The sentence must open with this exact name, character-for-character.
+
+SUBJECT RULE:
+Open with "{entity_name}" ONLY when the original sentence uses {entity_name} as its grammatical subject. When the original sentence opens with an external actor (analysts, prediction markets, investors, a market metric), preserve that external actor as the grammatical subject of the rewrite.
 
 RULES:
-1. Open with "{entity_name}", exactly as written.
+1. If the original sentence opens with "{entity_name}" as subject, open the rewrite with "{entity_name}", exactly as written. Otherwise, preserve the natural subject of the sentence.
 2. Include only the content from claims labeled "novel".
 3. Drop claims labeled "novel_trivial" or "novel_unsupported" entirely.
 4. Do not add qualifiers, superlatives, editorial framing, or inferred consequences.
 5. Paraphrase only where grammatically necessary to combine multiple novel claims.
+
+---
+
+EXAMPLES:
+
+Example 1 — entity as subject, single novel claim retained:
+  Sentence: "{entity_name} launched a new AI-powered chip in partnership with TSMC, targeting data centre workloads, and now operates across 52 markets worldwide."
+  Claims:
+    - [novel] {entity_name} launched a new AI-powered chip in partnership with TSMC targeting data centre workloads
+    - [novel_trivial] now operates across 52 markets worldwide
+  Rewritten: "{entity_name} launched a new AI-powered chip in partnership with TSMC targeting data centre workloads."
+
+Example 2 — EXTERNAL subject: original sentence opens with a market observation, not an entity action; preserve external subject
+  Sentence: "Shares of {entity_name} surged 8% following the earnings report, making the stock the top performer in the S&P 500 on the day, with trading volume four times the daily average."
+  Claims:
+    - [novel] Shares of {entity_name} surged 8% following the earnings report
+    - [novel] {entity_name} was the top performer in the S&P 500 on the day
+    - [novel_trivial] trading volume was four times the daily average
+  Rewritten: "Shares of {entity_name} surged 8% following the earnings report, making it the top performer in the S&P 500 on the day."
+  Note: the original opens with "Shares of..." — an external market observation — so the rewrite preserves that subject. Do not rewrite as "{entity_name} has disclosed that its shares surged..."
 
 ---
 
@@ -512,23 +575,27 @@ Your task: rewrite the sentence so the known context is a subordinate clause and
 
 Structure:
 
-    {entity_name}, <subordinate clause with known context>, <pivot marker> <new specific detail>.
+    <subject>, <subordinate clause with known context>, <pivot marker> <new specific detail>.
 
 ENTITY: "{entity_name}"
-The sentence must open with this exact name, character-for-character.
 
-PIVOT MARKERS — use exactly one from this list, no alternatives:
+SUBJECT RULE:
+Open with "{entity_name}" ONLY when the original sentence uses {entity_name} as its grammatical subject — i.e. the entity itself did, said, reported, or announced something. When the original sentence opens with an external actor (analysts, prediction markets, investors, a market metric, a regulatory body), preserve that external actor as the grammatical subject of the rewrite. The known-context → pivot → new detail structure still applies regardless.
+
+PIVOT MARKERS — when the grammatical subject is {entity_name}, use exactly one from this list:
 - has now <verb> / have now <verb>
 - has just <verb>
 - has confirmed
 - has disclosed
 - has reported
 
+When the grammatical subject is NOT {entity_name}, use a pivot that fits the actual subject naturally (e.g. "now stands at", "are now pricing", "now show"). Do not force the entity-specific markers above in that case.
+
 RULES:
-1. Open with "{entity_name}", exactly as written.
-2. Summarise the known context — what prior coverage already established about the topic — as a subordinate clause (e.g. "which reported ...", "after posting ...", "following ..."). Use past tense for the known part.
+1. If the original sentence opens with "{entity_name}" as subject, open the rewrite with "{entity_name}", exactly as written. Otherwise, preserve the natural subject of the sentence.
+2. Summarise the known context — what prior coverage already established about the topic — as a subordinate clause. Use past tense for the known part.
 3. Place the pivot marker between the known-context clause and the new detail.
-4. State the new specific detail after the pivot marker. Do not repeat the entity name after the pivot.
+4. State the new specific detail after the pivot marker. Do not repeat the entity name after the pivot when the subject is {entity_name}.
 5. Do not invent or infer facts not present in the original sentence.
 6. The result must be a single, coherent, publishable sentence.
 
@@ -536,30 +603,42 @@ RULES:
 
 EXAMPLES:
 
-Example 1 — new earnings figure, context is a known results topic:
+Example 1 — entity as subject, new earnings figure against known analyst estimates:
   Sentence: "Boeing Co. reported first quarter 2026 revenue of $22.22 billion, a 14% increase year over year, exceeding analyst estimates."
   Judge's analysis: Evidence discusses Boeing's Q1 2026 results and shows analyst consensus estimates in the $21.6–21.95B range. The actual reported figure of $22.22B, the 14% YoY growth, and the beat are not in the evidence.
   Rewritten: "Boeing Co., which faced analyst Q1 2026 revenue estimates in the $21.6–21.95 billion range, has now reported revenue of $22.22 billion, a 14% year-over-year increase that exceeded consensus."
 
-Example 2 — new specific figure within a known results topic:
+Example 2 — entity as subject, new specific figure within a known results topic:
   Sentence: "UnitedHealth Group Inc. posted first-quarter 2026 pre-tax profit of $8.04 billion, exceeding the consensus estimate of $7.34 billion."
   Judge's analysis: Evidence covers UnitedHealth's Q1 2026 results including revenues and earnings from operations of $9.0B. The specific pre-tax profit of $8.04B and the consensus of $7.34B are not in the evidence.
   Rewritten: "UnitedHealth Group Inc., which reported Q1 2026 earnings from operations of $9.0 billion, has now disclosed a pre-tax profit of $8.04 billion, exceeding the consensus estimate of $7.34 billion."
 
-Example 3 — new geographic market in a known international rollout:
+Example 3 — entity as subject, new geographic market in a known international rollout:
   Sentence: "Amazon.com Inc. has launched Alexa+ in Spain as part of its international rollout, offering a generative AI-powered assistant that is conversational, deeply personalized, and capable of real-world actions."
   Judge's analysis: Evidence documents Alexa+ rollouts in the U.S., Mexico, Canada, UK, and Italy. A launch in Spain is not mentioned in the evidence.
   Rewritten: "Amazon.com Inc., which had already rolled out its Alexa+ generative AI assistant in the U.S., UK, Canada, Mexico, and Italy, has now launched the service in Spain."
 
-Example 4 — new regulatory approval in an already-approved product:
+Example 4 — entity as subject, new regulatory approval for an already-approved product:
   Sentence: "Merck & Co. Inc. received approval from the UK's Medicines and Healthcare products Regulatory Agency for Enflonsia, a vaccine to prevent respiratory syncytial virus lower respiratory tract disease in neonates and infants."
   Judge's analysis: Evidence shows Enflonsia was approved by the European Commission and in the U.S., Canada, and Switzerland. No UK MHRA approval is mentioned in the evidence.
   Rewritten: "Merck & Co. Inc., which had already received regulatory approvals for Enflonsia in the EU, U.S., Canada, and Switzerland, has now received approval from the UK's Medicines and Healthcare products Regulatory Agency."
 
-Example 5 — new precise percentages beyond confirmed headline numbers:
+Example 5 — entity as subject, new precise percentages beyond confirmed headline numbers:
   Sentence: "Apple Inc. achieved quarterly earnings per share of $2.84 in Q1 fiscal 2026, surpassing consensus estimates by 6.34%, and generated operating cash flow of $53.93 billion, up 80.14% year-over-year."
   Judge's analysis: Evidence confirms Apple's EPS of $2.84 and operating cash flow of ~$53.9B and that results beat consensus. The specific beat of 6.34% and YoY cash flow growth of 80.14% are not in the evidence.
   Rewritten: "Apple Inc., which reported Q1 fiscal 2026 EPS of $2.84 and operating cash flow of $53.93 billion above consensus expectations, has now confirmed that results surpassed estimates by 6.34% and that operating cash flow rose 80.14% year-over-year."
+
+Example 6 — EXTERNAL subject: original sentence opens with analyst or market data; one new specific figure not in prior evidence
+  Sentence: "The analyst consensus target price for Intel Corp. is $47.23, implying meaningful downside from current levels."
+  Judge's analysis: Evidence shows prior analyst target prices for Intel in the $40–$44 range. The specific figure of $47.23 and the implied downside framing are not in the evidence.
+  Rewritten: "With analyst consensus for Intel Corp. previously in the $40–$44 range, the consensus target has now been revised up to $47.23, implying meaningful downside from current levels."
+  Note: the original opens with "The analyst consensus..." — an external data point — so the rewrite preserves that framing. "has now been revised" fits the implicit subject (the consensus); do not rewrite as "Intel Corp. has disclosed that analyst consensus is $47.23...".
+
+Example 7 — EXTERNAL subject: original sentence opens with options market data; one new specific metric not in prior evidence
+  Sentence: "Options market implied volatility for Intel Corp. has risen sharply ahead of earnings, now standing at 45%, well above the stock's 30-day historical average of 28%."
+  Judge's analysis: Prior evidence notes elevated options activity and uncertainty for Intel ahead of earnings, but does not mention the specific implied volatility level of 45% or the comparison to the 28% historical average.
+  Rewritten: "With options market implied volatility for Intel Corp. already noted as elevated ahead of earnings, it has now risen to 45% — well above the 28% historical average."
+  Note: the original opens with "Options market implied volatility..." — a market pricing metric, not an entity action — so the rewrite preserves that framing. "has now risen" fits the subject "it" (the volatility); do not rewrite as "Intel Corp. has disclosed that options implied volatility stands at 45%...".
 
 ---
 

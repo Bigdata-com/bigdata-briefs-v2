@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     # Novelty configuration (LLM novelty always runs when the pipeline reaches novelty check)
     MAX_NOVELTY_WORKERS: int = 10  # Max parallel LLM calls for novelty check
     NOVELTY_MODEL: str = "text-embedding-3-large"
-    NOVELTY_LOOKBACK_DAYS: int = 14
+    NOVELTY_LOOKBACK_DAYS: int = 30
 
     # Novelty-via-search (LangGraph) after brief LLM novelty; ``novelty-via-search`` dist / ``novelty_via_search`` package.
     # Must remain true (validated); do not set ``NOVELTY_SEARCH_ENABLED=false`` in env.
@@ -89,10 +89,10 @@ class Settings(BaseSettings):
     # Start conservative (OpenAI TPM is usually the real ceiling) and tune via
     # GET /api/v1/rate/status.
     MAX_CONCURRENT_ENTITIES: int = 10
-    API_CHUNKS_LIMIT_EXPLORATORY: int = 15
+    API_CHUNKS_LIMIT_EXPLORATORY: int = 60
     API_RERANK_EXPLORATORY: float = 0.8
     EXPLORATORY_SENTIMENT_THRESHOLD: float = 0.0
-    API_CHUNK_LIMIT_FOLLOWUP: int = 15
+    API_CHUNK_LIMIT_FOLLOWUP: int = 10
     FOLLOWUP_SENTIMENT_THRESHOLD: float = 0.0
     API_SOURCE_RANK_BOOST: int = 10
     API_FRESHNESS_BOOST: int = 8
@@ -116,9 +116,9 @@ class Settings(BaseSettings):
     RUN_RANGE_DAY_TIMEOUT_SECONDS: int = 1800  # hard wall-clock limit per day (30 min)
 
     # When workflow passes rerank_concept_sources=True (see QueryService.run_concept_queries_*).
-    RERANK_CONCEPT_CHUNK_LIMIT: int = 45  # Chunks to fetch per concept when reranking
+    RERANK_CONCEPT_CHUNK_LIMIT: int = 30  # Chunks to fetch per concept when reranking
     RERANK_CONCEPT_THRESHOLD: float = 0.7  # Lower threshold to get more candidates
-    RERANK_CONCEPT_LIMIT_PER_CONCEPT: int = 15  # Final limit per concept after reranking
+    RERANK_CONCEPT_LIMIT_PER_CONCEPT: int = 10  # Final limit per concept after reranking
     
     # Same-text deduplication configuration
     # When True, chunks with identical text but different sources are merged into a single prompt entry

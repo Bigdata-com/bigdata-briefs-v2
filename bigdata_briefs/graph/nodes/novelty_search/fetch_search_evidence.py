@@ -123,10 +123,11 @@ def fetch_search_evidence(
 
     success_count = failure_count = 0
     total_query_units = 0.0
+    total_chunks_fetched = 0
     max_workers = max(1, settings.NOVELTY_SEARCH_MAX_CONCURRENT)
 
-    def _fetch_one(bullet_idx: int, trace_id: str) -> float:
-        """Run search for one bullet; returns query_units consumed."""
+    def _fetch_one(bullet_idx: int, trace_id: str) -> tuple[float, int]:
+        """Run search for one bullet; returns (query_units, chunk_count)."""
         sentence_parts: list[_NSSentencePart] = deps.get_search_data(trace_id, "sentence_parts")
         search_queries = [p.search_query for p in sentence_parts]
 
@@ -150,7 +151,7 @@ def fetch_search_evidence(
             len(merged_results),
             query_units,
         )
-        return query_units
+        return query_units, len(merged_results)
 
     with ThreadPoolExecutor(
         max_workers=max_workers,
@@ -163,8 +164,9 @@ def fetch_search_evidence(
         for future in as_completed(future_to_entry):
             bullet_idx, trace_id = future_to_entry[future]
             try:
-                units = future.result()
+                units, chunk_count = future.result()
                 total_query_units += units
+                total_chunks_fetched += chunk_count
                 success_count += 1
             except Exception as exc:
                 logger.warning(
@@ -174,6 +176,13 @@ def fetch_search_evidence(
                 )
                 # Do not deactivate bullet here — judgment will skip on empty cache
                 failure_count += 1
+
+    if deps.entity_metrics:
+        if total_chunks_fetched:
+            deps.entity_metrics.track_chunks(total_chunks_fetched, attributee_step="novelty_search_fetch")
+        deps.entity_metrics.track_api_call(
+            success_count, total_query_units, attributee_step="novelty_search_fetch"
+        )
 
     wall_ms = (time.monotonic() - t0) * 1000
     metrics = NodeMetricsRecord(
@@ -187,6 +196,7 @@ def fetch_search_evidence(
             "bullets_fetched": success_count,
             "bullets_failed": failure_count,
             "total_query_units": round(total_query_units, 4),
+            "total_chunks_fetched": total_chunks_fetched,
         },
     )
 

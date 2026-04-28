@@ -273,6 +273,9 @@ class LLMClient:
                     f" ({ctx_str})" if ctx_str else "",
                 )
                 time.sleep(wait)
+            except (openai.AuthenticationError, openai.PermissionDeniedError) as e:
+                # 401/403 are never recoverable — raise immediately without retry.
+                raise
             except openai.APITimeoutError as e:
                 if attempt >= settings.LLM_RETRIES - 1:
                     raise

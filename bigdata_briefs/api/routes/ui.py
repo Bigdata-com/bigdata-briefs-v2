@@ -57,9 +57,11 @@ from bigdata_briefs.orchestration.models import (
     SQLBulletRunLog,
     SQLEntityOrchestrationState,
     SQLEntityPipelineRunLog,
+    SQLRunMetrics,
     SQLUIBatchRun,
     SQLUIScanRun,
 )
+from bigdata_briefs.pricing import calculate_chunk_cost
 from bigdata_briefs.orchestration.windows import WindowMode, build_report_dates_for_entity_run
 from bigdata_briefs.settings import settings
 
@@ -1615,6 +1617,13 @@ async def ui_details_page(request: Request) -> HTMLResponse:
             r.entity_id: (r.kg_name or r.entity_id)
             for r in session.exec(select(SQLEntityOrchestrationState)).all()
         }
+        run_ids = [r.run_id for r in entity_runs]
+        metrics_map: dict[str, SQLRunMetrics] = {}
+        if run_ids:
+            for m in session.exec(
+                select(SQLRunMetrics).where(SQLRunMetrics.run_id.in_(run_ids))
+            ).all():
+                metrics_map[str(m.run_id)] = m
 
     def _enrich_ui_batch(b: SQLUIBatchRun) -> dict:
         dur = _duration_seconds(b.created_at, b.updated_at)
@@ -1672,6 +1681,12 @@ async def ui_details_page(request: Request) -> HTMLResponse:
         dur = _duration_seconds(r.process_started_at_utc, r.process_completed_at_utc)
         with Session(engine) as _s:
             stats = _bullet_stats(_s, r.run_id)
+        m = metrics_map.get(str(r.run_id))
+        chunks = m.chunks_total if m else 0
+        chunk_cost = calculate_chunk_cost(chunks)
+        llm_cost = m.total_llm_cost_usd if m else None
+        emb_cost = m.total_embedding_cost_usd if m else None
+        total_cost = round((llm_cost or 0) + (emb_cost or 0) + chunk_cost, 6) if m else None
         return {
             "run_id": str(r.run_id),
             "entity_id": r.entity_id,
@@ -1687,6 +1702,11 @@ async def ui_details_page(request: Request) -> HTMLResponse:
             "bullets_active": stats["active"],
             "bullets_discarded": stats["discarded"],
             "discard_stages": stats["stages"],
+            "cost_llm": llm_cost,
+            "cost_embedding": emb_cost,
+            "cost_chunks": chunk_cost if m else None,
+            "chunks_total": chunks if m else None,
+            "cost_total": total_cost,
         }
 
     return templates.TemplateResponse(
@@ -1797,3 +1817,142 @@ async def ui_scan_detail_partial(request: Request, scan_id: str = "") -> HTMLRes
     if not rows_html:
         rows_html = '<tr style="background:#f8fafc"><td colspan="6" style="padding:.5rem 2.5rem;font-size:.82rem;color:var(--muted)">No window results yet.</td></tr>'
     return HTMLResponse(rows_html)
+
+
+_STEP_CATEGORIES: list[tuple[str, list[str]]] = [
+    ("Phase 1 — Search",        ["exploratory_search", "concept_search"]),
+    ("Phase 2 — Bullets",       ["bullets_generation", "relevance_score"]),
+    ("Grounding",               ["entity_grounding_check"]),
+    ("Novelty Embedding",       ["llm_novelty_window", "llm_remaining_window", "llm_full_history"]),
+    ("Novelty Search",          ["novelty_search"]),
+    ("Concept Extraction",      ["concept_extraction"]),
+    ("Post-processing",         ["thematic_clustering", "redundancy", "standalone", "validator", "consolidate"]),
+]
+
+
+def _categorize_steps(step_detail: dict) -> list[dict]:
+    """Group step_detail entries by pipeline category. Returns list of
+    {label, steps: [(name, data)], totals: {...}} dicts."""
+    assigned: set[str] = set()
+    groups: list[dict] = []
+
+    for label, prefixes in _STEP_CATEGORIES:
+        matched = [
+            (name, data)
+            for name, data in step_detail.items()
+            if any(name.startswith(p) for p in prefixes) and name not in assigned
+        ]
+        if not matched:
+            continue
+        for name, _ in matched:
+            assigned.add(name)
+
+        totals: dict = {
+            "llm_cost_usd": 0.0, "llm_prompt_tokens": 0, "llm_completion_tokens": 0,
+            "llm_calls": 0, "embedding_cost_usd": 0.0, "embedding_tokens": 0,
+            "api_calls": 0, "api_query_units": 0.0, "chunks_retrieved": 0,
+            "total_cost_usd": 0.0,
+        }
+        for _, data in matched:
+            for k in ("llm_cost_usd", "llm_prompt_tokens", "llm_completion_tokens",
+                      "llm_calls", "embedding_cost_usd", "embedding_tokens", "total_cost_usd"):
+                totals[k] += data.get(k, 0)
+            ops = data.get("operational") or {}
+            totals["api_calls"] += ops.get("api_calls", 0)
+            totals["api_query_units"] += ops.get("api_query_units", 0.0)
+            totals["chunks_retrieved"] += ops.get("chunks_retrieved", 0)
+
+        groups.append({"label": label, "steps": matched, "totals": totals})
+
+    # Uncategorized remainder
+    remainder = [(n, d) for n, d in step_detail.items() if n not in assigned]
+    if remainder:
+        totals = {
+            "llm_cost_usd": 0.0, "llm_prompt_tokens": 0, "llm_completion_tokens": 0,
+            "llm_calls": 0, "embedding_cost_usd": 0.0, "embedding_tokens": 0,
+            "api_calls": 0, "api_query_units": 0.0, "chunks_retrieved": 0,
+            "total_cost_usd": 0.0,
+        }
+        for _, data in remainder:
+            for k in ("llm_cost_usd", "llm_prompt_tokens", "llm_completion_tokens",
+                      "llm_calls", "embedding_cost_usd", "embedding_tokens", "total_cost_usd"):
+                totals[k] += data.get(k, 0)
+            ops = data.get("operational") or {}
+            totals["api_calls"] += ops.get("api_calls", 0)
+            totals["api_query_units"] += ops.get("api_query_units", 0.0)
+            totals["chunks_retrieved"] += ops.get("chunks_retrieved", 0)
+        groups.append({"label": "Other", "steps": remainder, "totals": totals})
+
+    return groups
+
+
+@router.get("/cost-details/{run_id}", response_class=HTMLResponse)
+async def ui_cost_details_page(request: Request, run_id: str) -> HTMLResponse:
+    """Cost breakdown for a single pipeline run."""
+    templates = request.app.state.templates
+    engine = get_engine()
+
+    try:
+        run_uuid = uuid.UUID(run_id)
+    except ValueError:
+        return HTMLResponse("<p>Invalid run ID.</p>", status_code=400)
+
+    with Session(engine) as session:
+        run = session.get(SQLEntityPipelineRunLog, run_uuid)
+        metrics = session.exec(
+            select(SQLRunMetrics).where(SQLRunMetrics.run_id == run_uuid)
+        ).first()
+        orch = session.get(SQLEntityOrchestrationState, run.entity_id) if run else None
+
+    if not run:
+        return HTMLResponse("<p>Run not found.</p>", status_code=404)
+
+    entity_name = (orch.kg_name if orch else None) or run.entity_id
+    dur = _duration_seconds(run.process_started_at_utc, run.process_completed_at_utc)
+
+    llm_models: list[dict] = []
+    step_detail: dict = {}
+    step_groups: list[dict] = []
+    chunks_total = 0
+    chunk_cost = 0.0
+    total_llm_cost = 0.0
+    total_emb_cost = 0.0
+    embedding_model = "N/A"
+    embedding_tokens = 0
+
+    if metrics:
+        llm_models = json.loads(metrics.llm_per_model_json or "[]")
+        step_detail = json.loads(metrics.step_detail_json or "{}")
+        step_groups = _categorize_steps(step_detail)
+        chunks_total = metrics.chunks_total
+        chunk_cost = calculate_chunk_cost(chunks_total)
+        total_llm_cost = metrics.total_llm_cost_usd
+        total_emb_cost = metrics.total_embedding_cost_usd
+        embedding_model = metrics.embedding_model
+        embedding_tokens = metrics.embedding_tokens
+
+    total_cost = round(total_llm_cost + total_emb_cost + chunk_cost, 6)
+
+    return templates.TemplateResponse(
+        request, "ui/cost_details.html",
+        {
+            "run_id": run_id,
+            "entity_name": entity_name,
+            "entity_id": run.entity_id,
+            "window_start": run.report_window_start,
+            "window_end": run.report_window_end,
+            "status": run.status,
+            "duration": _fmt_duration(dur),
+            "has_metrics": metrics is not None,
+            "llm_models": llm_models,
+            "step_detail": step_detail,
+            "step_groups": step_groups,
+            "chunks_total": chunks_total,
+            "chunk_cost": chunk_cost,
+            "total_llm_cost": total_llm_cost,
+            "total_emb_cost": total_emb_cost,
+            "total_cost": total_cost,
+            "embedding_model": embedding_model,
+            "embedding_tokens": embedding_tokens,
+        },
+    )
