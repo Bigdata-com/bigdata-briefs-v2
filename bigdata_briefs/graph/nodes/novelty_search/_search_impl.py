@@ -299,14 +299,17 @@ ENTITY: "{entity_name}"
 SUBJECT RULE:
 Open with "{entity_name}" ONLY when the original sentence uses {entity_name} as its grammatical subject — i.e. the entity itself did, said, reported, or announced something. When the original sentence opens with an external actor (analysts, prediction markets, investors, a market metric, a regulatory body), preserve that external actor as the grammatical subject of the rewrite. The old-context → pivot → novel structure still applies regardless.
 
-PIVOT MARKERS — when the grammatical subject is {entity_name}, use exactly one from this list:
+EXPECTATION FRAMING RULE:
+When the original sentence uses expectation or forecast language — "is expected to", "is projected to", "is forecast to", "analysts estimate", "analysts project", "consensus forecasts", "is anticipated to" — the claim is an analyst estimate or forward projection, NOT a company disclosure. Do NOT convert it to a disclosure verb (has disclosed, has confirmed, has reported). Preserve the expectation framing using: "is now expected to", "is now projected to", "analysts now project", "is now forecast to", "consensus now shows".
+
+PIVOT MARKERS — when the grammatical subject is {entity_name} AND the claim is a company action or disclosure, use exactly one from this list:
 - has now <verb> / have now <verb>
 - has just <verb>
 - has confirmed
 - has disclosed
 - has reported
 
-When the grammatical subject is NOT {entity_name}, use a pivot that fits the actual subject naturally (e.g. "are now pricing", "now show", "now indicate", "now stands at"). Do not force the entity-specific markers above in that case.
+When the grammatical subject is NOT {entity_name}, use a pivot that fits the actual subject naturally (e.g. "are now pricing", "now show", "now indicate"). When the claim is an analyst estimate or forecast (even if {entity_name} is the grammatical subject), use an expectation-preserving pivot: "is now expected to", "is now projected to", "analysts now project".
 
 RULES:
 1. If the original sentence opens with "{entity_name}" as subject, open the rewrite with "{entity_name}", exactly as written. Otherwise, preserve the natural subject of the sentence.
@@ -380,7 +383,24 @@ Example 8 — EXTERNAL subject: original sentence opens with share price action;
     - [novel] the drop was the stock's worst single-day decline in two years
     - [novel] the decline pushed the stock to a 52-week low
   Rewritten: "{entity_name} shares, which fell after the company reported weaker-than-expected Q3 results, have now marked their worst single-day decline in two years, pushing the stock to a 52-week low."
-  Note: the original opens with "{entity_name} shares..." — the market instrument is the subject, not the entity as an actor — so the rewrite preserves that framing and uses "have now marked" as the pivot. Do not rewrite as "{entity_name} has disclosed that its shares fell...".
+  Note: the original opens with "{entity_name} shares..." — the market instrument is the subject — so the rewrite preserves that framing. Do not rewrite as "{entity_name} has disclosed that its shares fell...".
+
+Example 9 — EXPECTATION FRAMING: entity is the subject but the claim is an analyst estimate, not a company disclosure; one old + one novel claim
+  Sentence: "{entity_name} is expected to report Q1 2026 revenue of approximately $12.3 billion with EPS of $0.02, while Q2 revenue is forecast at $12.7 billion with EPS of $0.15, supported by higher margins."
+  Claims:
+    - [old] {entity_name} had guided for Q1 2026 revenue of $11.7–$12.7 billion
+    - [novel] Analysts now project Q1 EPS of $0.02 and Q2 revenue of $12.7 billion with EPS of $0.15, supported by higher margins
+  WRONG rewrite: "{entity_name}, which had guided for Q1 2026 revenue of $11.7–$12.7 billion, has disclosed Q1 EPS of $0.02 and Q2 revenue guidance of $12.7 billion." ✗ — "is expected to" signals an analyst estimate, not a company disclosure
+  Rewritten: "{entity_name}, which had guided for Q1 2026 revenue of $11.7–$12.7 billion, is now projected by analysts to deliver Q1 EPS of $0.02 and Q2 revenue of $12.7 billion with EPS of $0.15, supported by higher margins."
+
+Example 10 — EXPECTATION FRAMING: entity as subject, analyst consensus revision with two novel forward-looking claims
+  Sentence: "{entity_name} is forecast to post Q1 fiscal 2027 EPS of $8.93, up 43% year-over-year, with revenue expected at $43.1 billion, reflecting continued data-centre demand."
+  Claims:
+    - [old] {entity_name} had guided for continued data-centre demand and revenue growth
+    - [novel] Analyst consensus now forecasts Q1 fiscal 2027 EPS of $8.93, up 43% year-over-year
+    - [novel] Analyst consensus projects Q1 fiscal 2027 revenue of $43.1 billion
+  Rewritten: "{entity_name}, which had guided for continued data-centre demand, is now forecast by analysts to deliver Q1 fiscal 2027 EPS of $8.93, up 43% year-over-year, on revenue of $43.1 billion."
+  Note: "is forecast to" in the original signals analyst projections on future results. Do not use "has disclosed" or "has reported" — use "is now forecast to" / "analysts now project".
 
 ---
 
@@ -417,14 +437,17 @@ ENTITY: "{entity_name}"
 SUBJECT RULE:
 Open with "{entity_name}" ONLY when the original sentence uses {entity_name} as its grammatical subject — i.e. the entity itself did, said, reported, or announced something. When the original sentence opens with an external actor (analysts, prediction markets, investors, a market metric, a regulatory body), preserve that external actor as the grammatical subject of the rewrite. The old-context → pivot → novel structure still applies regardless.
 
-PIVOT MARKERS — when the grammatical subject is {entity_name}, use exactly one from this list:
+EXPECTATION FRAMING RULE:
+When the original sentence uses expectation or forecast language — "is expected to", "is projected to", "is forecast to", "analysts estimate", "analysts project", "consensus forecasts", "is anticipated to" — the claim is an analyst estimate or forward projection, NOT a company disclosure. Do NOT convert it to a disclosure verb (has disclosed, has confirmed, has reported). Preserve the expectation framing using: "is now expected to", "is now projected to", "analysts now project", "is now forecast to", "consensus now shows".
+
+PIVOT MARKERS — when the grammatical subject is {entity_name} AND the claim is a company action or disclosure, use exactly one from this list:
 - has now <verb> / have now <verb>
 - has just <verb>
 - has confirmed
 - has disclosed
 - has reported
 
-When the grammatical subject is NOT {entity_name}, use a pivot that fits the actual subject naturally (e.g. "are now pricing", "now stands at", "now show"). Do not force the entity-specific markers above in that case.
+When the grammatical subject is NOT {entity_name}, use a pivot that fits the actual subject naturally (e.g. "are now pricing", "now stands at", "now show"). When the claim is an analyst estimate or forecast (even if {entity_name} is the grammatical subject), use an expectation-preserving pivot: "is now expected to", "is now projected to", "analysts now project".
 
 RULES:
 1. If the original sentence opens with "{entity_name}" as subject, open the rewrite with "{entity_name}", exactly as written. Otherwise, preserve the natural subject of the sentence.
@@ -481,7 +504,24 @@ Example 6 — EXTERNAL subject: original sentence opens with short interest data
     - [old] Short interest in Intel Corp. has remained elevated for several months
     - [partially_novel] The latest short interest stands at 8.7% of the float, the highest since Q2 2023 (specific percentage not in prior evidence)
   Rewritten: "With short interest in Intel Corp. already elevated for several months, the latest data now shows 8.7% of the float sold short — the highest level since Q2 2023."
-  Note: the original opens with "Short interest in..." — a market positioning metric, not an entity action — so the rewrite preserves that framing. "now shows" fits the actual subject "the latest data"; do not substitute "Intel Corp. has disclosed that short interest is 8.7%...".
+  Note: the original opens with "Short interest in..." — a market positioning metric — so the rewrite preserves that framing. Do not substitute "Intel Corp. has disclosed that short interest is 8.7%...".
+
+Example 7 — EXPECTATION FRAMING: entity as subject but the claim is an analyst estimate on future results; one old + one partially_novel specific figure
+  Sentence: "{entity_name} is expected to report Q1 2026 revenue of approximately $12.3 billion with EPS of $0.02, and Q2 revenue of $12.7 billion with EPS of $0.15, supported by higher margins."
+  Claims:
+    - [old] {entity_name} had guided for Q1 2026 revenue of $11.7–$12.7 billion
+    - [partially_novel] Analyst consensus now projects Q1 EPS of $0.02 and Q2 revenue of $12.7 billion with EPS of $0.15 and higher margins (specific figures not in prior evidence)
+  WRONG rewrite: "{entity_name}, which had guided for Q1 2026 revenue of $11.7–$12.7 billion, has disclosed Q1 EPS of $0.02 and Q2 revenue of $12.7 billion." ✗
+  Rewritten: "{entity_name}, which had guided for Q1 2026 revenue of $11.7–$12.7 billion, is now projected by analysts to deliver Q1 EPS of $0.02 and Q2 revenue of $12.7 billion with EPS of $0.15, supported by higher margins."
+  Note: "is expected to" in the original signals analyst estimates on future results. Preserve that framing — do not use "has disclosed" or "has confirmed".
+
+Example 8 — EXPECTATION FRAMING: entity as subject, consensus price target revision with one partially_novel new specific figure
+  Sentence: "Tesla Inc. is expected to generate FY2026 revenue of $116 billion with consensus EPS of $3.58, reflecting a recovery in delivery volumes."
+  Claims:
+    - [old] Tesla Inc. had guided for a recovery in delivery volumes in 2026
+    - [partially_novel] Consensus now forecasts FY2026 revenue of $116 billion and EPS of $3.58 (specific figures not in prior evidence)
+  Rewritten: "Tesla Inc., which had guided for a recovery in delivery volumes in 2026, is now projected by consensus to deliver FY2026 revenue of $116 billion and EPS of $3.58."
+  Note: both old and novel claims are analyst projections on future results. Do not use "has disclosed" or "has confirmed".
 
 ---
 
@@ -516,12 +556,16 @@ ENTITY: "{entity_name}"
 SUBJECT RULE:
 Open with "{entity_name}" ONLY when the original sentence uses {entity_name} as its grammatical subject. When the original sentence opens with an external actor (analysts, prediction markets, investors, a market metric), preserve that external actor as the grammatical subject of the rewrite.
 
+EXPECTATION FRAMING RULE:
+When the original sentence uses expectation or forecast language — "is expected to", "is projected to", "is forecast to", "analysts estimate", "analysts project" — the claim is an analyst estimate on future results, NOT a company disclosure. Preserve that language in the rewrite. Do NOT rephrase as "has disclosed", "has confirmed", or "has reported".
+
 RULES:
 1. If the original sentence opens with "{entity_name}" as subject, open the rewrite with "{entity_name}", exactly as written. Otherwise, preserve the natural subject of the sentence.
 2. Include only the content from claims labeled "novel".
 3. Drop claims labeled "novel_trivial" or "novel_unsupported" entirely.
 4. Do not add qualifiers, superlatives, editorial framing, or inferred consequences.
 5. Paraphrase only where grammatically necessary to combine multiple novel claims.
+6. If the novel claims are analyst estimates or forward projections, preserve the expectation framing — do not convert to past tense or disclosure language.
 
 ---
 
@@ -542,6 +586,22 @@ Example 2 — EXTERNAL subject: original sentence opens with a market observatio
     - [novel_trivial] trading volume was four times the daily average
   Rewritten: "Shares of {entity_name} surged 8% following the earnings report, making it the top performer in the S&P 500 on the day."
   Note: the original opens with "Shares of..." — an external market observation — so the rewrite preserves that subject. Do not rewrite as "{entity_name} has disclosed that its shares surged..."
+
+Example 3 — EXPECTATION FRAMING: entity as subject but the novel claims are analyst estimates on future results; preserve expectation language
+  Sentence: "{entity_name} is expected to report Q1 2026 EPS of $0.02 with Q2 revenue guidance of $12.7 billion and EPS of $0.15."
+  Claims:
+    - [novel] Analysts project {entity_name} Q1 2026 EPS of $0.02
+    - [novel] Analysts project Q2 2026 revenue of $12.7 billion and EPS of $0.15
+  WRONG rewrite: "{entity_name} has disclosed Q1 2026 EPS of $0.02 and Q2 revenue guidance of $12.7 billion with EPS of $0.15." ✗
+  Rewritten: "{entity_name} is now expected by analysts to report Q1 2026 EPS of $0.02, with Q2 revenue projected at $12.7 billion and EPS at $0.15."
+
+Example 4 — EXPECTATION FRAMING: entity as subject, single novel analyst consensus figure on a future period
+  Sentence: "{entity_name} is forecast to generate FY2026 free cash flow of $18.5 billion, implying a 12% yield on current market cap."
+  Claims:
+    - [novel] Analyst consensus forecasts {entity_name} FY2026 free cash flow of $18.5 billion, implying a 12% yield
+    - [novel_trivial] the company operates in more than 40 countries
+  Rewritten: "{entity_name} is now forecast by analysts to generate FY2026 free cash flow of $18.5 billion, implying a 12% yield on current market cap."
+  Note: "is forecast to" signals an analyst projection. Preserve that framing — do not rewrite as "has disclosed" or "has reported".
 
 ---
 
@@ -582,22 +642,26 @@ ENTITY: "{entity_name}"
 SUBJECT RULE:
 Open with "{entity_name}" ONLY when the original sentence uses {entity_name} as its grammatical subject — i.e. the entity itself did, said, reported, or announced something. When the original sentence opens with an external actor (analysts, prediction markets, investors, a market metric, a regulatory body), preserve that external actor as the grammatical subject of the rewrite. The known-context → pivot → new detail structure still applies regardless.
 
-PIVOT MARKERS — when the grammatical subject is {entity_name}, use exactly one from this list:
+EXPECTATION FRAMING RULE:
+When the original sentence uses expectation or forecast language — "is expected to", "is projected to", "is forecast to", "analysts estimate", "analysts project", "consensus forecasts", "is anticipated to" — the new specific detail is an analyst estimate or forward projection, NOT a company disclosure. Do NOT convert it to a disclosure verb (has disclosed, has confirmed, has reported). Preserve the expectation framing using: "is now expected to", "is now projected to", "analysts now project", "is now forecast to".
+
+PIVOT MARKERS — when the grammatical subject is {entity_name} AND the new detail is a company action or factual disclosure, use exactly one from this list:
 - has now <verb> / have now <verb>
 - has just <verb>
 - has confirmed
 - has disclosed
 - has reported
 
-When the grammatical subject is NOT {entity_name}, use a pivot that fits the actual subject naturally (e.g. "now stands at", "are now pricing", "now show"). Do not force the entity-specific markers above in that case.
+When the grammatical subject is NOT {entity_name}, use a pivot that fits the actual subject naturally (e.g. "now stands at", "are now pricing", "now show"). When the new detail is an analyst estimate or forecast (even if {entity_name} is the grammatical subject), use an expectation-preserving pivot: "is now expected to", "is now projected to", "analysts now project".
 
 RULES:
 1. If the original sentence opens with "{entity_name}" as subject, open the rewrite with "{entity_name}", exactly as written. Otherwise, preserve the natural subject of the sentence.
 2. Summarise the known context — what prior coverage already established about the topic — as a subordinate clause. Use past tense for the known part.
 3. Place the pivot marker between the known-context clause and the new detail.
 4. State the new specific detail after the pivot marker. Do not repeat the entity name after the pivot when the subject is {entity_name}.
-5. Do not invent or infer facts not present in the original sentence.
-6. The result must be a single, coherent, publishable sentence.
+5. If the original uses expectation language ("is expected to", "analysts project"), preserve that framing in the pivot — do not convert to a disclosure verb.
+6. Do not invent or infer facts not present in the original sentence.
+7. The result must be a single, coherent, publishable sentence.
 
 ---
 
@@ -639,6 +703,19 @@ Example 7 — EXTERNAL subject: original sentence opens with options market data
   Judge's analysis: Prior evidence notes elevated options activity and uncertainty for Intel ahead of earnings, but does not mention the specific implied volatility level of 45% or the comparison to the 28% historical average.
   Rewritten: "With options market implied volatility for Intel Corp. already noted as elevated ahead of earnings, it has now risen to 45% — well above the 28% historical average."
   Note: the original opens with "Options market implied volatility..." — a market pricing metric, not an entity action — so the rewrite preserves that framing. "has now risen" fits the subject "it" (the volatility); do not rewrite as "Intel Corp. has disclosed that options implied volatility stands at 45%...".
+
+Example 8 — EXPECTATION FRAMING: entity as subject but the new detail is an analyst estimate on future results; do NOT use a disclosure verb
+  Sentence: "Intel Corp. is expected to report Q1 2026 revenue of approximately $12.3 billion with EPS of $0.02, and Q2 revenue of $12.7 billion with EPS of $0.15, supported by higher margins."
+  Judge's analysis: Prior evidence shows Intel guided for Q1 2026 revenue of $11.7–$12.7 billion. The specific figures of $12.3B Q1 revenue, $0.02 Q1 EPS, $12.7B Q2 revenue, and $0.15 Q2 EPS are Bernstein analyst projections not present in prior evidence.
+  WRONG rewrite: "Intel Corp., which had guided for Q1 2026 revenue of $11.7–$12.7 billion, has disclosed Q1 EPS of $0.02 and Q2 revenue guidance of $12.7 billion with EPS of $0.15." ✗ — Intel did not disclose these; they are analyst estimates
+  Rewritten: "Intel Corp., which had guided for Q1 2026 revenue of $11.7–$12.7 billion, is now projected by analysts to deliver Q1 EPS of $0.02 and Q2 revenue of $12.7 billion with EPS of $0.15, supported by higher margins."
+  Note: "is expected to" in the original signals an analyst estimate on future results. Preserve that framing — do not use "has disclosed" or "has reported".
+
+Example 9 — EXPECTATION FRAMING: entity as subject, analyst consensus price target with one new specific figure
+  Sentence: "Apple Inc. is expected to generate FY2026 earnings per share of $8.12, above the prior analyst consensus of $7.94, driven by stronger services revenue."
+  Judge's analysis: Prior evidence documents Apple's services growth momentum and analyst consensus EPS near $7.94. The new revised consensus figure of $8.12 EPS is not in prior evidence.
+  Rewritten: "Apple Inc., which had been expected to deliver FY2026 EPS in line with the prior $7.94 consensus, is now projected by analysts to reach $8.12, driven by stronger services revenue."
+  Note: both old context and new detail are analyst estimates on future results — not company disclosures. Use "is now projected to" as the pivot, not "has confirmed" or "has disclosed".
 
 ---
 
