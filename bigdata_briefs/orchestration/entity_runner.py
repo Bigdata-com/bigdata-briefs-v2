@@ -27,7 +27,7 @@ from bigdata_briefs.novelty.storage import (
 )
 from bigdata_briefs.orchestration.db import ensure_orchestration_schema
 from bigdata_briefs.orchestration.kg_entities import entity_from_kg_record, fetch_kg_entities_by_ids
-from bigdata_briefs.orchestration.models import SQLBulletRunLog, SQLEntityOrchestrationState, SQLEntityPipelineRunLog, SQLRunMetrics
+from bigdata_briefs.orchestration.models import SQLBulletRunLog, SQLEntityOrchestrationState, SQLEntityPipelineRunLog, SQLRunMetrics, SQLRunNarrative
 from bigdata_briefs.orchestration.output import fetch_new_novelty_ok_bullets, fetch_previous_bullets
 from bigdata_briefs.orchestration.windows import WindowEndNotAfterStartError, WindowMode, build_report_dates_for_entity_run
 from bigdata_briefs.graph.dependencies import RuntimeDependencies
@@ -495,6 +495,202 @@ def _flush_bullet_run_log(eng: Engine, run_id: uuid.UUID, entity_id: str, final_
         pass  # never let bullet log failures break the run
 
 
+_NARRATIVE_PROMPT_MANY = """\
+You are a financial news editor writing the opening lede for a daily market intelligence brief.
+
+You are given a list of bullet points — each is a materially new development about {entity_name} published today. \
+Write a single editorial paragraph of 2 to 3 sentences that:
+1. Mentions the total count of new developments ("X materially new developments").
+2. Names the 1 or 2 most important stories by their specific detail (a dollar figure, a named partner, a concrete action) — use the word "anchored by" or similar.
+3. Ends with a one-sentence thematic observation about the dominant framing across all bullets (e.g. "Capital expenditures continue to dominate the framing." or "The session is defined by regulatory pressure on multiple fronts.").
+
+Rules:
+- Be specific — use the numbers, names and entities from the bullets, do not be vague.
+- Do not list all bullets — select and synthesise.
+- Do not use "In summary", "Overall" or similar filler openers.
+- 2-3 sentences maximum, no bullet points, no headers.
+- Write in present tense.
+- Reference yesterday's brief with "since yesterday's brief" or "since yesterday".
+
+COMPANY: {entity_name}
+DATE: {report_date}
+TOTAL DEVELOPMENTS TODAY: {bullets_count}
+
+BULLETS:
+{bullets_text}
+
+OUTPUT: the editorial lede only, plain text, no quotes.
+"""
+
+_NARRATIVE_PROMPT_FEW = """\
+You are a financial news editor writing the opening lede for a daily market intelligence brief.
+
+You are given a small number of bullet points about {entity_name} published today, plus excerpts from \
+their original source articles. Use the source excerpts as additional context to write something \
+richer than a plain paraphrase of the bullets.
+
+Write a single editorial paragraph of 2 to 3 sentences that:
+1. Mentions the total count of new developments ("X materially new development" or "X materially new developments").
+2. Names the most important story by its specific detail — use the word "anchored by" or similar.
+3. Ends with a one-sentence thematic observation or forward-looking note drawn from the source context.
+
+Rules:
+- Be specific — use numbers, names and entities from bullets and sources.
+- Do not copy the bullet text verbatim — the lede must add perspective.
+- Do not use "In summary", "Overall" or similar filler openers.
+- 2-3 sentences maximum, no bullet points, no headers.
+- Write in present tense.
+- Reference yesterday's brief with "since yesterday's brief" or "since yesterday".
+
+COMPANY: {entity_name}
+DATE: {report_date}
+TOTAL DEVELOPMENTS TODAY: {bullets_count}
+
+BULLETS:
+{bullets_text}
+
+TOP SOURCE EXCERPTS:
+{citations_text}
+
+OUTPUT: the editorial lede only, plain text, no quotes.
+"""
+
+
+def _collect_todays_active_bullets(
+    eng: Engine,
+    entity_id: str,
+    report_date: datetime,
+) -> list[SQLBulletRunLog]:
+    """Return all active bullets for entity_id on the same UTC calendar day as report_date."""
+    day_start = report_date.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc)
+    day_end = report_date.replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc)
+
+    with Session(eng) as session:
+        # Find all run_ids for this entity completed today
+        run_rows = session.exec(
+            select(SQLEntityPipelineRunLog).where(
+                SQLEntityPipelineRunLog.entity_id == entity_id,
+                SQLEntityPipelineRunLog.status.in_(["succeeded", "no_data"]),
+                SQLEntityPipelineRunLog.process_completed_at_utc >= day_start,
+                SQLEntityPipelineRunLog.process_completed_at_utc <= day_end,
+            )
+        ).all()
+        if not run_rows:
+            return []
+        run_ids = [r.run_id for r in run_rows]
+
+        bullets = session.exec(
+            select(SQLBulletRunLog).where(
+                SQLBulletRunLog.run_id.in_(run_ids),
+                SQLBulletRunLog.is_active == True,  # noqa: E712
+            )
+        ).all()
+        return list(bullets)
+
+
+def _build_citations_text(bullets: list[SQLBulletRunLog], top_n: int = 5) -> str:
+    """Return formatted text of top_n citations ordered by relevance_score desc."""
+    scored: list[tuple[int, dict]] = []
+    seen_headlines: set[str] = set()
+
+    for b in sorted(bullets, key=lambda x: (x.relevance_score or 0), reverse=True):
+        for cit in json.loads(b.citations_json or "[]"):
+            headline = cit.get("headline", "").strip()
+            text = cit.get("text", "").strip()
+            source = cit.get("source_name", "").strip()
+            if not headline or headline in seen_headlines:
+                continue
+            seen_headlines.add(headline)
+            scored.append((b.relevance_score or 0, {
+                "headline": headline,
+                "source": source,
+                "text": text[:400],  # cap chunk length
+            }))
+            if len(scored) >= top_n:
+                break
+        if len(scored) >= top_n:
+            break
+
+    lines = []
+    for i, (_, cit) in enumerate(scored, 1):
+        lines.append(f"[{i}] {cit['source']} — {cit['headline']}\n{cit['text']}")
+    return "\n\n".join(lines)
+
+
+def _generate_and_flush_narrative(
+    eng: Engine,
+    run_id: uuid.UUID,
+    entity_id: str,
+    entity_name: str,
+    report_dates: ReportDates,
+    llm_client: Any,
+) -> None:
+    """Generate and store the editorial narrative for this run.
+
+    Collects all active bullets for the entity on the same calendar day,
+    calls the LLM, and writes one SQLRunNarrative row. Silently swallowed
+    on failure so it never breaks the run.
+    """
+    try:
+        from bigdata_briefs.llm_client import LLMClient
+        report_date = report_dates.end
+        bullets = _collect_todays_active_bullets(eng, entity_id, report_date)
+        if not bullets:
+            return
+
+        bullets_text = "\n".join(
+            f"- {b.text}" for b in bullets
+        )
+        use_citations = len(bullets) <= 3
+        citations_text = ""
+        if use_citations:
+            citations_text = _build_citations_text(bullets)
+
+        prompt_template = _NARRATIVE_PROMPT_FEW if use_citations else _NARRATIVE_PROMPT_MANY
+        user_content = prompt_template.format(
+            entity_name=entity_name,
+            report_date=report_date.strftime("%A, %d %B %Y"),
+            bullets_count=len(bullets),
+            bullets_text=bullets_text,
+            citations_text=citations_text,
+        )
+
+        if not isinstance(llm_client, LLMClient):
+            return
+
+        from pydantic import BaseModel as _BaseModel
+
+        class _NarrativeResponse(_BaseModel):
+            narrative: str
+
+        response = llm_client.call_with_response_format(
+            system=[{"role": "system", "content": "You are a concise financial news editor."}],
+            messages=[{"role": "user", "content": user_content}],
+            model="gpt-4.1",
+            max_tokens=250,
+            response_format=_NarrativeResponse,
+            step_name="narrative_generation",
+        )
+        if response is None:
+            return
+        narrative_text = response.narrative
+
+        row = SQLRunNarrative(
+            run_id=run_id,
+            entity_id=entity_id,
+            report_date=report_date.replace(hour=0, minute=0, second=0, microsecond=0),
+            narrative_text=narrative_text.strip(),
+            bullets_count=len(bullets),
+            citations_included=use_citations,
+            created_at=datetime.now(timezone.utc),
+        )
+        with Session(eng) as session:
+            session.add(row)
+            session.commit()
+    except Exception:
+        pass  # never let narrative failures break the run
+
+
 def _flush_run_metrics(
     eng: Engine,
     run_id: uuid.UUID,
@@ -782,6 +978,16 @@ def run_entity_incremental(
 
     if deps.entity_metrics is not None:
         _flush_run_metrics(eng, run_log.run_id, entity_id, report_dates, deps.entity_metrics)
+
+    if pipeline_ok:
+        _generate_and_flush_narrative(
+            eng,
+            run_log.run_id,
+            entity_id,
+            entity.name,
+            report_dates,
+            deps.llm_client,
+        )
 
     previous = fetch_previous_bullets(eng, entity_id, report_dates)
     new_ok: list[dict[str, Any]] = []

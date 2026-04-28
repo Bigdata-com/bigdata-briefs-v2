@@ -184,6 +184,25 @@ class SQLEntityPipelineRunLog(SQLModel, table=True):
     output_json: str | None = Field(default=None, sa_type=Text, nullable=True)
 
 
+class SQLRunNarrative(SQLModel, table=True):
+    """Editorial narrative generated after each pipeline run.
+
+    Summarises all active bullets for the entity on the same calendar day
+    (UTC) as this run — including bullets from earlier runs of the same day.
+    One row per run; the latest row for a given entity+day is the most current.
+    """
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    run_id: uuid.UUID = Field(index=True)          # FK → SQLEntityPipelineRunLog.run_id
+    entity_id: str = Field(index=True, max_length=64)
+    report_date: datetime                           # calendar day (UTC midnight) this narrative covers
+
+    narrative_text: str = Field(sa_type=Text)       # 2-3 sentence editorial lede
+    bullets_count: int                              # total active bullets used (across the day)
+    citations_included: bool = Field(default=False) # True when ≤ 3 bullets → citations were added
+    created_at: datetime
+
+
 class SQLRunMetrics(SQLModel, table=True):
     """Cost and usage metrics for one pipeline run.
 
