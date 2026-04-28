@@ -1129,6 +1129,7 @@ def _ns_build_search_payload(
             "ranking_params": {
                 "source_boost": 1,
                 "freshness_boost": 1,
+                "content_diversification": {"enabled": False},
                 "reranker": {
                     "enabled": True,
                     "threshold": _NS_RERANKER_THRESHOLD,

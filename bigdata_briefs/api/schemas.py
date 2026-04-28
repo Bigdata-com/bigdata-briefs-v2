@@ -219,6 +219,14 @@ class BatchRunRequest(BaseModel):
             "no previous run exists. Use this mode to guarantee no gaps across consecutive runs."
         ),
     )
+    categories: list[str] | None = Field(
+        default=None,
+        description=(
+            "Override the source categories for exploratory and concept search. "
+            "Available values: news, news_premium, filings, transcripts. "
+            "When null, the default pipeline config categories are used (news)."
+        ),
+    )
 
 
 class BatchRunResponse(BaseModel):

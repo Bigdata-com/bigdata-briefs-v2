@@ -164,9 +164,12 @@ def run_scan_worker(
     rate_limiter,
     connection_sem,
     http_client,
+    source_categories: list[str] | None = None,
 ) -> None:
     """Sequential worker: runs each daily window in order, writing results to DB."""
     pipeline_config = load_pipeline_config_dict(resolve_config_path(None))
+    if source_categories:
+        pipeline_config["categories"] = source_categories
     state_dir = Path(".brief_pipeline_state")
 
     for window_start, window_end in windows:

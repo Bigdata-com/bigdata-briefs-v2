@@ -56,7 +56,6 @@ def execute_parallel_concept_queries(
     freshness_boost = cfg.get("freshness_boost")
     rerank_concept_sources = cfg.get("rerank_concept_sources", False)
     headline_search = cfg.get("headline_search", False)
-
     total_concepts = sum(len(cat.concepts) for cat in concepts.categories)
 
     # Size the pool to the shared connection semaphore. The 450 QPM limit is

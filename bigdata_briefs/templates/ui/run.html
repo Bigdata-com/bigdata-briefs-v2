@@ -61,6 +61,20 @@
             <p class="field-hint">Leave empty to use the default incremental window.</p>
           </div>
 
+          <div class="field" style="margin-top:1rem">
+            <label style="display:block;font-size:.85rem;font-weight:600;margin-bottom:.5rem;color:#334155">Source categories</label>
+            <div style="display:flex;flex-direction:column;gap:.35rem">
+              {% for cat in ["news", "news_premium", "filings", "transcripts"] %}
+              <label style="display:flex;align-items:center;gap:.5rem;font-size:.88rem;cursor:pointer;font-weight:400">
+                <input type="checkbox" name="source_categories" value="{{ cat }}" style="width:.95rem;height:.95rem;cursor:pointer"
+                  {% if cat == "news" %}checked{% endif %}/>
+                {{ cat }}
+              </label>
+              {% endfor %}
+            </div>
+            <p class="field-hint">Select one or more. Default: news.</p>
+          </div>
+
           <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:.5rem">
             Run
           </button>

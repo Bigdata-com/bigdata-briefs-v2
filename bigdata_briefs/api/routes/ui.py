@@ -180,6 +180,7 @@ def _run_one_ui_entity(
     rate_limiter,
     connection_sem,
     http_client,
+    source_categories: list[str] | None = None,
     startup_delay_seconds: float = 0.0,
 ) -> None:
     """Worker for one entity inside the parallel UI batch."""
@@ -196,6 +197,8 @@ def _run_one_ui_entity(
         return
 
     pipeline_config = load_pipeline_config_dict(resolve_config_path(None))
+    if source_categories:
+        pipeline_config["categories"] = source_categories
     state_dir = Path(".brief_pipeline_state")
     entity_name = _get_entity_name(engine, entity_id)
 
@@ -264,6 +267,7 @@ def _ui_run_batch(
     rate_limiter,
     connection_sem,
     http_client,
+    source_categories: list[str] | None = None,
 ) -> None:
     """Submit all entities to the shared ThreadPoolExecutor in parallel with stagger.
 
@@ -292,6 +296,7 @@ def _ui_run_batch(
             rate_limiter=rate_limiter,
             connection_sem=connection_sem,
             http_client=http_client,
+            source_categories=source_categories,
             startup_delay_seconds=idx * _ENTITY_STAGGER_SECONDS,
         )
         future.add_done_callback(_on_done)
@@ -1105,6 +1110,7 @@ async def ui_batch_run(
     preset_name: str = Form(default=""),
     universe_name: str = Form(default=""),
     window_end_str: str = Form(default=""),
+    source_categories: list[str] = Form(default=[]),
 ) -> HTMLResponse:
     templates = request.app.state.templates
 
@@ -1141,6 +1147,7 @@ async def ui_batch_run(
         rate_limiter=get_rate_limiter(request),
         connection_sem=get_connection_sem(request),
         http_client=get_http_client(request),
+        source_categories=source_categories or [],
     )
 
     return templates.TemplateResponse(
@@ -1376,6 +1383,7 @@ async def ui_scan_run(
     universe_name: str = Form(default=""),
     start_date: str = Form(default=""),
     end_date: str = Form(default=""),
+    source_categories: list[str] = Form(default=[]),
 ) -> HTMLResponse:
     templates = request.app.state.templates
 
@@ -1432,6 +1440,7 @@ async def ui_scan_run(
                 rate_limiter=rate_limiter,
                 connection_sem=connection_sem,
                 http_client=http_client,
+                source_categories=source_categories or None,
             )
             scan_items.append({
                 "scan_id": scan_id,
@@ -1470,6 +1479,7 @@ async def ui_scan_run(
         rate_limiter=rate_limiter,
         connection_sem=connection_sem,
         http_client=http_client,
+        source_categories=source_categories or None,
     )
 
     return templates.TemplateResponse(

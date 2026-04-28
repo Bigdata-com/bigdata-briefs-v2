@@ -303,6 +303,8 @@ def batch_run(
 
     cfg_path = resolve_config_path(None)
     pipeline_config = load_pipeline_config_dict(cfg_path)
+    if body.categories:
+        pipeline_config["categories"] = body.categories
     state_dir = _resolve_state_dir(None)
     run_ids = [uuid.uuid4() for _ in body.entity_ids]
 
@@ -444,6 +446,8 @@ def batch_run_parallel(
 
     cfg_path = resolve_config_path(None)
     pipeline_config = load_pipeline_config_dict(cfg_path)
+    if body.categories:
+        pipeline_config["categories"] = body.categories
     state_dir = _resolve_state_dir(None)
     run_ids = [uuid.uuid4() for _ in entity_ids]
     engine = get_engine()

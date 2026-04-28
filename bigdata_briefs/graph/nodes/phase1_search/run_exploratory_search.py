@@ -60,7 +60,6 @@ def execute_broad_topic_search(
     categories = cfg.get("categories")
     source_rank_boost = cfg.get("source_rank_boost")
     freshness_boost = cfg.get("freshness_boost")
-
     with ThreadPoolExecutor(max_workers=settings.API_SIMULTANEOUS_REQUESTS) as executor:
         results = deps.query_service.run_exploratory_search(
             entity=entity,
