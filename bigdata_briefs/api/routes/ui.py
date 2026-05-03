@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import html
 import json
+import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -34,6 +35,7 @@ from sqlmodel import Session, select
 
 from sqlalchemy import delete as sa_delete, and_
 
+from bigdata_briefs import logger
 from bigdata_briefs.api.dependencies import (
     get_connection_sem,
     get_engine,
@@ -189,6 +191,11 @@ def _run_one_ui_entity(
         _time.sleep(startup_delay_seconds)
 
     if _db_is_cancelled(engine, batch_id):
+        logger.warning(
+            "ui_batch_entity_skipped_cancelled",
+            batch_id=batch_id,
+            entity_id=entity_id,
+        )
         _db_append_result(engine, batch_id, EntityRunStatus(
             entity_id=entity_id,
             entity_name=_get_entity_name(engine, entity_id),
@@ -202,6 +209,13 @@ def _run_one_ui_entity(
     state_dir = Path(".brief_pipeline_state")
     entity_name = _get_entity_name(engine, entity_id)
 
+    logger.info(
+        "ui_batch_entity_start",
+        batch_id=batch_id,
+        entity_id=entity_id,
+        entity_name=entity_name,
+    )
+    t0 = time.perf_counter()
     try:
         force_window_start: datetime | None = None
         resolved_end = force_window_end
@@ -232,6 +246,14 @@ def _run_one_ui_entity(
             http_client=http_client,
         )
     except Exception as exc:
+        elapsed = time.perf_counter() - t0
+        logger.exception(
+            "ui_batch_entity_failed",
+            batch_id=batch_id,
+            entity_id=entity_id,
+            entity_name=entity_name,
+            elapsed_sec=round(elapsed, 2),
+        )
         _db_append_result(engine, batch_id, EntityRunStatus(
             entity_id=entity_id,
             entity_name=entity_name,
@@ -255,6 +277,19 @@ def _run_one_ui_entity(
         window_end=window_end,
         run_id=str(result.run_id) if result.run_id else None,
     ))
+    elapsed = time.perf_counter() - t0
+    n_bullets = len(result.new_bullets_novelty_ok) if result.new_bullets_novelty_ok else 0
+    logger.info(
+        "ui_batch_entity_done",
+        batch_id=batch_id,
+        entity_id=entity_id,
+        entity_name=entity_name,
+        success=result.success,
+        run_id=str(result.run_id) if result.run_id else None,
+        bullets_saved=n_bullets,
+        elapsed_sec=round(elapsed, 2),
+        error=result.error,
+    )
 
 
 def _ui_run_batch(
@@ -276,7 +311,15 @@ def _ui_run_batch(
     When all futures are done the batch is marked finished.
     """
     import threading as _threading
+
     total = len(entity_ids)
+    preview_ids = entity_ids if len(entity_ids) <= 24 else entity_ids[:24] + ["…"]
+    logger.info(
+        "ui_batch_workers_spawned",
+        batch_id=batch_id,
+        entity_count=total,
+        entity_ids=preview_ids,
+    )
     done_count = [0]
     lock = _threading.Lock()
 
@@ -285,6 +328,7 @@ def _ui_run_batch(
             done_count[0] += 1
             if done_count[0] == total:
                 _db_finish_batch(engine, batch_id)
+                logger.info("ui_batch_finished", batch_id=batch_id, entity_count=total)
 
     for idx, entity_id in enumerate(entity_ids):
         future = executor.submit(
@@ -377,6 +421,7 @@ def _load_bullets_for_run(engine, run_id) -> list[dict]:
             }
 
         bullets.append({
+            "id": str(r.id),
             "trace_id": r.trace_id,
             "text": r.text,
             "final_text": r.text,
@@ -387,6 +432,7 @@ def _load_bullets_for_run(engine, run_id) -> list[dict]:
             "not_fully_novel": r.not_fully_novel,
             "embedding_decision": r.embedding_decision,
             "search_action": r.search_verdict,
+            "grounding_decision": r.grounding_decision,
             "passed": passed_block,
             "discarded": discarded_block,
         })
@@ -1149,6 +1195,12 @@ async def ui_batch_run(
         http_client=get_http_client(request),
         source_categories=source_categories or [],
     )
+    logger.info(
+        "ui_batch_run_queued",
+        batch_id=batch_id,
+        entity_count=len(ids),
+        source_categories=source_categories or None,
+    )
 
     return templates.TemplateResponse(
         request, "ui/partials/run_progress.html",
@@ -1424,7 +1476,7 @@ async def ui_scan_run(
         all_entity_names = dict(_get_universe_entities_with_names())
         scan_items: list[dict] = []
         for eid in entity_ids:
-            effective_start = resolve_scan_start(engine, eid, requested_start)
+            effective_start = resolve_scan_start(engine, eid, requested_start, end)
             windows = build_scan_windows(effective_start, end)
             if not windows:
                 continue
@@ -1460,7 +1512,7 @@ async def ui_scan_run(
 
     # ── Single entity scan ────────────────────────────────────────────────────
     eid = entity_id.strip()
-    effective_start = resolve_scan_start(engine, eid, requested_start)
+    effective_start = resolve_scan_start(engine, eid, requested_start, end)
     windows = build_scan_windows(effective_start, end)
 
     if not windows:
@@ -1579,6 +1631,33 @@ def _duration_seconds(start: datetime | None, end: datetime | None) -> float | N
     return max(0.0, (e - s).total_seconds())
 
 
+def _scan_aggregate_costs(session: Session, results: list[dict]) -> tuple[float | None, float | None]:
+    """Sum LLM+embedding USD and chunk/API-search USD from metrics for each window ``run_id``."""
+    ids: list[uuid.UUID] = []
+    for r in results:
+        rid = r.get("run_id")
+        if not rid:
+            continue
+        try:
+            ids.append(uuid.UUID(str(rid)))
+        except ValueError:
+            continue
+    if not ids:
+        return None, None
+    ids = list(dict.fromkeys(ids))
+    metrics = session.exec(select(SQLRunMetrics).where(SQLRunMetrics.run_id.in_(ids))).all()
+    by_run = {m.run_id: m for m in metrics}
+    llm = 0.0
+    api = 0.0
+    for uid in ids:
+        m = by_run.get(uid)
+        if not m:
+            continue
+        llm += float(m.total_llm_cost_usd or 0.0) + float(m.total_embedding_cost_usd or 0.0)
+        api += float(calculate_chunk_cost(m.chunks_total or 0))
+    return round(llm, 6), round(api, 6)
+
+
 def _entity_runs_in_window(
     session,
     entity_ids: list[str],
@@ -1615,7 +1694,7 @@ async def ui_details_page(request: Request) -> HTMLResponse:
         api_batches = session.exec(
             select(SQLBatchParallelRun).order_by(desc(SQLBatchParallelRun.submitted_at)).limit(50)
         ).all()
-        scans = session.exec(
+        scans_raw = session.exec(
             select(SQLUIScanRun).order_by(desc(SQLUIScanRun.created_at)).limit(50)
         ).all()
         entity_runs = session.exec(
@@ -1634,6 +1713,26 @@ async def ui_details_page(request: Request) -> HTMLResponse:
                 select(SQLRunMetrics).where(SQLRunMetrics.run_id.in_(run_ids))
             ).all():
                 metrics_map[str(m.run_id)] = m
+
+        scans_enriched: list[dict] = []
+        for s in scans_raw:
+            dur = _duration_seconds(s.created_at, s.updated_at)
+            results = json.loads(s.results_json)
+            llm_c, api_c = _scan_aggregate_costs(session, results)
+            scans_enriched.append({
+                "id": s.scan_id,
+                "entity_id": s.entity_id,
+                "entity_name": s.entity_name,
+                "started": s.created_at,
+                "status": s.status,
+                "windows_total": s.windows_total,
+                "windows_done": s.windows_done,
+                "duration": _fmt_duration(dur),
+                "duration_s": dur,
+                "results": results,
+                "cost_llm": llm_c,
+                "cost_api": api_c,
+            })
 
     def _enrich_ui_batch(b: SQLUIBatchRun) -> dict:
         dur = _duration_seconds(b.created_at, b.updated_at)
@@ -1669,22 +1768,6 @@ async def ui_details_page(request: Request) -> HTMLResponse:
             "window_start": b.submitted_at,
             "window_end": None,
             "run_ids_map": run_ids_map,
-        }
-
-    def _enrich_scan(s: SQLUIScanRun) -> dict:
-        dur = _duration_seconds(s.created_at, s.updated_at)
-        results = json.loads(s.results_json)
-        return {
-            "id": s.scan_id,
-            "entity_id": s.entity_id,
-            "entity_name": s.entity_name,
-            "started": s.created_at,
-            "status": s.status,
-            "windows_total": s.windows_total,
-            "windows_done": s.windows_done,
-            "duration": _fmt_duration(dur),
-            "duration_s": dur,
-            "results": results,
         }
 
     def _enrich_run(r: SQLEntityPipelineRunLog) -> dict:
@@ -1724,7 +1807,7 @@ async def ui_details_page(request: Request) -> HTMLResponse:
         {
             "ui_batches": [_enrich_ui_batch(b) for b in ui_batches],
             "api_batches": [_enrich_api_batch(b) for b in api_batches],
-            "scans": [_enrich_scan(s) for s in scans],
+            "scans": scans_enriched,
             "entity_runs": [_enrich_run(r) for r in entity_runs],
             "orch_map": orch_map,
         },
@@ -1799,34 +1882,77 @@ async def ui_batch_detail_partial(request: Request, batch_id: str = "", batch_ty
 
 @router.get("/partials/scan-detail", response_class=HTMLResponse)
 async def ui_scan_detail_partial(request: Request, scan_id: str = "") -> HTMLResponse:
-    """Expand per-window results for a scan row."""
+    """Expand per-window scan rows: pipeline run id, status, and LLM / API-search cost per window."""
     engine = get_engine()
     with Session(engine) as session:
         scan = session.get(SQLUIScanRun, scan_id)
-    if not scan:
-        return HTMLResponse("<td colspan='6'><em>Not found.</em></td>")
+        if not scan:
+            return HTMLResponse(
+                '<p style="padding:.5rem 1rem;margin:0;font-size:.82rem;color:var(--muted)"><em>Not found.</em></p>'
+            )
 
-    results = json.loads(scan.results_json)
-    rows_html = ""
-    for r in results:
-        ws = (r.get("window_start") or "")[:16].replace("T", " ")
-        we = (r.get("window_end") or "")[:16].replace("T", " ")
-        status = r.get("status", "")
-        status_cls = {"succeeded": "color:#166534", "failed": "color:#dc2626", "cancelled": "color:#92400e"}.get(status, "")
-        err = html.escape(r.get("error") or "")
-        rows_html += (
-            f'<tr style="background:#f8fafc">'
-            f'<td style="padding:.35rem 1rem .35rem 2.5rem;font-size:.82rem;color:var(--muted)">↳ {ws} UTC</td>'
-            f'<td style="padding:.35rem .75rem;font-size:.82rem">{we} UTC</td>'
-            f'<td></td>'
-            f'<td style="padding:.35rem .75rem;font-size:.82rem;font-weight:600;{status_cls}">{status}</td>'
-            f'<td style="padding:.35rem .75rem;font-size:.82rem;color:#dc2626">{err}</td>'
-            f'<td></td>'
-            f'</tr>'
+        results = json.loads(scan.results_json)
+        body_rows = ""
+        for r in results:
+            ws = (r.get("window_start") or "")[:16].replace("T", " ")
+            we = (r.get("window_end") or "")[:16].replace("T", " ")
+            status = r.get("status", "") or "—"
+            status_cls = {
+                "succeeded": "color:#166534",
+                "failed": "color:#dc2626",
+                "cancelled": "color:#92400e",
+                "skipped": "color:#64748b",
+            }.get(status, "")
+            err = html.escape(r.get("error") or "")
+            rid = r.get("run_id")
+            llm_s = "—"
+            api_s = "—"
+            run_cell = '<span style="color:var(--muted)">—</span>'
+            if rid:
+                rid_raw = str(rid)
+                run_cell = (
+                    f'<a class="mono" href="/ui/cost-details/{html.escape(rid_raw, quote=True)}" '
+                    f'style="font-size:.75rem">{html.escape(rid_raw[:8])}…</a>'
+                )
+                try:
+                    uid = uuid.UUID(rid_raw)
+                except ValueError:
+                    uid = None
+                if uid is not None:
+                    m = session.exec(select(SQLRunMetrics).where(SQLRunMetrics.run_id == uid)).first()
+                    if m:
+                        llm_v = float(m.total_llm_cost_usd or 0) + float(m.total_embedding_cost_usd or 0)
+                        api_v = float(calculate_chunk_cost(m.chunks_total or 0))
+                        llm_s = f"${llm_v:.4f}"
+                        api_s = f"${api_v:.4f}"
+            body_rows += (
+                "<tr>"
+                f'<td style="padding:.35rem .75rem;font-size:.82rem;color:var(--muted)">{html.escape(ws)} → {html.escape(we)}</td>'
+                f'<td style="padding:.35rem .75rem">{run_cell}</td>'
+                f'<td style="padding:.35rem .75rem;font-weight:600;{status_cls}">{html.escape(status)}</td>'
+                f'<td style="padding:.35rem .75rem;font-size:.78rem;color:#dc2626;max-width:22rem;word-break:break-word">{err}</td>'
+                f'<td style="padding:.35rem .75rem;font-variant-numeric:tabular-nums">{llm_s}</td>'
+                f'<td style="padding:.35rem .75rem;font-variant-numeric:tabular-nums">{api_s}</td>'
+                "</tr>"
+            )
+        if not body_rows:
+            body_rows = (
+                '<tr><td colspan="6" style="padding:.5rem 1rem;font-size:.82rem;color:var(--muted)">'
+                "No window results yet.</td></tr>"
+            )
+        html_out = (
+            '<table style="width:100%;font-size:.82rem;border-collapse:collapse;margin:0;background:#f8fafc">'
+            "<thead><tr>"
+            '<th style="text-align:left;padding:.35rem .75rem;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)">Window (UTC)</th>'
+            '<th style="text-align:left;padding:.35rem .75rem;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)">Run</th>'
+            '<th style="text-align:left;padding:.35rem .75rem;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)">Status</th>'
+            '<th style="text-align:left;padding:.35rem .75rem;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)">Error</th>'
+            '<th style="text-align:left;padding:.35rem .75rem;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)">LLM+emb</th>'
+            '<th style="text-align:left;padding:.35rem .75rem;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)">API search</th>'
+            "</tr></thead><tbody>"
+            f"{body_rows}</tbody></table>"
         )
-    if not rows_html:
-        rows_html = '<tr style="background:#f8fafc"><td colspan="6" style="padding:.5rem 2.5rem;font-size:.82rem;color:var(--muted)">No window results yet.</td></tr>'
-    return HTMLResponse(rows_html)
+    return HTMLResponse(html_out)
 
 
 _STEP_CATEGORIES: list[tuple[str, list[str]]] = [

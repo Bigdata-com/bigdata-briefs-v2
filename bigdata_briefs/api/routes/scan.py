@@ -14,7 +14,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends
-from sqlmodel import Session
+from sqlalchemy import desc
+from sqlmodel import Session, select
 
 from bigdata_briefs.api.auth import require_api_key
 from bigdata_briefs.api.dependencies import (
@@ -26,17 +27,45 @@ from bigdata_briefs.api.dependencies import (
 )
 from bigdata_briefs.orchestration.config_load import load_pipeline_config_dict, resolve_config_path
 from bigdata_briefs.orchestration.entity_runner import run_entity_incremental
-from bigdata_briefs.orchestration.models import SQLEntityOrchestrationState, SQLUIScanRun
+from bigdata_briefs.orchestration.models import (
+    SQLEntityOrchestrationState,
+    SQLEntityPipelineRunLog,
+    SQLUIScanRun,
+)
 from bigdata_briefs.query_service.rate_limit import RequestsPerMinuteController
 
 from concurrent.futures import ThreadPoolExecutor
 from threading import Semaphore
 import httpx
 
+from bigdata_briefs import logger
+
 router = APIRouter(tags=["scan"])
 
 
 # ── Window generation ─────────────────────────────────────────────────────────
+
+
+def _ensure_utc_scan(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _latest_process_completed_at_utc(engine, entity_id: str) -> datetime | None:
+    """Latest succeeded/no_data run completion timestamp — fallback for old-style DB records."""
+    with Session(engine) as session:
+        row = session.exec(
+            select(SQLEntityPipelineRunLog)
+            .where(SQLEntityPipelineRunLog.entity_id == entity_id)
+            .where(SQLEntityPipelineRunLog.status.in_(["succeeded", "no_data"]))
+            .where(SQLEntityPipelineRunLog.process_completed_at_utc.isnot(None))
+            .order_by(desc(SQLEntityPipelineRunLog.process_completed_at_utc))
+            .limit(1)
+        ).first()
+    if row is None or row.process_completed_at_utc is None:
+        return None
+    return _ensure_utc_scan(row.process_completed_at_utc)
 
 
 def build_scan_windows(
@@ -45,14 +74,16 @@ def build_scan_windows(
 ) -> list[tuple[datetime, datetime]]:
     """Return a list of (window_start, window_end) covering start→end day by day.
 
-    Each window spans one calendar day in UTC:
-      - window_start: 00:00:00 of the day (or `start` for the first window)
-      - window_end:   23:59:59 of the day (or `end` for the last window if today)
+    Each window spans one UTC calendar day:
+      - window_start: start of the day (or ``start`` for the first day)
+      - window_end:   23:59:59 of the day, clipped by ``end``
 
-    Both start and end must be UTC-aware datetimes.
+    Pass ``end = datetime.now(timezone.utc)`` for a live scan: the last window will
+    naturally stop at ``now`` rather than end-of-day.
     """
     windows: list[tuple[datetime, datetime]] = []
-    cursor = start.replace(microsecond=0)
+    cursor = _ensure_utc_scan(start)  # keep sub-second precision for resume points
+    end = _ensure_utc_scan(end)
 
     while cursor < end:
         day_end = cursor.replace(hour=23, minute=59, second=59, microsecond=0)
@@ -69,21 +100,38 @@ def resolve_scan_start(
     engine,
     entity_id: str,
     requested_start: datetime,
+    scan_end: datetime,
 ) -> datetime:
-    """Return the effective scan start for an entity.
+    """Return the effective first instant for a day-by-day scan.
 
-    If the entity already has runs, resume from its last_window_end so we don't
-    re-cover ground already processed. Otherwise use requested_start.
+    Normal case: resume from ``last_window_end`` when it falls in ``(requested_start, scan_end)``.
+
+    Transition case (old DB records stored nominal 23:59:59 as window end):
+    when ``last_window_end >= scan_end`` but they share the same UTC calendar day,
+    fall back to the latest ``process_completed_at_utc`` if that time is a valid resume
+    point, then to ``requested_start`` if still stuck.
     """
+    requested_start = _ensure_utc_scan(requested_start)
+    scan_end = _ensure_utc_scan(scan_end)
+    base = requested_start
+    last_resume: datetime | None = None
     with Session(engine) as session:
         orch = session.get(SQLEntityOrchestrationState, entity_id)
         if orch and orch.last_window_end:
-            last = orch.last_window_end
-            if last.tzinfo is None:
-                last = last.replace(tzinfo=timezone.utc)
-            if last > requested_start:
-                return last
-    return requested_start
+            last_resume = _ensure_utc_scan(orch.last_window_end)
+            if requested_start < last_resume < scan_end:
+                return last_resume
+            if last_resume > base:
+                base = last_resume
+    # Stuck: last_window_end >= scan_end.  If they share the same calendar day the stored
+    # end was likely a nominal 23:59:59; use process_completed_at_utc as the real resume
+    # point so the scan covers the remaining hours of that day.
+    if base >= scan_end and last_resume is not None and last_resume.date() == scan_end.date():
+        pc = _latest_process_completed_at_utc(engine, entity_id)
+        if pc is not None and requested_start <= pc < scan_end:
+            return pc
+        return requested_start
+    return base
 
 
 # ── DB helpers ────────────────────────────────────────────────────────────────
@@ -172,8 +220,24 @@ def run_scan_worker(
         pipeline_config["categories"] = source_categories
     state_dir = Path(".brief_pipeline_state")
 
-    for window_start, window_end in windows:
+    total_windows = len(windows)
+    logger.info(
+        "scan_worker_start",
+        scan_id=scan_id,
+        entity_id=entity_id,
+        windows=total_windows,
+        first_window=windows[0][0].strftime("%Y-%m-%d %H:%M UTC") if windows else None,
+        last_window=windows[-1][1].strftime("%Y-%m-%d %H:%M UTC") if windows else None,
+    )
+
+    for idx, (window_start, window_end) in enumerate(windows, start=1):
         if db_is_scan_cancelled(engine, scan_id):
+            logger.warning(
+                "scan_worker_cancelled",
+                scan_id=scan_id,
+                entity_id=entity_id,
+                window=f"{window_start.strftime('%Y-%m-%d %H:%M')} → {window_end.strftime('%H:%M')} UTC",
+            )
             db_append_window_result(engine, scan_id, {
                 "window_start": window_start.isoformat(),
                 "window_end": window_end.isoformat(),
@@ -181,6 +245,13 @@ def run_scan_worker(
             })
             continue
 
+        logger.info(
+            "scan_window_start",
+            scan_id=scan_id,
+            entity_id=entity_id,
+            window=f"{window_start.strftime('%Y-%m-%d %H:%M')} → {window_end.strftime('%H:%M')} UTC",
+            progress=f"{idx}/{total_windows}",
+        )
         try:
             result = run_entity_incremental(
                 entity_id=entity_id,
@@ -193,13 +264,32 @@ def run_scan_worker(
                 connection_sem=connection_sem,
                 http_client=http_client,
             )
-            db_append_window_result(engine, scan_id, {
+            status = "succeeded" if result.success else "failed"
+            logger.info(
+                "scan_window_done",
+                scan_id=scan_id,
+                entity_id=entity_id,
+                window=f"{window_start.strftime('%Y-%m-%d %H:%M')} → {window_end.strftime('%H:%M')} UTC",
+                status=status,
+                run_id=str(result.run_id) if result.run_id else None,
+                error=result.error if not result.success else None,
+            )
+            payload = {
                 "window_start": window_start.isoformat(),
                 "window_end": window_end.isoformat(),
-                "status": "succeeded" if result.success else "failed",
+                "status": status,
                 "error": result.error if not result.success else None,
-            })
+            }
+            if result.run_id:
+                payload["run_id"] = str(result.run_id)
+            db_append_window_result(engine, scan_id, payload)
         except Exception as exc:
+            logger.exception(
+                "scan_window_error",
+                scan_id=scan_id,
+                entity_id=entity_id,
+                window=f"{window_start.strftime('%Y-%m-%d %H:%M')} → {window_end.strftime('%H:%M')} UTC",
+            )
             db_append_window_result(engine, scan_id, {
                 "window_start": window_start.isoformat(),
                 "window_end": window_end.isoformat(),
@@ -207,6 +297,7 @@ def run_scan_worker(
                 "error": str(exc),
             })
 
+    logger.info("scan_worker_finished", scan_id=scan_id, entity_id=entity_id)
     db_finish_scan(engine, scan_id)
 
 
@@ -270,7 +361,7 @@ def _start_one_scan(
     http_client,
 ) -> ScanResponse | None:
     """Create and submit one scan. Returns None if already up to date."""
-    effective_start = resolve_scan_start(engine, entity_id, requested_start)
+    effective_start = resolve_scan_start(engine, entity_id, requested_start, end)
     windows = build_scan_windows(effective_start, end)
     if not windows:
         return None
