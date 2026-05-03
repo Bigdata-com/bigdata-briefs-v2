@@ -111,7 +111,8 @@
 {% if scans %}
 <table class="dt">
   <thead><tr>
-    <th>Entity</th><th>Started</th><th>Status</th><th>Windows</th><th>Duration</th><th></th>
+    <th>Entity</th><th>Started</th><th>Status</th><th>Windows</th>
+    <th>LLM+emb $</th><th>API search $</th><th>Duration</th><th></th>
   </tr></thead>
   <tbody>
   {% for s in scans %}
@@ -125,10 +126,12 @@
     <td class="mono">{{ fmt_dt(s.started) }}</td>
     <td>{{ status_badge(s.status) }}</td>
     <td>{{ s.windows_done }}/{{ s.windows_total }}</td>
+    <td class="mono" style="font-size:.8rem">{% if s.cost_llm is not none %}${{ "%.4f"|format(s.cost_llm) }}{% else %}—{% endif %}</td>
+    <td class="mono" style="font-size:.8rem">{% if s.cost_api is not none %}${{ "%.4f"|format(s.cost_api) }}{% else %}—{% endif %}</td>
     <td class="dur">{{ s.duration }}</td>
     <td><span class="expand-btn">expand ▾</span></td>
   </tr>
-  <tr id="detail-scan-{{ loop.index }}"></tr>
+  <tr><td colspan="8" id="detail-scan-{{ loop.index }}" style="padding:0;border-bottom:1px solid var(--border-soft);vertical-align:top"></td></tr>
   {% endfor %}
   </tbody>
 </table>

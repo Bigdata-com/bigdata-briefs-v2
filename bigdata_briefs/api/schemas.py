@@ -186,7 +186,8 @@ class BatchRunRequest(BaseModel):
         default=None,
         description=(
             "Name of a pre-defined entity universe to run instead of an explicit entity list. "
-            "Available values: dow_30, eurostoxx_50, top_us_100, top_us_500, top_eu_100, top_eu_500. "
+            "Use the stem of any CSV under data/universes/ (e.g. dow_30, eurostoxx_50, top_us_10, "
+            "top_us_100, top_us_500, top_eu_100, top_eu_500). "
             "Mutually exclusive with 'entity_ids'."
         ),
     )

@@ -20,8 +20,9 @@ from langchain_core.runnables import RunnableConfig
 from bigdata_briefs.graph.constants import NODE_QUARTER_INFO, SERVICE_TYPE_SEARCH
 from bigdata_briefs.graph.dependencies import get_deps
 from bigdata_briefs.graph.state import BriefGraphState, NodeMetricsRecord
+from bigdata_briefs.orchestration.earnings_calendar_cache import upsert_entity_earnings_calendar
 from bigdata_briefs.settings import UNSET, settings
-from bigdata_briefs.temporal import get_current_quarter_title
+from bigdata_briefs.temporal import fetch_earnings_calendar_window
 
 
 def resolve_fiscal_quarter_from_calendar(
@@ -50,16 +51,25 @@ def resolve_fiscal_quarter_from_calendar(
         else None
     )
 
-    by_entity = get_current_quarter_title(
+    titles, events_by_entity = fetch_earnings_calendar_window(
         reference_date=reference_date,
         rp_entity_id=entity_id,
         api_key=api_key,
-        # Route through the shared 450 QPM budget when the FastAPI lifespan
-        # is driving the run; otherwise rate_limiter is None and the call
-        # goes through its own short-lived client like before.
         rate_limiter=deps.bigdata_rate_limiter,
     )
-    quarter_title: str = by_entity.get(entity_id) or ""
+    quarter_title: str = titles.get(entity_id) or ""
+
+    if api_key:
+        try:
+            upsert_entity_earnings_calendar(
+                deps.engine,
+                entity_id,
+                current_quarter_title=quarter_title,
+                earnings_events=events_by_entity.get(entity_id, []),
+                reference_as_of=reference_date,
+            )
+        except Exception:
+            pass
 
     wall_ms = (time.monotonic() - t0) * 1000
     metrics = NodeMetricsRecord(
