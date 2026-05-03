@@ -18,6 +18,7 @@ from bigdata_briefs import logger
 from bigdata_briefs.api.routes.admin import router as admin_router
 from bigdata_briefs.api.routes.batch import router as batch_router
 from bigdata_briefs.api.routes.entities import router as entities_router
+from bigdata_briefs.api.routes.frontend import router as frontend_router
 from bigdata_briefs.api.routes.rate import router as rate_router
 from bigdata_briefs.api.routes.report import router as report_router
 from bigdata_briefs.api.routes.scan import router as scan_router
@@ -97,10 +98,15 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Static files (favicon, etc.)
+    # Static files (favicon, htmx, etc.)
     static_dir = _PACKAGE_DIR / "static"
     if static_dir.is_dir():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+    # React frontend — served at /app, serves index.html on /app and /app/
+    app_dir = _PACKAGE_DIR / "static" / "app"
+    if app_dir.is_dir():
+        app.mount("/app", StaticFiles(directory=str(app_dir), html=True), name="app")
 
     # Jinja2 templates — shared across all template responses
     templates_dir = _PACKAGE_DIR / "templates"
@@ -123,6 +129,7 @@ def create_app() -> FastAPI:
     app.include_router(report_router, prefix="/api/v1")
     app.include_router(scan_router, prefix="/api/v1")
     app.include_router(ui_router, prefix="/ui", include_in_schema=False)
+    app.include_router(frontend_router, prefix="/api/frontend", include_in_schema=False)
 
     return app
 
