@@ -1,0 +1,986 @@
+entity_id,name,universes,mean_daily_cost_usd,cost_source,volume_chunks,region
+00067A,Humana Inc.,top_us_500,0.244619,predicted_lowess,12761,US
+003B70,Realty Income Corporation,top_us_500,0.213703,predicted_lowess,11480,US
+00593E,Wartsila Oyj,top_eu_500,0.129207,predicted_lowess,8115.0,EU
+009397,LPL Financial Holdings Inc.,top_us_500,0.119959,predicted_lowess,7816,US
+00C977,BRD-Groupe Societe Generale S.A.,top_eu_500,0.013262,predicted_lowess,365.0,EU
+0119FA,BT Group PLC,top_eu_500,0.047925,predicted_lowess,4792.0,EU
+013528,"PepsiCo, Inc.",top_us_100|top_us_500,0.520161,predicted_lowess,30184,US
+0157B1,"Amazon.com, Inc.",dow_30|top_us_100|top_us_500,1.141463,predicted_lowess,259072,US
+01D03F,Roche Holding AG,top_eu_100|top_eu_500,0.406601,predicted_lowess,21478.0,EU
+024205,Galp Energia SGPS S.A.,top_eu_500,0.032807,predicted_lowess,3334.0,EU
+0285DE,Mapfre S.A.,top_eu_500,0.035793,predicted_lowess,3853.0,EU
+034B61,Booking Holdings Inc.,top_us_100|top_us_500,0.250530,predicted_lowess,13014,US
+03B8CF,3M Company,dow_30|top_us_500,0.249945,predicted_lowess,12989,US
+03CF95,"PayPal Holdings, Inc.",top_us_500,0.595839,predicted_lowess,39051,US
+04700D,Peab AB,top_eu_500,0.030258,predicted_lowess,2091.0,EU
+05461A,Ipsen S.A.,top_eu_500,0.035508,predicted_lowess,3807.0,EU
+055018,Capital One Financial Corp,top_us_100|top_us_500,0.438170,predicted_lowess,23812,US
+0554A6,Pepco Group N.V.,top_eu_500,0.024131,predicted_lowess,782.0,EU
+05E615,Rheinmetall AG,top_eu_500,0.195736,predicted_lowess,10736.0,EU
+061366,"First Solar, Inc.",top_us_500,0.170511,predicted_lowess,9665,US
+067779,Carnival Corporation,top_us_500,0.346751,predicted_lowess,17266,US
+06EF42,"D.R. Horton, Inc.",top_us_500,0.036980,predicted_lowess,4013,US
+07101A,Norwegian Air Shuttle ASA,top_eu_500,0.030286,predicted_lowess,1295.0,EU
+075AEB,Helvetia Baloise Holding AG,top_eu_500,0.014619,predicted_lowess,404.0,EU
+07EC43,Cognizant Technology Solutions Corporation Class A,top_us_500,0.125367,predicted_lowess,7988,US
+085C10,Bufab AB,top_eu_500,0.029748,predicted_lowess,1194.0,EU
+08862E,Alstom S.A.,top_eu_500,0.044512,predicted_lowess,4591.0,EU
+08A463,Anadolu Efes Biracilik ve Malt Sanayii A.S.,top_eu_100|top_eu_500,0.029866,predicted_lowess,1212.0,EU
+08B4B5,Roivant Sciences Ltd.,top_eu_500,0.044463,predicted_lowess,4588,US
+0911F1,Rexel S.A.,top_eu_500,0.040650,predicted_lowess,4309.0,EU
+092C47,"Lumentum Holdings, Inc.",top_us_500,0.092129,predicted_lowess,6829,US
+09DDC4,NatWest Group PLC,top_eu_100|top_eu_500,0.516303,predicted_lowess,29875.0,EU
+09DE1F,Broadcom Inc.,top_us_100|top_us_500,0.587093,predicted_lowess,37714,US
+09E31A,"Airbnb, Inc. Class A",top_us_500,0.441214,predicted_lowess,24041,US
+09F623,"ONEOK, Inc.",top_us_500,0.109237,predicted_lowess,7458,US
+0AE795,OPAP Holding SA,top_eu_500,0.030616,predicted_lowess,1655.0,EU
+0B4D10,"Annaly Capital Management, Inc.",top_us_500,0.063924,predicted_lowess,5610,US
+0B57D7,Lam Research Corporation,top_us_100|top_us_500,0.179459,predicted_lowess,10049,US
+0B5C3C,Aena SME S.A.,top_eu_500,0.140400,predicted_lowess,8484.0,EU
+0B632C,Airtel Africa PLC,top_eu_500,0.031173,predicted_lowess,2754.0,EU
+0BC29E,"American International Group, Inc.",top_us_500,0.301869,predicted_lowess,15260,US
+0BF198,Insmed Incorporated,top_us_500,0.118843,predicted_lowess,7780,US
+0E1492,Glencore PLC,top_eu_500,0.339540,predicted_lowess,16923.0,EU
+0E2789,United Utilities Group PLC,top_eu_500,0.013923,predicted_lowess,384.0,EU
+0E431C,Ciena Corporation,top_us_500,0.131584,predicted_lowess,8194,US
+0E64D4,Credit Agricole S.A.,top_eu_500,0.141077,predicted_lowess,8508.0,EU
+106394,VICI Properties Inc,top_us_500,0.207280,predicted_lowess,11215,US
+108DB5,OTP Bank Nyrt.,top_eu_500,0.030317,predicted_lowess,2352.0,EU
+112B21,Pernod Ricard S.A.,top_eu_500,0.040346,predicted_lowess,4285.0,EU
+112F8F,SpareBank 1 SMN ASA,top_eu_500,0.035445,predicted_lowess,3797.0,EU
+1151F4,Xcel Energy Inc.,top_us_500,0.341320,predicted_lowess,17001,US
+118A3F,"RB Global, Inc.",top_us_500,0.080559,predicted_lowess,6335,US
+119CB6,"Old Dominion Freight Line, Inc.",top_us_500,0.034210,predicted_lowess,3593,US
+127021,Koninklijke Ahold Delhaize N.V.,eurostoxx_50|top_eu_500,0.094026,predicted_lowess,6905.0,EU
+128F1B,Yapi ve Kredi Bankasi A.S.,top_eu_100|top_eu_500,0.030515,predicted_lowess,1807.0,EU
+12DE76,"Cisco Systems, Inc.",dow_30|top_us_100|top_us_500,0.597919,predicted_lowess,39373,US
+12E454,Meta Platforms Inc Class A,top_us_100|top_us_500,1.175478,predicted_lowess,280350,US
+12F98C,"Casey's General Stores, Inc.",top_us_500,0.030900,predicted_lowess,2620,US
+131443,Cummins Inc.,top_us_500,0.163138,predicted_lowess,9345,US
+13D576,Ageas SA/NV,top_eu_500,0.027538,predicted_lowess,972.0,EU
+13DB45,Turk Traktor ve Ziraat Makineleri A.S.,top_eu_500,0.001066,predicted_lowess,51.0,EU
+13FA4C,UIE PLC,top_eu_500,0.030129,predicted_lowess,1256.0,EU
+143C52,"Dollar Tree, Inc.",top_us_500,0.244060,predicted_lowess,12737,US
+147C38,Southern Company,top_us_500,0.197557,predicted_lowess,10812,US
+1490F3,"Digital Realty Trust, Inc.",top_us_500,0.269554,predicted_lowess,13847,US
+14AA8D,Next PLC,top_eu_500,0.030267,predicted_lowess,2205.0,EU
+14BA06,Devon Energy Corporation,top_us_500,0.262045,predicted_lowess,13518,US
+14C7B2,Keurig Dr Pepper Inc.,top_us_500,0.293831,predicted_lowess,14902,US
+14ED2B,Estee Lauder Companies Inc. Class A,top_us_500,0.178944,predicted_lowess,10027,US
+1520CA,Arion Bank,top_eu_500,0.040397,predicted_lowess,4289.0,EU
+159739,"Sun Communities, Inc.",top_us_500,0.090664,predicted_lowess,6769,US
+15ABD0,Jacobs Solutions Inc.,top_us_500,0.157046,predicted_lowess,9105,US
+15D3E7,Turkiye Halk Bankasi A.S.,top_eu_100|top_eu_500,0.030556,predicted_lowess,1503.0,EU
+15F47F,Straumann Holding AG,top_eu_500,0.038834,predicted_lowess,4165.0,EU
+164D72,SLB Limited,top_us_500,0.213968,predicted_lowess,11491,US
+168A5D,Berkshire Hathaway Inc. Class B,top_us_100|top_us_500,0.532225,predicted_lowess,31156,US
+16AD58,CRH public limited company,eurostoxx_50|top_eu_500|top_us_500,0.197413,predicted_lowess,10806,US
+17E42E,Legal & General Group PLC,top_eu_500,0.180844,predicted_lowess,10108.0,EU
+17EDA5,Intel Corporation,top_us_100|top_us_500,0.698004,predicted_lowess,56696,US
+182546,Admiral Group PLC,top_eu_500,0.037884,predicted_lowess,4089.0,EU
+18311E,Texas Pacific Land Corporation,top_us_500,0.038408,predicted_lowess,4131,US
+184B27,NCC AB,top_eu_500,0.016109,predicted_lowess,447.0,EU
+187183,Bouygues S.A.,top_eu_500,0.302342,predicted_lowess,15281.0,EU
+188CAC,Unilever PLC,top_eu_100|top_eu_500,0.414924,predicted_lowess,22083.0,EU
+18958B,Powszechny Zaklad Ubezpieczen S.A.,top_eu_500,0.056880,predicted_lowess,5278.0,EU
+18A43F,Komercni Banka A.S.,top_eu_100|top_eu_500,0.030356,predicted_lowess,1950.0,EU
+18EC17,"Intuitive Surgical, Inc.",top_us_100|top_us_500,0.275672,predicted_lowess,14114,US
+190B91,"Fiserv, Inc.",top_us_500,0.210441,predicted_lowess,11345,US
+1921DD,GE Aerospace,top_us_100|top_us_500,0.585444,predicted_lowess,37465,US
+19ACAF,Siemens Healthineers AG,top_eu_500,0.048812,predicted_lowess,4842.0,EU
+19C507,FinecoBank S.p.A.,top_eu_500,0.042657,predicted_lowess,4465.0,EU
+1A1E26,S.N.G.N. Romgaz S.A.,top_eu_500,0.030489,predicted_lowess,1835.0,EU
+1A1ED9,Siemens Energy AG,top_eu_100|top_eu_500,0.079652,predicted_lowess,6295.0,EU
+1A2458,Scatec ASA,top_eu_500,0.031863,predicted_lowess,3050.0,EU
+1A3E1B,Truist Financial Corporation,top_us_500,0.354745,predicted_lowess,17814,US
+1A9CAF,Dassault Aviation S.A.,top_eu_500,0.035040,predicted_lowess,3732.0,EU
+1AC3ED,Iskenderun Demir Ve Celik A.S.,top_eu_100|top_eu_500,0.009103,predicted_lowess,262.0,EU
+1B1348,Gjensidige Forsikring ASA,top_eu_500,0.076045,predicted_lowess,6134.0,EU
+1B1ED3,Stolt-Nielsen Ltd.,top_eu_500,0.031222,predicted_lowess,2779.0,EU
+1BC12C,General Motors Company,top_us_500,0.723234,predicted_lowess,68097,US
+1BDB2A,MKS Inc.,top_us_500,0.165617,predicted_lowess,9453,US
+1C66D0,LPP S.A.,top_eu_500,0.030530,predicted_lowess,2447.0,EU
+1C7FFE,Deutsche Post AG,eurostoxx_50|top_eu_500,0.134608,predicted_lowess,8292.0,EU
+1C9F48,Volvo AB,top_eu_500,0.291227,predicted_lowess,14789.0,EU
+1D0E24,UBS Group AG,top_eu_500,0.605163,predicted_lowess,40506.0,EU
+1D1B07,"Constellation Brands, Inc. Class A",top_us_500,0.059155,predicted_lowess,5395,US
+1D4A78,Southern Copper Corporation,top_us_500,0.141982,predicted_lowess,8540,US
+1D9E55,Global Payments Inc.,top_us_500,0.189798,predicted_lowess,10487,US
+1E169E,SBA Communications Corp. Class A,top_us_500,0.050782,predicted_lowess,4950,US
+1E2158,Munters Group AB,top_eu_500,0.035669,predicted_lowess,3833.0,EU
+1EBF8D,"Merck & Co., Inc.",dow_30|top_us_100|top_us_500,0.475431,predicted_lowess,26656,US
+1F3EB2,Eurofins Scientific S.E.,top_eu_500,0.033691,predicted_lowess,3525.0,EU
+1F43A1,W. P. Carey Inc.,top_us_500,0.142861,predicted_lowess,8571,US
+1F9D90,Waters Corporation,top_us_500,0.230719,predicted_lowess,12178,US
+1FA886,Airbus SE,eurostoxx_50|top_eu_100|top_eu_500,0.355000,observed,17190,EU
+203E0E,Sparebanken Norge Co.,top_eu_500,0.030611,predicted_lowess,1636.0,EU
+205AD5,UnitedHealth Group Incorporated,dow_30|top_us_100|top_us_500,0.418400,predicted_lowess,22337,US
+20BEEA,"Steel Dynamics, Inc.",top_us_500,0.096247,predicted_lowess,6993,US
+21153F,Aegon Ltd.,top_eu_100|top_eu_500,0.137890,predicted_lowess,8397.0,EU
+21770E,Swedish Orphan Biovitrum AB,top_eu_500,0.062578,predicted_lowess,5551.0,EU
+219A11,Julius Baer Group Ltd.,top_eu_500,0.031440,predicted_lowess,2894.0,EU
+222D38,Eiffage S.A.,top_eu_500,0.030255,predicted_lowess,1283.0,EU
+2238CA,Genmab A/S,top_eu_500,0.386629,predicted_lowess,20045.0,EU
+228D42,Microsoft Corporation,dow_30|top_us_100|top_us_500,1.126701,predicted_lowess,250164,US
+233B7A,Systemair AB,top_eu_500,0.019535,predicted_lowess,570.0,EU
+239066,Investment AB Latour,top_eu_100|top_eu_500,0.017566,predicted_lowess,495.0,EU
+24C48B,"Broadridge Financial Solutions, Inc.",top_us_500,0.219131,predicted_lowess,11704,US
+24CB56,KeyCorp,top_us_500,0.192440,predicted_lowess,10598,US
+25102A,"Nasdaq, Inc.",top_us_500,0.243687,predicted_lowess,12721,US
+251988,AT&T Inc,top_us_100|top_us_500,0.634737,predicted_lowess,45325,US
+253B2F,"Quanta Services, Inc.",top_us_500,0.094831,predicted_lowess,6937,US
+26008A,HEICO Corporation Class A,top_us_500,0.045221,predicted_lowess,4634,US
+262D73,AG Anadolu Grubu Holding A.S.,top_eu_500,0.010208,predicted_lowess,288.0,EU
+263216,"Royal Gold, Inc.",top_us_500,0.178710,predicted_lowess,10017,US
+264398,BMW Group,eurostoxx_50|top_eu_500,0.716391,predicted_lowess,64831.0,EU
+2667B6,RTX Corporation,top_us_100|top_us_500,0.376748,predicted_lowess,19346,US
+267718,Pfizer Inc.,top_us_100|top_us_500,0.654984,predicted_lowess,48805,US
+26BE9B,Holcim Ltd.,top_eu_500,0.164859,predicted_lowess,9420.0,EU
+26CC63,Jabil Inc.,top_us_500,0.116840,predicted_lowess,7715,US
+270305,"First Citizens BancShares, Inc. Class A",top_us_500,0.159748,predicted_lowess,9211,US
+275300,Crown Castle Inc.,top_us_500,0.057014,predicted_lowess,5285,US
+278DC5,Linde plc,eurostoxx_50|top_us_100|top_us_500,0.084067,predicted_lowess,6488,US
+27E2DB,NN Group N.V.,top_eu_500,0.033461,predicted_lowess,3495.0,EU
+284283,Boliden AB,top_eu_500,0.052281,predicted_lowess,5032.0,EU
+29742E,Orsted A/S,top_eu_500,0.096970,predicted_lowess,7021.0,EU
+29BD75,Banco Sabadell S.A.,top_eu_500,0.030264,predicted_lowess,2166.0,EU
+29C6BF,Inditex,eurostoxx_50|top_eu_100|top_eu_500,0.033189,predicted_lowess,3423.0,EU
+2A577D,Sweco AB,top_eu_500,0.030606,predicted_lowess,1687.0,EU
+2B49F4,Halliburton Company,top_us_500,0.179131,predicted_lowess,10035,US
+2B7A40,Archer-Daniels-Midland Company,top_us_500,0.161319,predicted_lowess,9273,US
+2BA977,"Altria Group, Inc.",top_us_100|top_us_500,0.169793,predicted_lowess,9634,US
+2BAE5F,Eversource Energy,top_us_500,0.163871,predicted_lowess,9377,US
+2C7505,"Alnylam Pharmaceuticals, Inc",top_us_500,0.140231,predicted_lowess,8478,US
+2CB4C9,"NextEra Energy, Inc.",top_us_100|top_us_500,0.250975,predicted_lowess,13033,US
+2CD1E0,Centrica PLC,top_eu_500,0.106852,predicted_lowess,7375.0,EU
+2D2D43,Marathon Petroleum Corporation,top_us_500,0.340544,predicted_lowess,16967,US
+2D469F,BP PLC,top_eu_100|top_eu_500,0.646206,predicted_lowess,47278.0,EU
+2D643C,Norfolk Southern Corporation,top_us_500,0.126925,predicted_lowess,8039,US
+2DBF98,Willis Towers Watson Public Limited Company,top_eu_500|top_us_500,0.213703,predicted_lowess,11480,US
+2E0496,"Verisk Analytics, Inc.",top_us_500,0.126559,predicted_lowess,8027,US
+2E61CC,Procter & Gamble Company,dow_30|top_us_100|top_us_500,0.339905,predicted_lowess,16939,US
+2E8AEB,Kerry Group PLC,top_eu_500,0.073425,predicted_lowess,6018.0,EU
+2E902B,Lennox International Inc.,top_us_500,0.063616,predicted_lowess,5597,US
+2EE686,Jeudan A/S,top_eu_500,0.031026,predicted_lowess,2681.0,EU
+2F75E0,Koninklijke Philips N.V.,top_eu_100|top_eu_500,0.373846,predicted_lowess,19142.0,EU
+2F94A5,"T. Rowe Price Group, Inc.",top_us_500,0.175228,predicted_lowess,9868,US
+2F9655,Cellnex Telecom S.A.,top_eu_500,0.099713,predicted_lowess,7121.0,EU
+2FEA66,"AvalonBay Communities, Inc.",top_us_500,0.053706,predicted_lowess,5109,US
+2GFTNH,"Qnity Electronics, Inc.",top_us_500,0.051055,predicted_lowess,4965,US
+30A565,"Super Micro Computer, Inc.",top_us_500,0.374031,predicted_lowess,19155,US
+314E5A,Munich Re,eurostoxx_50|top_eu_500,0.114000,observed,1316,EU
+315EB0,"Equinix, Inc.",top_us_500,0.277876,predicted_lowess,14210,US
+316E5D,Ferguson Enterprises Inc.,top_eu_500|top_us_500,0.041297,predicted_lowess,4360,US
+319BE2,"Comfort Systems USA, Inc.",top_us_500,0.091713,predicted_lowess,6812,US
+322A44,Pentair plc,top_eu_500|top_us_500,0.152937,predicted_lowess,8945,US
+32BBAA,Carrier Global Corp.,top_us_500,0.154207,predicted_lowess,8993,US
+32CB22,"United Rentals, Inc.",top_us_500,0.080400,predicted_lowess,6328,US
+32E873,Ares Management Corporation,top_us_500,0.398340,predicted_lowess,20882,US
+33057B,Stellantis N.V.,eurostoxx_50|top_eu_100|top_eu_500,0.420000,observed,12423,EU
+335ABA,ArcelorMittal S.A.,top_eu_500,0.328885,predicted_lowess,16455.0,EU
+33649B,Logitech International S.A.,top_eu_500,0.114174,predicted_lowess,7627.0,EU
+33AD83,"Dell Technologies, Inc. Class C",top_us_500,0.449205,predicted_lowess,24645,US
+33B0C5,JDE Peet's N.V.,top_eu_500,0.031352,predicted_lowess,2847.0,EU
+33D96A,3i Group PLC,top_eu_500,0.033111,predicted_lowess,3398.0,EU
+343996,WEC Energy Group Inc,top_us_500,0.208567,predicted_lowess,11268,US
+3461CF,Moody's Corporation,top_us_500,0.632365,predicted_lowess,44927,US
+3467C7,Austevoll Seafood ASA,top_eu_500,0.026760,predicted_lowess,922.0,EU
+3478EA,Aksa Akrilik Kimya Sanayii A.S.,top_eu_500,0.002967,predicted_lowess,110.0,EU
+34B00D,Beijer Alma AB,top_eu_500,0.026346,predicted_lowess,900.0,EU
+34B97A,HCA Healthcare Inc,top_us_500,0.078952,predicted_lowess,6264,US
+351512,Prysmian S.p.A.,top_eu_500,0.041247,predicted_lowess,4356.0,EU
+351EC3,NXP Semiconductors N.V.,top_eu_500,0.178288,predicted_lowess,9999.0,EU
+352AAB,Getlink S.E.,top_eu_500,0.032213,predicted_lowess,3153.0,EU
+353DBB,Illinois Tool Works Inc.,top_us_500,0.074752,predicted_lowess,6077,US
+354977,Philip Morris CR A.S.,top_eu_500,0.011210,predicted_lowess,312.0,EU
+3587B4,"Cardinal Health, Inc.",top_us_500,0.109295,predicted_lowess,7460,US
+35E532,ING Bank Slaski S.A.,top_eu_500,0.015945,predicted_lowess,442.0,EU
+35F4B5,"AMETEK, Inc.",top_us_500,0.112146,predicted_lowess,7558,US
+362955,"Zoom Communications, Inc. Class A",top_us_500,0.256678,predicted_lowess,13282,US
+366A08,EQT Corporation,top_us_500,0.179905,predicted_lowess,10068,US
+36ECA4,CrowdStrike Holdings Inc.,top_us_500,0.394000,observed,6738,US
+382B0C,"Coupang, Inc. Class A",top_us_500,0.140343,predicted_lowess,8482,US
+384CD3,Curtiss-Wright Corporation,top_us_500,0.072821,predicted_lowess,5991,US
+385DD4,"Marriott International, Inc. Class A",top_us_500,0.416964,predicted_lowess,22232,US
+388C37,Investor AB,top_eu_100|top_eu_500,0.187378,predicted_lowess,10385.0,EU
+388E00,Coterra Energy Inc.,top_us_500,0.211410,predicted_lowess,11385,US
+38970C,Mycronic AB,top_eu_500,0.030472,predicted_lowess,1396.0,EU
+38FC4D,Tryg A/S,top_eu_500,0.030268,predicted_lowess,2221.0,EU
+394E6A,Vodafone Group PLC,top_eu_100|top_eu_500,0.246159,predicted_lowess,12827.0,EU
+39692D,"Expedia Group, Inc.",top_us_500,0.289931,predicted_lowess,14733,US
+39BFF6,Texas Instruments Incorporated,top_us_100|top_us_500,0.343946,predicted_lowess,17116,US
+39FB23,"PPG Industries, Inc.",top_us_500,0.227062,predicted_lowess,12029,US
+3A0C6D,"MongoDB, Inc. Class A",top_us_500,0.180727,predicted_lowess,10103,US
+3A2757,E.ON SE,top_eu_500,0.111123,predicted_lowess,7523.0,EU
+3BA4B2,Diageo PLC,top_eu_500,0.207062,predicted_lowess,11206.0,EU
+3BD4B3,Knorr-Bremse AG,top_eu_500,0.035557,predicted_lowess,3815.0,EU
+3BE2BD,MTU Aero Engines AG,top_eu_500,0.032447,predicted_lowess,3242.0,EU
+3C1252,Eurobank Ergasias Services & Holdings SA,top_eu_500,0.020896,predicted_lowess,630.0,EU
+3CA8E6,Sartorius Stedim Biotech S.A.,top_eu_500,0.030676,predicted_lowess,2514.0,EU
+3CBA2A,Starbucks Corporation,top_us_500,0.583063,predicted_lowess,37107,US
+3CCC90,Northern Trust Corporation,top_us_500,0.178452,predicted_lowess,10006,US
+3D9999,Synchrony Financial,top_us_500,0.124320,predicted_lowess,7955,US
+3DC70D,Ford Otomotiv Sanayi A.S.,top_eu_100|top_eu_500,0.027460,predicted_lowess,966.0,EU
+3DC887,"Arista Networks, Inc.",top_us_100|top_us_500,0.122743,predicted_lowess,7905,US
+3DE4D1,Kimberly-Clark Corporation,top_us_500,0.176955,predicted_lowess,9942,US
+3E149C,Danone S.A.,eurostoxx_50|top_eu_500,0.144341,predicted_lowess,8623.0,EU
+3ED502,Carlsberg A/S,top_eu_500,0.063048,predicted_lowess,5572.0,EU
+3ED7D4,Nuh Cimento Sanayi AS,top_eu_500,0.000589,predicted_lowess,20.0,EU
+3ED92D,MSCI Inc. Class A,top_us_500,0.276131,predicted_lowess,14134,US
+3EE835,Alarko Holding A.S.,top_eu_500,0.011663,predicted_lowess,323.0,EU
+3EFE75,Uniper SE,top_eu_500,0.045586,predicted_lowess,4656.0,EU
+3FACA7,Phillips 66,top_us_500,0.218596,predicted_lowess,11682,US
+3FB145,Corteva Inc,top_us_500,0.170024,predicted_lowess,9644,US
+3M1AR3,Girisim Elektrik San. Taahhut Ve Tic. AS,top_eu_500,0.000589,predicted_lowess,9.0,EU
+4030E2,Emerson Electric Co.,top_us_500,0.075909,predicted_lowess,6128,US
+408089,Sherwin-Williams Company,dow_30|top_us_500,0.171020,predicted_lowess,9687,US
+40B903,TJX Companies Inc,top_us_100|top_us_500,0.075341,predicted_lowess,6103,US
+40DA5A,Fortnox AB,top_eu_500,0.001697,predicted_lowess,72.0,EU
+416C55,"Rockwell Automation, Inc.",top_us_500,0.110396,predicted_lowess,7498,US
+417431,Equinor ASA,top_eu_100|top_eu_500,0.409180,predicted_lowess,21665.0,EU
+41F457,Hochtief AG,top_eu_500,0.039664,predicted_lowess,4231.0,EU
+427864,Kinnevik AB,top_eu_500,0.028901,predicted_lowess,1095.0,EU
+42B662,Fresnillo PLC,top_eu_500,0.052945,predicted_lowess,5068.0,EU
+431B74,Deere & Company,top_us_100|top_us_500,0.427490,predicted_lowess,23005,US
+434F38,ResMed Inc.,top_us_500,0.044184,predicted_lowess,4571,US
+4368A6,Kongsberg Gruppen ASA,top_eu_500,0.068690,predicted_lowess,5813.0,EU
+4397ED,BioMerieux S.A.,top_eu_500,0.030488,predicted_lowess,1836.0,EU
+43A74A,Tenet Healthcare Corporation,top_us_500,0.059455,predicted_lowess,5409,US
+442587,BNP Paribas S.A.,eurostoxx_50|top_eu_100|top_eu_500,0.153000,observed,5736,EU
+446ADD,Mowi ASA,top_eu_500,0.034725,predicted_lowess,3671.0,EU
+44F9E4,Coca-Cola HBC AG,top_eu_500,0.076178,predicted_lowess,6140.0,EU
+452EA1,Evolution AB,top_eu_500,0.030610,predicted_lowess,1629.0,EU
+4582C1,mBank S.A.,top_eu_500,0.372192,predicted_lowess,19026.0,EU
+4595EF,Deckers Outdoor Corporation,top_us_500,0.054696,predicted_lowess,5162,US
+45BC35,Exact Sciences Corporation,top_us_500,0.128848,predicted_lowess,8103,US
+4618B4,Schouw & Co. A/S,top_eu_500,0.030541,predicted_lowess,1773.0,EU
+47718F,Turkish Airlines Inc.,top_eu_100|top_eu_500,0.042475,predicted_lowess,4452.0,EU
+47B609,Talen Energy Corp,top_us_500,0.143401,predicted_lowess,8590,US
+47F966,Capgemini S.E.,top_eu_500,0.165755,predicted_lowess,9459.0,EU
+484468,Invisio AB,top_eu_500,0.027969,predicted_lowess,1006.0,EU
+485445,International Flavors & Fragrances Inc.,top_us_500,0.142209,predicted_lowess,8548,US
+495C6B,Banca Transilvania S.A.,top_eu_500,0.027170,predicted_lowess,944.0,EU
+4988CD,"Rocket Companies, Inc. Class A",top_us_500,0.130408,predicted_lowess,8155,US
+49A2D7,Electrolux Professional AB,top_eu_500,0.030526,predicted_lowess,1794.0,EU
+49BBBC,"Micron Technology, Inc.",top_us_10|top_us_100|top_us_500,0.582596,predicted_lowess,37037,US
+49E038,Aker BP ASA,top_eu_500,0.040017,predicted_lowess,4259.0,EU
+4A5C8D,McKesson Corporation,top_us_100|top_us_500,0.069425,predicted_lowess,5845,US
+4A6F00,Alphabet Inc. Class A,top_us_100|top_us_500,1.399014,predicted_lowess,455326,US
+4AC91D,HP Inc.,top_us_500,0.389594,predicted_lowess,20256,US
+4B604B,Terna Rete Elettrica Nazionale S.p.A.,top_eu_500,0.029597,predicted_lowess,1171.0,EU
+4B7006,"Workday, Inc. Class A",top_us_500,0.177235,predicted_lowess,9954,US
+4BAF2E,"Revolution Medicines, Inc.",top_us_500,0.090348,predicted_lowess,6756,US
+4C37C5,American Express Company,dow_30|top_us_100|top_us_500,0.445098,predicted_lowess,24334,US
+4D6198,Elia Group S.A.,top_eu_500,0.029319,predicted_lowess,1137.0,EU
+4D80DB,Naturgy Energy Group S.A.,top_eu_500,0.122365,predicted_lowess,7893.0,EU
+4D9669,"Restaurant Brands International, Inc.",top_us_500,0.249313,predicted_lowess,12962,US
+4DCAC6,Emlak Konut GYO AS,top_eu_500,0.008760,predicted_lowess,254.0,EU
+4EAA76,EQT AB,top_eu_100|top_eu_500,0.141162,predicted_lowess,8511.0,EU
+4EB77D,Reckitt Benckiser Group PLC,top_eu_500,0.052097,predicted_lowess,5022.0,EU
+4F51A6,Swedbank AB,top_eu_500,0.049919,predicted_lowess,4903.0,EU
+4F892B,Schindler Holding AG,top_eu_500,0.044119,predicted_lowess,4567.0,EU
+4FB770,Extra Space Storage Inc.,top_us_500,0.041445,predicted_lowess,4372,US
+50070E,"Goldman Sachs Group, Inc.",dow_30|top_us_100|top_us_500,0.833507,predicted_lowess,109245,US
+504FE2,"Leidos Holdings, Inc.",top_us_500,0.198806,predicted_lowess,10864,US
+505212,Covestro AG,top_eu_500,0.052483,predicted_lowess,5043.0,EU
+507AE7,KLA Corporation,top_us_100|top_us_500,0.145684,predicted_lowess,8670,US
+508CFD,"Viatris, Inc.",top_us_500,0.169724,predicted_lowess,9631,US
+5176ED,Leonardo S.p.A.,top_eu_500,0.240452,predicted_lowess,12582.0,EU
+51D876,"CBRE Group, Inc. Class A",top_us_500,0.283606,predicted_lowess,14459,US
+51E682,Cincinnati Financial Corporation,top_us_500,0.115335,predicted_lowess,7666,US
+51M43D,Ziraat Gayrimenkul Yatirim Ortakligi AS,top_eu_100|top_eu_500,0.000589,predicted_lowess,6.0,EU
+52015A,"EMCOR Group, Inc.",top_us_500,0.060540,predicted_lowess,5459,US
+520632,Abbott Laboratories,top_us_100|top_us_500,0.389243,predicted_lowess,20231,US
+524322,DSV A/S,top_eu_500,0.033214,predicted_lowess,3434.0,EU
+528DA2,EDP S.A.,top_eu_500,0.075954,predicted_lowess,6130.0,EU
+52D936,Prudential PLC,top_eu_500,0.283837,predicted_lowess,14469.0,EU
+531718,Hermes International S.C.A.,eurostoxx_50,0.035719,predicted_lowess,3841.0,EU
+54C679,Ferrovial SE,top_eu_500,0.242988,predicted_lowess,12691.0,EU
+550034,Turkiye Sise Ve Cam Fabrikalari A.S.,top_eu_100|top_eu_500,0.030261,predicted_lowess,2131.0,EU
+551F85,Metso Oyj,top_eu_500,0.043856,predicted_lowess,4550.0,EU
+554255,Sandvik AB,top_eu_500,0.082064,predicted_lowess,6401.0,EU
+55438C,Boeing Company,dow_30|top_us_100|top_us_500,0.711735,predicted_lowess,62682,US
+55C9B5,Mastercard Incorporated Class A,top_us_10|top_us_100|top_us_500,0.565936,predicted_lowess,34590,US
+55EDAF,Millicom International Cellular SA,top_eu_500,0.063137,predicted_lowess,5576,US
+56277A,"Zimmer Biomet Holdings, Inc.",top_us_500,0.142011,predicted_lowess,8541,US
+567F3D,Fortive Corp.,top_us_500,0.104804,predicted_lowess,7303,US
+57B174,Vulcan Materials Company,top_us_500,0.096655,predicted_lowess,7009,US
+57CAAB,Vertex Pharmaceuticals Incorporated,top_us_100|top_us_500,0.215226,predicted_lowess,11543,US
+57DDB9,"T-Mobile US, Inc.",top_us_500,0.434143,predicted_lowess,23510,US
+580353,Petkim Petrokimya Holding A.S.,top_eu_500,0.026947,predicted_lowess,932.0,EU
+589803,"Regeneron Pharmaceuticals, Inc.",top_us_500,0.313614,predicted_lowess,15781,US
+58A62D,Royalty Pharma Plc Class A,top_us_500,0.145627,predicted_lowess,8668,US
+58B46F,"CenterPoint Energy, Inc.",top_us_500,0.363594,predicted_lowess,18426,US
+58CA9A,Citigroup Inc.,top_us_100|top_us_500,0.684899,predicted_lowess,54220,US
+5930DD,British American Tobacco PLC,top_eu_100|top_eu_500,0.398089,predicted_lowess,20864.0,EU
+594402,United Therapeutics Corporation,top_us_500,0.106167,predicted_lowess,7351,US
+59B229,"Principal Financial Group, Inc.",top_us_500,0.185533,predicted_lowess,10307,US
+59DC38,Partners Group Holding AG,top_eu_500,0.068553,predicted_lowess,5807.0,EU
+5A52D4,EIS Eczacibasi Ilac San. Ve Tic. AS,top_eu_500,0.006453,predicted_lowess,199.0,EU
+5A6336,Trane Technologies plc,top_eu_500|top_us_500,0.135137,predicted_lowess,8309,US
+5A64D5,Carpenter Technology Corporation,top_us_500,0.035582,predicted_lowess,3819,US
+5A9A82,PPL Corporation,top_us_500,0.218669,predicted_lowess,11685,US
+5AAE75,ASR Nederland N.V.,top_eu_500,0.030593,predicted_lowess,1563.0,EU
+5AFAA3,Hufvudstaden AB,top_eu_500,0.031450,predicted_lowess,2899.0,EU
+5B9E0F,Aksa Enerji Uretim AS,top_eu_100|top_eu_500,0.002862,predicted_lowess,107.0,EU
+5BC2F4,State Street Corporation,top_us_500,0.288660,predicted_lowess,14678,US
+5C00BC,Poste Italiane S.p.A.,top_eu_500,0.069057,predicted_lowess,5829.0,EU
+5C3A5C,BIM Birlesik Magazalar AS,top_eu_100|top_eu_500,0.018573,predicted_lowess,530.0,EU
+5C5BE0,Elkem ASA,top_eu_500,0.031918,predicted_lowess,3066.0,EU
+5D37BB,Atrium Ljungberg AB,top_eu_500,0.030408,predicted_lowess,1905.0,EU
+5DD486,CME Group Inc. Class A,top_us_100|top_us_500,0.422859,predicted_lowess,22664,US
+5E6959,"Roper Technologies, Inc.",top_us_500,0.080286,predicted_lowess,6323,US
+5E9547,Tofas Turk Otomobil Fabrikasi A.S.,top_eu_100|top_eu_500,0.020649,predicted_lowess,619.0,EU
+5EF3A1,Lonza Group AG,top_eu_500,0.044660,predicted_lowess,4600.0,EU
+5F2FF7,"Delta Air Lines, Inc.",top_us_500,0.496720,predicted_lowess,28320,US
+5F9CE3,Quest Diagnostics Incorporated,top_us_500,0.119338,predicted_lowess,7796,US
+5FC63E,ABB Ltd.,top_eu_100|top_eu_500,0.188801,predicted_lowess,10445.0,EU
+6056E8,Henkel AG & Co. KGaA,top_eu_500,0.147807,predicted_lowess,8751.0,EU
+60F8A4,TE Connectivity PLC,top_eu_500,0.072567,predicted_lowess,5980.0,EU
+6137BF,Edwards Lifesciences Corporation,top_us_500,0.126315,predicted_lowess,8019,US
+6166D1,U.S. Bancorp,top_us_500,0.336394,predicted_lowess,16785,US
+616E3B,"Waste Management, Inc.",top_us_500,0.107453,predicted_lowess,7396,US
+619882,JPMorgan Chase & Co.,dow_30|top_us_10|top_us_100|top_us_500,0.999439,predicted_lowess,181261,US
+61B740,Lloyds Banking Group PLC,top_eu_500,0.495438,predicted_lowess,28219.0,EU
+61B81B,"PNC Financial Services Group, Inc.",top_us_500,0.303264,predicted_lowess,15322,US
+61BCA7,Arch Capital Group Ltd.,top_us_500,0.135698,predicted_lowess,8327,US
+61E975,"CF Industries Holdings, Inc.",top_us_500,0.154056,predicted_lowess,8987,US
+627395,BPER Banca S.p.A.,top_eu_500,0.030593,predicted_lowess,1563.0,EU
+6284B5,"Iron Mountain, Inc.",top_us_500,0.073358,predicted_lowess,6015,US
+629ACD,Turkiye Is Bankasi A.S.,top_eu_100|top_eu_500,0.021735,predicted_lowess,668.0,EU
+62C105,Sunbelt Rentals Holdings Inc.,top_eu_500,0.031354,predicted_lowess,2848.0,EU
+633054,Deutsche Telekom AG,eurostoxx_50,0.392914,predicted_lowess,20493.0,EU
+636639,Dover Corporation,top_us_500,0.102467,predicted_lowess,7220,US
+63A9BE,Geberit AG,top_eu_500,0.032479,predicted_lowess,3256.0,EU
+63F892,"Fortinet, Inc.",top_us_500,0.240127,predicted_lowess,12568,US
+641F17,Valero Energy Corporation,top_us_500,0.195234,predicted_lowess,10715,US
+642EEA,Amadeus IT Group S.A.,top_eu_500,0.034828,predicted_lowess,3691.0,EU
+64CEBB,Aptiv PLC,top_eu_500|top_us_500,0.147702,predicted_lowess,8747,US
+64E346,"Autodesk, Inc.",top_us_500,0.191296,predicted_lowess,10550,US
+652E62,PG&E Corporation,top_us_500,0.213099,predicted_lowess,11455,US
+665D7D,"AbbVie, Inc.",top_us_10|top_us_100|top_us_500,0.451102,predicted_lowess,24789,US
+66CB62,Expand Energy Corporation,top_us_500,0.076089,predicted_lowess,6136,US
+66DZZV,Vår Energi ASA,top_eu_500,0.035774,predicted_lowess,3850.0,EU
+66E04A,Hilton Worldwide Holdings Inc.,top_us_500,0.278198,predicted_lowess,14224,US
+66ECFD,"Automatic Data Processing, Inc.",top_us_500,0.047572,predicted_lowess,4772,US
+675376,Telefonaktiebolaget LM Ericsson AB,top_eu_500,0.295266,predicted_lowess,14966.0,EU
+67A658,Anglo American PLC,top_eu_500,0.279117,predicted_lowess,14264.0,EU
+6844D2,FedEx Corporation,top_us_500,0.491367,predicted_lowess,27899,US
+689494,Coca-Cola Icecek A.S.,top_eu_100|top_eu_500,0.028542,predicted_lowess,1060.0,EU
+691BA6,Entra ASA,top_eu_500,0.074752,predicted_lowess,6077.0,EU
+69345C,"Advanced Micro Devices, Inc.",top_us_100|top_us_500,0.652974,predicted_lowess,48453,US
+697402,MONETA Money Bank A.S.,top_eu_100|top_eu_500,0.029930,predicted_lowess,1222.0,EU
+69ADD9,Volkswagen AG,eurostoxx_50|top_eu_500,0.725333,predicted_lowess,69125.0,EU
+69CC3E,Swiss Life Holding AG,top_eu_500,0.030276,predicted_lowess,2300.0,EU
+69CE71,CVS Health Corporation,top_us_500,0.271614,predicted_lowess,13937,US
+69EF5D,Recordati S.p.A.,top_eu_500,0.030385,predicted_lowess,1925.0,EU
+6A027C,Flutter Entertainment Plc,eurostoxx_50|top_eu_500|top_us_500,0.159135,predicted_lowess,9187,US
+6A091A,"Entegris, Inc.",top_us_500,0.077940,predicted_lowess,6219,US
+6ABCB8,"Monolithic Power Systems, Inc.",top_us_500,0.052318,predicted_lowess,5034,US
+6B0784,Mettler-Toledo International Inc.,top_us_500,0.043500,observed,1004,US
+6B236C,"Invitation Homes, Inc.",top_us_500,0.087202,predicted_lowess,6623,US
+6B2371,ALK-Abello A/S,top_eu_500,0.084899,predicted_lowess,6524.0,EU
+6B5379,Parker-Hannifin Corporation,top_us_100|top_us_500,0.079245,predicted_lowess,6277,US
+6BC61F,Banca Monte dei Paschi di Siena S.p.A.,top_eu_500,0.032496,predicted_lowess,3264.0,EU
+6CC55E,Incyte Corporation,top_us_500,0.174319,predicted_lowess,9829,US
+6CGTFN,Walt Disney Company,dow_30|top_us_100|top_us_500,0.878544,predicted_lowess,126576,US
+6D064B,Brim hf.,top_eu_100|top_eu_500,0.016499,predicted_lowess,459.0,EU
+6DBBBC,"American Water Works Company, Inc.",top_us_500,0.189038,predicted_lowess,10455,US
+6E1E61,"O'Reilly Automotive, Inc.",top_us_500,0.087999,predicted_lowess,6657,US
+6E5E72,KBC Groep N.V.,top_eu_500,0.063829,predicted_lowess,5606.0,EU
+6E705B,"United Airlines Holdings, Inc.",top_us_500,0.183739,predicted_lowess,10231,US
+6E7060,Entergy Corporation,top_us_500,0.207499,predicted_lowess,11224,US
+6E9442,Enel S.p.A.,eurostoxx_50|top_eu_100|top_eu_500,0.195353,predicted_lowess,10720.0,EU
+6EA269,Commerzbank AG,top_eu_500,0.179014,predicted_lowess,10030.0,EU
+6EB9DA,"W.W. Grainger, Inc.",top_us_500,0.077157,predicted_lowess,6184,US
+6ED519,NiSource Inc,top_us_500,0.129867,predicted_lowess,8137,US
+6EE648,Moncler S.p.A.,top_eu_500,0.035115,predicted_lowess,3744.0,EU
+6F02DF,DNB Bank ASA,top_eu_500,0.186668,predicted_lowess,10355.0,EU
+6F6559,"Paychex, Inc.",top_us_500,0.064957,predicted_lowess,5654,US
+6LW8TA,Brookfield Asset Management Ltd. Class A,top_us_500,0.171206,predicted_lowess,9695,US
+7055C5,Vonovia SE,top_eu_500,0.062980,predicted_lowess,5569.0,EU
+713810,Walmart Inc.,dow_30|top_us_10|top_us_100|top_us_500,0.642000,observed,32983,US
+726EEA,"ITT, Inc.",top_us_500,0.086385,predicted_lowess,6588,US
+7286BE,AF Gruppen ASA,top_eu_500,0.022482,predicted_lowess,701.0,EU
+72BEB6,Intesa Sanpaolo S.p.A.,eurostoxx_50|top_eu_100|top_eu_500,0.048300,observed,2079,EU
+72DF04,"J.B. Hunt Transport Services, Inc.",top_us_500,0.046659,predicted_lowess,4720,US
+734206,SpareBank 1 Ostlandet ASA,top_eu_500,0.033206,predicted_lowess,3429.0,EU
+736AB6,STMicroelectronics N.V.,top_eu_500,0.281717,predicted_lowess,14377.0,EU
+73B0E0,Turkcell Iletisim Hizmetleri A.S.,top_eu_100|top_eu_500,0.074211,predicted_lowess,6053.0,EU
+73B927,Barclays PLC,top_eu_100|top_eu_500,0.732856,predicted_lowess,72912.0,EU
+73C521,Regions Financial Corporation,top_us_500,0.222076,predicted_lowess,11825,US
+744690,Arcelik A.S.,top_eu_500,0.030546,predicted_lowess,1766.0,EU
+74933B,ASM International N.V.,top_eu_500,0.035941,predicted_lowess,3877.0,EU
+7507A6,Euronext N.V.,top_eu_500,0.038196,predicted_lowess,4114.0,EU
+751A74,Royal Caribbean Group,top_us_500,0.187733,predicted_lowess,10400,US
+75F982,LVMH Moet Hennessy Louis Vuitton SE,eurostoxx_50,0.314743,predicted_lowess,15831.0,EU
+766047,"Hartford Insurance Group, Inc.",top_us_500,0.141303,predicted_lowess,8516,US
+7677AE,Dogus Otomotiv Servis ve Ticaret A.S.,top_eu_500,0.006030,predicted_lowess,189.0,EU
+767F86,Caterpillar Inc.,dow_30|top_us_100|top_us_500,0.325910,predicted_lowess,16324,US
+7697D2,Torm PLC,top_eu_500,0.190511,predicted_lowess,10517.0,EU
+76E80F,"Lowe's Companies, Inc.",top_us_100|top_us_500,0.332387,predicted_lowess,16609,US
+76F067,Amgen Inc.,dow_30|top_us_100|top_us_500,0.383431,predicted_lowess,19818,US
+771985,"Coeur Mining, Inc.",top_us_500,0.297039,predicted_lowess,15045,US
+77579C,SpareBank 1 Sør-Norge ASA,top_eu_500,0.032917,predicted_lowess,3354.0,EU
+7796FE,Sonova Holding AG,top_eu_500,0.030538,predicted_lowess,1474.0,EU
+789A7D,Ameren Corporation,top_us_500,0.167737,predicted_lowess,9545,US
+789ADD,"Church & Dwight Co., Inc.",top_us_500,0.115032,predicted_lowess,7656,US
+789D88,Banco Bilbao Vizcaya Argentaria S.A.,eurostoxx_50|top_eu_100|top_eu_500,0.045900,observed,2932,EU
+790C34,ON Semiconductor Corporation,top_us_500,0.076444,predicted_lowess,6152,US
+794A66,Granges AB,top_eu_500,0.030281,predicted_lowess,2040.0,EU
+7999F3,"Ventas, Inc.",top_us_500,0.089012,predicted_lowess,6700,US
+79C50D,Strabag SE,top_eu_500,0.024921,predicted_lowess,826.0,EU
+7A10FF,"Mondelez International, Inc. Class A",top_us_500,0.238200,predicted_lowess,12485,US
+7A3633,"Block, Inc. Class A",top_us_500,0.352374,predicted_lowess,17651,US
+7A54FE,Givaudan S.A.,top_eu_500,0.091078,predicted_lowess,6786.0,EU
+7A8893,Bureau Veritas SA,top_eu_500,0.103731,predicted_lowess,7265.0,EU
+7AB859,"Elevance Health, Inc.",top_us_500,0.250366,predicted_lowess,13007,US
+7AC86E,DTE Energy Company,top_us_500,0.149202,predicted_lowess,8804,US
+7B0BA6,"Fidelity National Information Services, Inc.",top_us_500,0.179131,predicted_lowess,10035,US
+7B1E50,FirstEnergy Corp.,top_us_500,0.218426,predicted_lowess,11675,US
+7B31BE,Fabrinet,top_us_500,0.035935,predicted_lowess,3876,US
+7BAAE7,CMS Energy Corporation,top_us_500,0.127654,predicted_lowess,8063,US
+7C1C76,BioNTech SE,top_eu_500,0.334504,predicted_lowess,16702.0,EU
+7C37A3,Eregli Demir ve Celik Fabrikalari T.A.S.,top_eu_100|top_eu_500,0.027189,predicted_lowess,945.0,EU
+7C5E15,Zurich Insurance Group AG,top_eu_100|top_eu_500,0.183196,predicted_lowess,10208.0,EU
+7C623A,Horizon Therapeutics Ltd. (Ireland),top_eu_500,0.024707,predicted_lowess,813.0,EU
+7D453A,BAWAG Group AG,top_eu_500,0.042699,predicted_lowess,4468.0,EU
+7D5FD6,"PulteGroup, Inc.",top_us_500,0.172064,predicted_lowess,9732,US
+7D6547,Swiss Prime Site AG,top_eu_500,0.030419,predicted_lowess,2397.0,EU
+7D85A9,"Cencora, Inc.",top_us_500,0.222783,predicted_lowess,11854,US
+7DB9AC,Colt CZ Group SE,top_eu_500,0.030271,predicted_lowess,2256.0,EU
+7E1D5D,"Synopsys, Inc.",top_us_500,0.228361,predicted_lowess,12082,US
+7E3F8F,IQVIA Holdings Inc,top_us_500,0.241313,predicted_lowess,12619,US
+7EBC5B,Sika AG,top_eu_500,0.119897,predicted_lowess,7814.0,EU
+7ED6E7,Essity AB,top_eu_100|top_eu_500,0.144370,predicted_lowess,8624.0,EU
+806766,EDP Renovaveis S.A.,top_eu_500,0.030454,predicted_lowess,1866.0,EU
+80B32C,Heidelberg Materials AG,top_eu_500,0.046817,predicted_lowess,4729.0,EU
+80BE8A,Adyen N.V.,eurostoxx_50|top_eu_500,0.089224,predicted_lowess,6709.0,EU
+80D76F,PDD Holdings Inc.,top_eu_100|top_eu_500,0.030310,predicted_lowess,1995.0,EU
+810E30,"MetLife, Inc.",top_us_500,0.232614,predicted_lowess,12255,US
+816A37,Vestas Wind Systems A/S,top_eu_500,0.060782,predicted_lowess,5470.0,EU
+818072,Roblox Corp. Class A,top_us_500,0.365937,predicted_lowess,18589,US
+820C99,Nordex SE,top_eu_500,0.060189,predicted_lowess,5443.0,EU
+823D23,Gubre Fabrikalari T.A.S.,top_eu_100|top_eu_500,0.000589,predicted_lowess,25.0,EU
+82FD6D,RBC Bearings Incorporated,top_us_500,0.031189,predicted_lowess,2762,US
+8377DB,Fifth Third Bancorp,top_us_500,0.379259,predicted_lowess,19523,US
+840033,Pegasus Hava Tasimaciligi AS,top_eu_500,0.030356,predicted_lowess,1328.0,EU
+840EAB,Compagnie de Saint-Gobain S.A.,top_eu_500,0.090713,predicted_lowess,6771.0,EU
+86170D,Spotify Technology SA,top_eu_100|top_eu_500|top_us_500,0.709308,predicted_lowess,61585,US
+8665BA,Thermo Fisher Scientific Inc.,top_us_100|top_us_500,0.419588,predicted_lowess,22424,US
+86A1B9,Cigna Group,top_us_500,0.217868,predicted_lowess,11652,US
+872855,Catena AB,top_eu_500,0.030615,predicted_lowess,1651.0,EU
+873DB9,"Becton, Dickinson and Company",top_us_500,0.230867,predicted_lowess,12184,US
+87B81A,CDW Corporation,top_us_500,0.057129,predicted_lowess,5291,US
+882DCF,Vestel Beyaz Esya Sanayi Ve Ticaret A.S.,top_eu_500,0.000926,predicted_lowess,46.0,EU
+885758,Bloom Energy Corporation Class A,top_us_500,0.182961,predicted_lowess,10198,US
+8876D6,Adidas AG,eurostoxx_50|top_eu_500,0.426907,predicted_lowess,22962.0,EU
+890255,Shell PLC,top_eu_100|top_eu_500,0.532571,predicted_lowess,31184.0,EU
+89054D,Saipem S.p.A.,top_eu_100|top_eu_500,0.057744,predicted_lowess,5323.0,EU
+890C4E,TechnipFMC plc,top_us_500,0.128251,predicted_lowess,8083,US
+890F10,Lagercrantz Group AB,top_eu_500,0.015848,predicted_lowess,439.0,EU
+894CB4,Allegro.eu S.A.,top_eu_100|top_eu_500,0.032432,predicted_lowess,3235.0,EU
+895B74,KOC Holding A.S.,top_eu_100|top_eu_500,0.027021,predicted_lowess,936.0,EU
+8A3FC9,Nordnet AB,top_eu_500,0.052483,predicted_lowess,5043.0,EU
+8A8E41,Verizon Communications Inc.,dow_30|top_us_100|top_us_500,0.591092,predicted_lowess,38322,US
+8A999F,Hapag-Lloyd AG,top_eu_500,0.106025,predicted_lowess,7346.0,EU
+8AC990,Bank Millennium S.A.,top_eu_500,0.057072,predicted_lowess,5288.0,EU
+8AM205,"Kenvue, Inc.",top_us_500,0.110949,predicted_lowess,7517,US
+8B1ED3,Hexagon AB,top_eu_500,0.047819,predicted_lowess,4786.0,EU
+8B38DB,Nolato AB,top_eu_500,0.030328,predicted_lowess,1313.0,EU
+8B4A45,"Copart, Inc.",top_us_500,0.035371,predicted_lowess,3785,US
+8BBCDA,Rocket Lab Corporation,top_us_500,0.260406,predicted_lowess,13446,US
+8C005F,Oyak Cimento Fabrikalari A.S.,top_eu_100|top_eu_500,0.004685,predicted_lowess,156.0,EU
+8C15E2,Koninklijke KPN N.V.,top_eu_500,0.034362,predicted_lowess,3613.0,EU
+8C5519,"Prologis, Inc.",top_us_100|top_us_500,0.226009,predicted_lowess,11986,US
+8C6C1B,"Ross Stores, Inc.",top_us_500,0.056517,predicted_lowess,5259,US
+8D1632,Tele2 AB,top_eu_500,0.030291,predicted_lowess,2023.0,EU
+8D40EC,PKO Bank Polski S.A.,top_eu_500,0.079448,predicted_lowess,6286.0,EU
+8D4486,International Business Machines Corporation,dow_30|top_us_100|top_us_500,0.689473,predicted_lowess,55077,US
+8DC7AC,Unipol Gruppo S.p.A.,top_eu_500,0.032132,predicted_lowess,3129.0,EU
+8E0E32,International Paper Company,top_us_500,0.141331,predicted_lowess,8517,US
+8E75A5,Nyfosa AB,top_eu_500,0.030351,predicted_lowess,1325.0,EU
+8E82A6,Albemarle Corporation,top_us_500,0.298498,predicted_lowess,15110,US
+8EA478,"Moderna, Inc.",top_us_500,0.409263,predicted_lowess,21671,US
+8F67EE,Imperial Brands PLC,top_eu_500,0.029557,predicted_lowess,1165.0,EU
+8FF2EF,Progressive Corporation,top_us_100|top_us_500,0.333912,predicted_lowess,16676,US
+8FFD2D,London Stock Exchange Group PLC,top_eu_500,0.199094,predicted_lowess,10876.0,EU
+8VCHP2,Credo Technology Group Holding Ltd.,top_us_500,0.070048,predicted_lowess,5872,US
+900356,"Simon Property Group, Inc.",top_us_500,0.231875,predicted_lowess,12225,US
+9022A0,Aviva PLC,top_eu_500,0.260838,predicted_lowess,13465.0,EU
+9114B8,OMV AG,top_eu_500,0.036028,predicted_lowess,3891.0,EU
+911AB8,Newmont Corporation,top_us_100|top_us_500,0.397505,predicted_lowess,20822,US
+913121,Lindab International AB,top_eu_500,0.019834,predicted_lowess,583.0,EU
+9196A2,Morgan Stanley,top_us_100|top_us_500,0.872401,predicted_lowess,124115,US
+91B8B1,Accenture Plc Class A,top_eu_100|top_eu_500|top_us_100|top_us_500,0.397714,predicted_lowess,20837,US
+91C82E,Lennar Corporation Class A,top_us_500,0.149730,predicted_lowess,8824,US
+921CBB,Kuehne + Nagel International AG,top_eu_500,0.030309,predicted_lowess,1996.0,EU
+925050,Jeronimo Martins SGPS S.A.,top_eu_500,0.030452,predicted_lowess,1384.0,EU
+92589A,Gedeon Richter Nyrt.,top_eu_100|top_eu_500,0.029689,predicted_lowess,1185.0,EU
+92D3A0,Fastenal Company,top_us_500,0.068033,predicted_lowess,5785,US
+93284C,Fastighets AB Balder,top_eu_500,0.031915,predicted_lowess,3065.0,EU
+934CC3,"NetApp, Inc.",top_us_500,0.103646,predicted_lowess,7262,US
+93D207,Visa Inc. Class A,dow_30|top_us_10|top_us_100|top_us_500,0.485583,predicted_lowess,27446,US
+93F143,"Teradyne, Inc.",top_us_500,0.167991,predicted_lowess,9556,US
+940C3D,Baker Hughes Company Class A,top_us_500,0.282638,predicted_lowess,14417,US
+9453BA,Atlas Copco AB,top_eu_500,0.037062,predicted_lowess,4023.0,EU
+945DE6,Westinghouse Air Brake Technologies Corporation,top_us_500,0.079516,predicted_lowess,6289,US
+94637C,Bristol-Myers Squibb Company,top_us_100|top_us_500,0.452273,predicted_lowess,24878,US
+94A811,Novartis AG,top_eu_100|top_eu_500,0.582295,predicted_lowess,36992.0,EU
+9548BB,Carlisle Companies Incorporated,top_us_500,0.040638,predicted_lowess,4308,US
+954E30,McDonald's Corporation,dow_30|top_us_100|top_us_500,0.634886,predicted_lowess,45350,US
+95805E,Enerjisa Enerji A.S.,top_eu_100|top_eu_500,0.012107,predicted_lowess,334.0,EU
+95DC1F,Kroger Co.,top_us_500,0.263685,predicted_lowess,13590,US
+95F411,HMS Networks AB,top_eu_500,0.030548,predicted_lowess,1490.0,EU
+968B00,Loews Corporation,top_us_500,0.240824,predicted_lowess,12598,US
+96D34D,Vertiv Holdings Co. Class A,top_us_500,0.241034,predicted_lowess,12607,US
+96F126,Lockheed Martin Corporation,top_us_100|top_us_500,0.502291,predicted_lowess,28760,US
+972356,eBay Inc.,top_us_500,0.362211,predicted_lowess,18330,US
+97693A,lululemon athletica inc.,top_us_500,0.339951,predicted_lowess,16941,US
+977A1E,Dominion Energy Inc,top_us_500,0.337146,predicted_lowess,16818,US
+97AAF6,"Consolidated Edison, Inc.",top_us_500,0.134856,predicted_lowess,8300,US
+97C9D9,Novonesis A/S,top_eu_500,0.034570,predicted_lowess,3641.0,EU
+986AF6,Nucor Corporation,top_us_500,0.084391,predicted_lowess,6502,US
+9897E7,EMS-Chemie Holding AG,top_eu_500,0.012513,predicted_lowess,344.0,EU
+990599,Schneider Electric SE,eurostoxx_50|top_eu_500,0.304817,predicted_lowess,15391.0,EU
+990AD0,Bank of America Corp,top_us_100|top_us_500,0.778225,predicted_lowess,90158,US
+99333F,Johnson Controls International plc,top_eu_500|top_us_500,0.140964,predicted_lowess,8504,US
+995014,Avanza Bank Holding AB,top_eu_500,0.032196,predicted_lowess,3148.0,EU
+9A02C4,"Ameriprise Financial, Inc.",top_us_500,0.100849,predicted_lowess,7162,US
+9A3FF4,Allegion Public Limited Company,top_eu_500,0.050307,predicted_lowess,4924,US
+9A4ECA,AppLovin Corp. Class A,top_us_500,0.187568,predicted_lowess,10393,US
+9A602D,Ecolab Inc.,top_us_500,0.137984,predicted_lowess,8400,US
+9A95B8,Traton SE,top_eu_500,0.067531,predicted_lowess,5764.0,EU
+9AEA2D,Continental AG,top_eu_500,0.111970,predicted_lowess,7552.0,EU
+9B0864,Lifco AB,top_eu_500,0.040828,predicted_lowess,4323.0,EU
+9B16D5,Deutsche Bank AG,eurostoxx_50|top_eu_100|top_eu_500,0.734404,predicted_lowess,73712.0,EU
+9B5968,"Marsh & McLennan Companies, Inc.",top_us_500,0.131675,predicted_lowess,8197,US
+9BA7AA,Turkiye Garanti Bankasi A.S.,top_eu_100|top_eu_500,0.030940,predicted_lowess,2639.0,EU
+9BBFA5,"Darden Restaurants, Inc.",top_us_500,0.060408,predicted_lowess,5453,US
+9C25FF,"Live Nation Entertainment, Inc.",top_us_500,0.408326,predicted_lowess,21603,US
+9C5174,Insulet Corporation,top_us_500,0.114973,predicted_lowess,7654,US
+9C7B0D,KGHM Polska Miedz S.A.,top_eu_500,0.087647,predicted_lowess,6642.0,EU
+9CA619,"General Mills, Inc.",top_us_500,0.192869,predicted_lowess,10616,US
+9D1E1A,Groupe Bruxelles Lambert S.A.,top_eu_500,0.032730,predicted_lowess,3320.0,EU
+9D2790,Sysco Corporation,top_us_500,0.131917,predicted_lowess,8205,US
+9D30A8,Teledyne Technologies Incorporated,top_us_500,0.202441,predicted_lowess,11015,US
+9D56F2,"McCormick & Company, Incorporated",top_us_500,0.143487,predicted_lowess,8593,US
+9DB0EF,ABN AMRO Bank N.V.,top_eu_500,0.155954,predicted_lowess,9062.0,EU
+9E16E7,A.P. Moller-Maersk A/S,top_eu_500,0.183621,predicted_lowess,10226.0,EU
+9EF918,RWE AG,top_eu_500,0.057878,predicted_lowess,5330.0,EU
+9F03CF,Hershey Company,top_us_500,0.196502,predicted_lowess,10768,US
+9F09C9,Halma PLC,top_eu_500,0.015880,predicted_lowess,440.0,EU
+9F18FA,TransDigm Group Incorporated,top_us_500,0.112263,predicted_lowess,7562,US
+9F6B1A,Labcorp Holdings Inc.,top_us_500,0.254862,predicted_lowess,13202,US
+9F71E5,"Intercontinental Exchange, Inc.",top_us_500,0.290278,predicted_lowess,14748,US
+A01664,"Take-Two Interactive Software, Inc.",top_us_500,0.093699,predicted_lowess,6892,US
+A054B9,Modern Times Group MTG AB,top_eu_500,0.019558,predicted_lowess,571.0,EU
+A07DC6,Acciona S.A.,top_eu_500,0.031230,predicted_lowess,2783.0,EU
+A117F8,Allianz SE,eurostoxx_50,0.373661,predicted_lowess,19129.0,EU
+A13149,ASSA ABLOY AB,top_eu_500,0.042475,predicted_lowess,4452.0,EU
+A1A4EE,Türkiye Petrol Rafinerileri A.S.,top_eu_100|top_eu_500,0.030487,predicted_lowess,1407.0,EU
+A1E3B3,Veeva Systems Inc Class A,top_us_500,0.085780,predicted_lowess,6562,US
+A1EAC8,"Huntington Ingalls Industries, Inc.",top_us_500,0.135635,predicted_lowess,8325,US
+A1EDD8,Bollore SE,top_eu_500,0.024270,predicted_lowess,789.0,EU
+A1FF80,Fortum Oyj,top_eu_500,0.055675,predicted_lowess,5214.0,EU
+A247F5,Fair Isaac Corporation,top_us_500,0.252404,predicted_lowess,13094,US
+A28C54,Vinci S.A.,eurostoxx_50|top_eu_500,0.052207,predicted_lowess,5028.0,EU
+A42637,Prosus N.V.,eurostoxx_50|top_eu_500,0.030587,predicted_lowess,1553.0,EU
+A43906,"EOG Resources, Inc.",top_us_500,0.094277,predicted_lowess,6915,US
+A473AE,Compagnie Financiere Richemont S.A.,top_eu_100|top_eu_500,0.023514,predicted_lowess,751.0,EU
+A4BCDE,"Applied Materials, Inc.",top_us_100|top_us_500,0.200561,predicted_lowess,10937,US
+A504F5,Orange Polska S.A.,top_eu_500,0.033238,predicted_lowess,3449.0,EU
+A52060,Legrand S.A.,top_eu_500,0.030260,predicted_lowess,2116.0,EU
+A52B6B,"Palo Alto Networks, Inc.",top_us_100|top_us_500,0.396376,predicted_lowess,20741,US
+A584AC,Orkla ASA,top_eu_500,0.030950,predicted_lowess,2644.0,EU
+A5B913,"VeriSign, Inc.",top_us_500,0.031220,predicted_lowess,2778,US
+A5C69D,Assicurazioni Generali S.p.A.,top_eu_500,0.046302,predicted_lowess,4699.0,EU
+A6213D,Ford Motor Company,top_us_500,0.751311,predicted_lowess,81702,US
+A63820,"Chipotle Mexican Grill, Inc.",top_us_500,0.189750,predicted_lowess,10485,US
+A6828A,Johnson & Johnson,dow_30|top_us_10|top_us_100|top_us_500,0.603033,predicted_lowess,40171,US
+A6BE37,Ascendis Pharma A/S,top_eu_500,0.233946,predicted_lowess,12309.0,EU
+A72AB6,"Burlington Stores, Inc.",top_us_500,0.045686,predicted_lowess,4662,US
+A72AEF,Carvana Co. Class A,top_us_500,0.386826,predicted_lowess,20059,US
+A75ABE,Wolters Kluwer N.V.,top_eu_500,0.112879,predicted_lowess,7583.0,EU
+A7C367,Migros Ticaret A.S.,top_eu_100|top_eu_500,0.022908,predicted_lowess,721.0,EU
+A80FE0,American Tower Corporation,top_us_500,0.138110,predicted_lowess,8404,US
+A84DC3,Swiss Re Ltd.,top_eu_500,0.165525,predicted_lowess,9449.0,EU
+A85490,Heineken N.V.,top_eu_500,0.123846,predicted_lowess,7940.0,EU
+A8A146,Engie S.A.,top_eu_500,0.134545,predicted_lowess,8290.0,EU
+A8B51F,Borusan Yatirim ve Pazarlama A.S.,top_eu_500,,not_found,,
+A905D3,"Reddit, Inc. Class A",top_us_500,0.701024,predicted_lowess,57956,US
+AA5C8E,Kinder Morgan Inc Class P,top_us_500,0.102747,predicted_lowess,7230,US
+AA7506,Raiffeisen Bank International AG,top_eu_500,0.032785,predicted_lowess,3330.0,EU
+AADE0B,Arthur J. Gallagher & Co.,top_us_500,0.193728,predicted_lowess,10652,US
+AB4B9A,Safran S.A.,eurostoxx_50|top_eu_100|top_eu_500,0.066865,predicted_lowess,5736.0,EU
+AB7AB7,Electricite de France S.A.,top_eu_500,0.076689,predicted_lowess,6163.0,EU
+AC78F4,Sinch AB,top_eu_500,0.027409,predicted_lowess,962.0,EU
+ACDF88,"Home Depot, Inc.",dow_30|top_us_100|top_us_500,0.486223,predicted_lowess,27496,US
+ACF77B,PACCAR Inc,top_us_500,0.144341,predicted_lowess,8623,US
+AD1ACF,"Tyson Foods, Inc. Class A",top_us_500,0.141303,predicted_lowess,8516,US
+AD23DE,Equifax Inc.,top_us_500,0.231014,predicted_lowess,12190,US
+AD3C93,Aflac Incorporated,top_us_500,0.183102,predicted_lowess,10204,US
+AD475F,Norsk Hydro ASA,top_eu_500,0.030296,predicted_lowess,2015.0,EU
+AD713F,Olav Thon Eiendomsselskap ASA,top_eu_500,0.017276,predicted_lowess,485.0,EU
+AD88B3,Afry AB,top_eu_500,0.036127,predicted_lowess,3907.0,EU
+ADF092,"Warner Bros. Discovery, Inc. Series A",top_us_500,0.782407,predicted_lowess,91520,US
+AE0271,Marel hf.,top_eu_100|top_eu_500,0.010585,predicted_lowess,297.0,EU
+AE0DB4,ENI S.p.A.,eurostoxx_50|top_eu_100|top_eu_500,0.423906,predicted_lowess,22741.0,EU
+AE4ACE,Bank of Ireland Group PLC,top_eu_500,0.152644,predicted_lowess,8934.0,EU
+AE4EEB,Equity Residential,top_us_500,0.066467,predicted_lowess,5719,US
+AE8CE0,Telenor ASA,top_eu_500,0.043149,predicted_lowess,4500.0,EU
+AE8D72,Christian Dior SE,top_eu_500,0.081424,predicted_lowess,6373.0,EU
+AEA57C,Jazz Pharmaceuticals Public Limited Company,top_eu_500,0.127016,predicted_lowess,8042,US
+AFCFF2,ASML Holding N.V.,eurostoxx_50|top_eu_100|top_eu_500,0.499863,predicted_lowess,28568.0,EU
+AFD7DD,"Evergy, Inc.",top_us_500,0.145341,predicted_lowess,8658,US
+AFEC35,Public Storage,top_us_500,0.099052,predicted_lowess,7097,US
+ATOQTU,Smart Gunes Enerjisi Tek,top_eu_500,0.000589,predicted_lowess,18.0,EU
+AXWAKS,Nu Holdings Ltd. Class A,top_us_500,0.036520,predicted_lowess,3957,US
+B115EF,Societe Generale S.A.,top_eu_500,0.460856,predicted_lowess,25533.0,EU
+B16273,Adevinta ASA,top_eu_500,0.009828,predicted_lowess,279.0,EU
+B1977A,Selcuk Ecza Deposu Ticaret ve Sanayi A.S.,top_eu_500,0.004764,predicted_lowess,158.0,EU
+B20D2E,Bravida Holding AB,top_eu_500,0.030444,predicted_lowess,1379.0,EU
+B2AA0A,Erste Group Bank AG,top_eu_500,0.139752,predicted_lowess,8461.0,EU
+B2E6B5,Atmos Energy Corporation,top_us_500,0.031438,predicted_lowess,2893,US
+B303A6,Exelon Corporation,top_us_500,0.270332,predicted_lowess,13881,US
+B3CB74,"Raymond James Financial, Inc.",top_us_500,0.478666,predicted_lowess,26907,US
+B49AB7,Thales S.A.,top_eu_500,0.155802,predicted_lowess,9056.0,EU
+B4C673,"Yum! Brands, Inc.",top_us_500,0.113761,predicted_lowess,7613,US
+B4C694,Smurfit Kappa Group PLC,top_eu_500,0.027718,predicted_lowess,986.0,EU
+B4E00D,Flex Ltd,top_us_500,0.059133,predicted_lowess,5394,US
+B560AF,Public Service Enterprise Group Inc,top_us_500,0.114204,predicted_lowess,7628,US
+B6082A,Packaging Corporation of America,top_us_500,0.059004,predicted_lowess,5388,US
+B642E8,Sempra,top_us_500,0.229490,predicted_lowess,12128,US
+B65303,AstraZeneca PLC,top_eu_100|top_eu_500,0.590974,predicted_lowess,38304.0,EU
+B72D2E,EssilorLuxottica SA,eurostoxx_50|top_eu_100|top_eu_500,0.062332,predicted_lowess,5540.0,EU
+B73B08,argenx SE,top_eu_100|top_eu_500,0.247770,predicted_lowess,12896.0,EU
+B753B1,Dogan Sirketler Grubu Holding A.S.,top_eu_500,0.012983,predicted_lowess,357.0,EU
+B76277,Air Liquide S.A.,eurostoxx_50|top_eu_100|top_eu_500,0.186265,predicted_lowess,10338.0,EU
+B77AF6,UniCredit S.p.A.,eurostoxx_50|top_eu_100|top_eu_500,0.353320,predicted_lowess,17716.0,EU
+B7B747,Telia Co. AB,top_eu_500,0.042741,predicted_lowess,4471.0,EU
+B7BDA3,"Cheniere Energy, Inc.",top_us_500,0.265282,predicted_lowess,13660,US
+B7EB38,"IDEXX Laboratories, Inc.",top_us_500,0.129567,predicted_lowess,8127,US
+B803B1,Liberty Media Corporation Series C Liberty Formula One,top_us_500,0.373262,predicted_lowess,19101,US
+B840EF,"DexCom, Inc.",top_us_500,0.131041,predicted_lowess,8176,US
+B887A5,Bankinter S.A.,top_eu_500,0.022040,predicted_lowess,682.0,EU
+B8BD37,AerCap Holdings N.V.,top_eu_500,0.252006,predicted_lowess,13077.0,EU
+B8EF97,Costco Wholesale Corporation,top_us_10|top_us_100|top_us_500,0.665521,predicted_lowess,50675,US
+B8F71F,W. R. Berkley Corporation,top_us_500,0.077828,predicted_lowess,6214,US
+BA2D83,"Dow, Inc.",top_us_500,0.271500,predicted_lowess,13932,US
+BA9110,Fresenius SE & Co. KGaA,top_eu_500,0.046764,predicted_lowess,4726.0,EU
+BB036E,"Robinhood Markets, Inc. Class A",top_us_500,0.428886,predicted_lowess,23108,US
+BB0787,"Tapestry, Inc.",top_us_500,0.063025,predicted_lowess,5571,US
+BB07E4,Amphenol Corporation Class A,top_us_100|top_us_500,0.169654,predicted_lowess,9628,US
+BB127B,"Salesforce, Inc.",dow_30|top_us_100|top_us_500,0.537528,predicted_lowess,31586,US
+BB88B6,"ServiceNow, Inc.",top_us_500,0.426365,predicted_lowess,22922,US
+BC77BC,Publicis Groupe S.A.,top_eu_500,0.049643,predicted_lowess,4888.0,EU
+BC8373,Banco Santander S.A.,eurostoxx_50|top_eu_100|top_eu_500,0.730568,predicted_lowess,71743.0,EU
+BC8E88,VAT Group AG,top_eu_500,0.030292,predicted_lowess,2021.0,EU
+BC9793,HSBC Holdings PLC,top_eu_100|top_eu_500,0.642267,predicted_lowess,46602.0,EU
+BF0081,Hektas Ticaret T.A.S.,top_eu_500,0.000589,predicted_lowess,23.0,EU
+BF4F6A,Beiersdorf AG,top_eu_500,0.046659,predicted_lowess,4720.0,EU
+BF79F5,"West Pharmaceutical Services, Inc.",top_us_500,0.144313,predicted_lowess,8622,US
+BFAEB4,Cintas Corporation,top_us_500,0.045023,predicted_lowess,4622,US
+BFE02C,"Citizens Financial Group, Inc.",top_us_500,0.217844,predicted_lowess,11651,US
+C0030A,Somnigroup International Inc.,top_us_500,0.089319,predicted_lowess,6713,US
+C03C8B,"Zoetis, Inc. Class A",top_us_500,0.145684,predicted_lowess,8670,US
+C08256,Blackstone Inc.,top_us_500,0.597455,predicted_lowess,39301,US
+C0BA36,Coherent Corp.,top_us_500,0.045089,predicted_lowess,4626,US
+C12ED9,Nokia Corp.,eurostoxx_50|top_eu_100|top_eu_500,0.462852,predicted_lowess,25686.0,EU
+C15DB3,Genuine Parts Company,top_us_500,0.094680,predicted_lowess,6931,US
+C1AEF1,Heineken Holding N.V.,top_eu_500,0.031485,predicted_lowess,2918.0,EU
+C1C633,Dassault Systemes SE,top_eu_500,0.064518,predicted_lowess,5635.0,EU
+C20B75,Otis Worldwide Corporation,top_us_500,0.078366,predicted_lowess,6238,US
+C21F26,Osram Licht AG,top_eu_500,0.023474,predicted_lowess,749.0,EU
+C24FAF,Deutsche Boerse AG,eurostoxx_50|top_eu_500,0.098997,predicted_lowess,7095.0,EU
+C283EF,L E Lundbergfoeretagen AB,top_eu_500,0.030857,predicted_lowess,2599.0,EU
+C29715,"NVR, Inc.",top_us_500,0.033485,predicted_lowess,3498,US
+C356AC,Kraft Heinz Company,top_us_500,0.289908,predicted_lowess,14732,US
+C399C1,Compass Group PLC,top_eu_500,0.030283,predicted_lowess,2315.0,EU
+C3DE7D,"Everpure, Inc. Class A",top_us_500,0.039916,predicted_lowess,4251,US
+C4073B,Eaton Corp. Plc,top_eu_100|top_eu_500|top_us_100|top_us_500,0.234464,predicted_lowess,12330,US
+C4452A,National Grid PLC,top_eu_500,0.065188,predicted_lowess,5664.0,EU
+C4A4CC,InterContinental Hotels Group PLC,top_eu_500,0.426243,predicted_lowess,22913.0,EU
+C598D7,"Brown & Brown, Inc.",top_us_500,0.095335,predicted_lowess,6957,US
+C5EF8D,Aon Plc Class A,top_eu_500|top_us_500,0.181996,predicted_lowess,10157,US
+C5F463,BASF SE,eurostoxx_50|top_eu_500,0.352563,predicted_lowess,17664.0,EU
+C6389F,ORLEN S.A.,top_eu_500,0.035227,predicted_lowess,3762.0,EU
+C659EB,"C.H. Robinson Worldwide, Inc.",top_us_500,0.141558,predicted_lowess,8525,US
+C69A57,Hafnia Ltd.,top_eu_500,0.030265,predicted_lowess,2065.0,EU
+C72B8F,Strategy Inc Class A,top_us_500,0.591131,predicted_lowess,38328,US
+C74288,Siemens AG,eurostoxx_50|top_eu_100|top_eu_500,0.333000,observed,11366,EU
+C77474,Santander Bank Polska S.A.,top_eu_500,0.073896,predicted_lowess,6039.0,EU
+C79992,National Bank of Greece S.A.,top_eu_500,0.031144,predicted_lowess,2739.0,EU
+C7AE8D,Pandox AB,top_eu_500,0.031382,predicted_lowess,2863.0,EU
+C7CAD3,Associated British Foods PLC,top_eu_500,0.030295,predicted_lowess,2017.0,EU
+C7E3CA,BW LPG Ltd.,top_eu_500,0.036857,predicted_lowess,3998.0,EU
+C7FC95,Orange S.A.,top_eu_500,0.210587,predicted_lowess,11351.0,EU
+C81E00,Stryker Corporation,top_us_100|top_us_500,0.262774,predicted_lowess,13550,US
+C8257F,Omnicom Group Inc,top_us_500,0.204567,predicted_lowess,11103,US
+C83B88,Comcast Corporation Class A,top_us_100|top_us_500,0.360927,predicted_lowess,18241,US
+C85E94,SoFi Technologies Inc,top_us_500,0.296433,predicted_lowess,15018,US
+C86C8D,UPM-Kymmene Corp.,top_eu_500,0.077224,predicted_lowess,6187.0,EU
+C87ECC,LyondellBasell Industries NV,top_eu_500,0.149334,predicted_lowess,8809,US
+C8A248,"DuPont de Nemours, Inc.",top_us_500,0.166861,predicted_lowess,9507,US
+C8FAC7,Anheuser-Busch InBev NV,eurostoxx_50|top_eu_100|top_eu_500,0.346634,predicted_lowess,17258.0,EU
+C951A2,"Hologic, Inc.",top_us_500,0.036071,predicted_lowess,3898,US
+C97B2D,Boston Scientific Corporation,top_us_100|top_us_500,0.399633,predicted_lowess,20975,US
+C9881C,Adobe Inc.,top_us_500,0.481365,predicted_lowess,27117,US
+C9B932,Las Vegas Sands Corp.,top_us_500,0.104775,predicted_lowess,7302,US
+C9DABA,Aker ASA,top_eu_500,0.030268,predicted_lowess,2216.0,EU
+C9E107,Huntington Bancshares Incorporated,top_us_500,0.222295,predicted_lowess,11834,US
+CA1620,Philip Morris International Inc.,top_us_100|top_us_500,0.221004,predicted_lowess,11781,US
+CA212F,Occidental Petroleum Corporation,top_us_500,0.274364,predicted_lowess,14057,US
+CB10F8,H&M Group,top_eu_500,0.093850,predicted_lowess,6898.0,EU
+CB3F2D,Sok Marketler Ticaret A.S.,top_eu_500,0.009448,predicted_lowess,270.0,EU
+CBA33B,"Rollins, Inc.",top_us_500,0.068461,predicted_lowess,5803,US
+CBB84D,ACS S.A. (Spain),top_eu_500,0.036988,predicted_lowess,4014.0,EU
+CBDB4D,"Natera, Inc.",top_us_500,0.097844,predicted_lowess,7053,US
+CC6FF5,"Cadence Design Systems, Inc.",top_us_500,0.172134,predicted_lowess,9735,US
+CC7BE5,Hannover Rueck SE,top_eu_500,0.030267,predicted_lowess,2204.0,EU
+CD2DA4,"Cooper Companies, Inc.",top_us_500,0.082499,predicted_lowess,6420,US
+CD3691,Nestle S.A.,top_eu_100|top_eu_500,0.362124,predicted_lowess,18324.0,EU
+CD7A06,Alcon AG,top_eu_500,0.173086,predicted_lowess,9776.0,EU
+CDE42A,Swisscom AG,top_eu_500,0.054134,predicted_lowess,5132.0,EU
+CDFCC9,Microchip Technology Incorporated,top_us_500,0.116074,predicted_lowess,7690,US
+CE96E7,Western Digital Corporation,top_us_500,0.241173,predicted_lowess,12613,US
+CEDFD5,Biogen Inc.,top_us_500,0.282661,predicted_lowess,14418,US
+CF0C90,Banco Comercial Portugues S.A.,top_eu_500,0.030555,predicted_lowess,1502.0,EU
+CF4517,"DoorDash, Inc. Class A",top_us_500,0.396934,predicted_lowess,20781,US
+CF7292,Ulta Beauty Inc.,top_us_500,0.155168,predicted_lowess,9031,US
+CFF15D,QUALCOMM Incorporated,top_us_100|top_us_500,0.555343,predicted_lowess,33084,US
+CFF97C,"S&P Global, Inc.",top_us_100|top_us_500,0.731587,predicted_lowess,72262,US
+CNFFMP,Sildarvinnslan hf,top_eu_100|top_eu_500,0.001422,predicted_lowess,63.0,EU
+D01300,TotalEnergies SE,eurostoxx_50|top_eu_100|top_eu_500,0.492488,predicted_lowess,27987.0,EU
+D01549,Fresenius Medical Care AG,top_eu_500,0.206141,predicted_lowess,11168.0,EU
+D03FF2,Svenska Handelsbanken AB,top_eu_500,0.080127,predicted_lowess,6316.0,EU
+D065EF,Lindt & Sprungli AG,top_eu_500,0.055260,predicted_lowess,5192.0,EU
+D09938,Monster Beverage Corporation,top_us_500,0.167668,predicted_lowess,9542,US
+D10E69,Vantage Towers AG,top_eu_500,0.004141,predicted_lowess,142.0,EU
+D1173F,ATI Inc.,top_us_500,0.104295,predicted_lowess,7285,US
+D1AE3B,M&T Bank Corporation,top_us_500,0.177610,predicted_lowess,9970,US
+D21EF3,Garmin Ltd.,top_eu_500|top_us_500,0.238710,predicted_lowess,12507,US
+D29B44,"Corpay, Inc.",top_us_500,0.104379,predicted_lowess,7288,US
+D2AC74,Axon Enterprise Inc,top_us_500,0.101183,predicted_lowess,7174,US
+D2B944,Bilia AB,top_eu_500,0.030286,predicted_lowess,1295.0,EU
+D33270,BAE Systems PLC,top_eu_500,0.195593,predicted_lowess,10730.0,EU
+D33D8C,Charles Schwab Corp,top_us_100|top_us_500,0.381623,predicted_lowess,19690,US
+D389EC,Informa PLC,top_eu_500,0.031237,predicted_lowess,2787.0,EU
+D3A095,Islandsbanki hf.,top_eu_100|top_eu_500,0.030526,predicted_lowess,1794.0,EU
+D3D781,"Snowflake, Inc.",top_us_500,0.309482,predicted_lowess,15598,US
+D437C3,PTC Inc.,top_us_500,0.042335,predicted_lowess,4442,US
+D43A7A,Talanx AG,top_eu_500,0.043051,predicted_lowess,4493.0,EU
+D4463B,"Freeport-McMoRan, Inc.",top_us_500,0.229687,predicted_lowess,12136,US
+D4AC65,Trimble Inc.,top_us_500,0.073627,predicted_lowess,6027,US
+D4D290,Neste Oyj,top_eu_500,0.043615,predicted_lowess,4533.0,EU
+D4F5F8,Kingspan Group PLC,top_eu_500,0.030622,predicted_lowess,2489.0,EU
+D516C5,Michelin SCA,top_eu_500,0.035052,predicted_lowess,3734.0,EU
+D54E62,Chevron Corporation,dow_30|top_us_100|top_us_500,0.661485,predicted_lowess,49954,US
+D5895C,Symrise AG,top_eu_500,0.041817,predicted_lowess,4402.0,EU
+D5C2D9,BE Semiconductor Industries N.V.,top_eu_500,0.033898,predicted_lowess,3552.0,EU
+D5D251,Bank Handlowy w Warszawie S.A.,top_eu_500,0.045221,predicted_lowess,4634.0,EU
+D6489C,Oracle Corp,top_us_100|top_us_500,0.645000,observed,23207,US
+D64C6D,"NIKE, Inc. Class B",dow_30|top_us_500,0.568836,predicted_lowess,35009,US
+D64EDF,Vistra Corp.,top_us_500,0.236762,predicted_lowess,12423,US
+D6534D,"Martin Marietta Materials, Inc.",top_us_500,0.062199,predicted_lowess,5534,US
+D68276,Telefonica S.A.,top_eu_500,0.186384,predicted_lowess,10343.0,EU
+D69946,"Coinbase Global, Inc. Class A",top_us_500,0.689633,predicted_lowess,55107,US
+D6AAF0,Mercedes-Benz Group AG,eurostoxx_50|top_eu_500,0.124000,observed,1933,EU
+D6C356,"Datadog, Inc. Class A",top_us_500,0.280267,predicted_lowess,14314,US
+D6E5A4,Sampo PLC,top_eu_500,0.030684,predicted_lowess,2518.0,EU
+D6F456,Mediobanca SPA,top_eu_500,0.043488,predicted_lowess,4524.0,EU
+D70BD1,Amundi SA,top_eu_500,0.059735,predicted_lowess,5422.0,EU
+D74613,Snam S.p.A.,top_eu_500,0.037216,predicted_lowess,4039.0,EU
+D7998C,Repsol S.A.,top_eu_500,0.253048,predicted_lowess,13122.0,EU
+D7A681,L'Oreal S.A.,eurostoxx_50|top_eu_500,0.183000,observed,3494,EU
+D7EAC4,Turkiye Vakiflar Bankasi T.A.O.,top_eu_100|top_eu_500,0.029170,predicted_lowess,1122.0,EU
+D819BE,Nordea Bank Abp,top_eu_500,0.264963,predicted_lowess,13646.0,EU
+D82E83,"AST SpaceMobile, Inc. Class A",top_us_500,0.188824,predicted_lowess,10446,US
+D8442A,Apple Inc.,dow_30|top_us_100|top_us_500,1.110000,observed,174013,US
+D8480B,Banco BPM S.p.A.,top_eu_500,0.030266,predicted_lowess,2196.0,EU
+D88EF3,"Charter Communications, Inc. Class A",top_us_500,0.276842,predicted_lowess,14165,US
+D8F347,Union Pacific Corporation,top_us_100|top_us_500,0.194564,predicted_lowess,10687,US
+D90D7F,Piraeus Financial Holdings S.A.,top_eu_500,0.022127,predicted_lowess,686.0,EU
+D90F43,"Uber Technologies, Inc.",top_us_100|top_us_500,0.725915,predicted_lowess,69412,US
+D93A25,Alcoa Corporation,top_us_500,0.266994,predicted_lowess,13735,US
+D96202,"Republic Services, Inc.",top_us_500,0.107081,predicted_lowess,7383,US
+D9B1C9,"American Electric Power Company, Inc.",top_us_500,0.178733,predicted_lowess,10018,US
+D9E036,"BWX Technologies, Inc.",top_us_500,0.053538,predicted_lowess,5100,US
+DA48E4,"Air Products and Chemicals, Inc.",top_us_500,0.054508,predicted_lowess,5152,US
+DA63FE,Skandinaviska Enskilda Banken AB,top_eu_100|top_eu_500,0.075704,predicted_lowess,6119.0,EU
+DB06B0,Electronic Arts Inc.,top_us_500,0.090834,predicted_lowess,6776,US
+DB06B7,NP3 Fastigheter AB,top_eu_500,0.014200,predicted_lowess,392.0,EU
+DB08C7,H. Lundbeck A/S,top_eu_500,0.189632,predicted_lowess,10480.0,EU
+DB2D9E,WPP PLC,top_eu_500,0.231162,predicted_lowess,12196.0,EU
+DB5309,SGS S.A.,top_eu_500,0.044200,predicted_lowess,4572.0,EU
+DB5CA5,Duke Energy Corporation,top_us_500,0.380958,predicted_lowess,19643,US
+DB5E90,Rio Tinto PLC,top_eu_100|top_eu_500,0.584834,predicted_lowess,37373.0,EU
+DBB28E,Hewlett Packard Enterprise Co.,top_us_500,0.284851,predicted_lowess,14513,US
+DC0563,OEM-International AB,top_eu_500,0.030530,predicted_lowess,1788.0,EU
+DC1BFA,Wallenstam AB,top_eu_500,0.030360,predicted_lowess,2371.0,EU
+DC2B00,Dollar General Corporation,top_us_500,0.204809,predicted_lowess,11113,US
+DC9BEC,Sabanci Holding A.S.,top_eu_100|top_eu_500,0.025053,predicted_lowess,834.0,EU
+DCD97F,General Dynamics Corporation,top_us_500,0.248144,predicted_lowess,12912,US
+DD394F,Ferrari N.V.,eurostoxx_50|top_eu_100|top_eu_500,0.501368,predicted_lowess,28687.0,EU
+DD3BB1,Tesla Inc.,top_us_100|top_us_500,1.100000,observed,80292,US
+DD5C33,International Airlines Group,top_eu_500,0.040853,predicted_lowess,4325.0,EU
+DD92E7,Bayer AG,eurostoxx_50|top_eu_100|top_eu_500,0.402381,predicted_lowess,21173.0,EU
+DE2196,Saab AB,top_eu_500,0.076556,predicted_lowess,6157.0,EU
+DE27F9,Chubb Limited,top_eu_100|top_eu_500|top_us_100|top_us_500,0.245622,predicted_lowess,12804,US
+DE344E,Kering S.A.,eurostoxx_50|top_eu_500,0.051877,predicted_lowess,5010.0,EU
+DEB102,Wilhelm Wilhelmsen Holding ASA,top_eu_500,0.035595,predicted_lowess,3821.0,EU
+DF532D,"Interactive Brokers Group, Inc. Class A",top_us_500,0.174575,predicted_lowess,9840,US
+DF8855,Amcor PLC,top_eu_500|top_us_500,0.158599,predicted_lowess,9166,US
+DFDEAD,Scottish Mortgage Investment Trust PLC,top_eu_500,0.014654,predicted_lowess,405.0,EU
+E0207A,"SS&C Technologies Holdings, Inc.",top_us_500,0.068033,predicted_lowess,5785,US
+E0339F,Textron Inc.,top_us_500,0.117578,predicted_lowess,7739,US
+E0427E,GSK PLC,top_eu_100|top_eu_500,0.516241,predicted_lowess,29870.0,EU
+E05DC8,"Reliance, Inc.",top_us_500,0.054172,predicted_lowess,5134,US
+E094EB,Smith & Nephew PLC,top_eu_500,0.292222,predicted_lowess,14832.0,EU
+E09E2B,NVIDIA Corporation,dow_30|top_us_100|top_us_500,1.277101,predicted_lowess,350348,US
+E0A84E,AccorHotels S.A.,top_eu_500,0.099272,predicted_lowess,7105.0,EU
+E0AD75,Antofagasta PLC,top_eu_500,0.064703,predicted_lowess,5643.0,EU
+E0E897,Allfunds Group PLC,top_eu_500,0.010792,predicted_lowess,302.0,EU
+E10D31,Edison International,top_us_500,0.187733,predicted_lowess,10400,US
+E124EB,Danaher Corporation,top_us_100|top_us_500,0.280129,predicted_lowess,14308,US
+E15736,"Diamondback Energy, Inc.",top_us_500,0.202007,predicted_lowess,10997,US
+E1C16B,Allstate Corporation,top_us_500,0.154561,predicted_lowess,9007,US
+E1E093,Merck Darmstadt,top_eu_500,0.260792,predicted_lowess,13463.0,EU
+E206B0,"Travelers Companies, Inc.",dow_30|top_us_500,0.138488,predicted_lowess,8416,US
+E21871,"Williams Companies, Inc.",top_us_500,0.177095,predicted_lowess,9948,US
+E26FC3,CSX Corporation,top_us_500,0.110949,predicted_lowess,7517,US
+E2866E,Cloudflare Inc Class A,top_us_500,0.294369,predicted_lowess,14926,US
+E2C0F3,Turk Altin Isletmeleri AS,top_eu_100|top_eu_500,0.002146,predicted_lowess,86.0,EU
+E2D70C,Aéroports de Paris,top_eu_500,0.030417,predicted_lowess,1897.0,EU
+E2F66E,"MasTec, Inc.",top_us_500,0.086222,predicted_lowess,6581,US
+E317E0,Novo Nordisk A/S,top_eu_500,0.658146,predicted_lowess,49362.0,EU
+E3CD58,Societatea Nationala Nuclearelectrica SA,top_eu_500,0.029338,predicted_lowess,1139.0,EU
+E3E68E,"XPO, Inc.",top_us_500,0.056804,predicted_lowess,5274,US
+E3FC9C,Standard Chartered PLC,top_eu_500,0.391136,predicted_lowess,20366.0,EU
+E43B87,Turk Telekomunikasyon A.S.,top_eu_100|top_eu_500,0.030575,predicted_lowess,1533.0,EU
+E467C9,Borusan Birlesik Boru Fabrikalari Sanayi ve Ticaret A.S.,top_eu_500,0.001759,predicted_lowess,74.0,EU
+E48344,Endesa S.A.,top_eu_500,0.069748,predicted_lowess,5859.0,EU
+E49AA3,"Motorola Solutions, Inc.",top_us_500,0.149361,predicted_lowess,8810,US
+E4CE73,Keysight Technologies Inc,top_us_500,0.183856,predicted_lowess,10236,US
+E52DAD,BlueNord ASA,top_eu_500,0.025756,predicted_lowess,869.0,EU
+E54950,Alfa Laval AB,top_eu_500,0.031908,predicted_lowess,3063.0,EU
+E5AAB0,Sandisk Corporation,top_us_500,0.363277,predicted_lowess,18404,US
+E61E5B,Coca-Cola Europacific Partners PLC,top_eu_500,0.290140,predicted_lowess,14742.0,EU
+E68733,Medtronic Plc,top_eu_100|top_eu_500|top_us_100|top_us_500,0.504348,predicted_lowess,28923,US
+E68C3D,"Analog Devices, Inc.",top_us_100|top_us_500,0.186242,predicted_lowess,10337,US
+E6C332,Industrivarden AB,top_eu_100|top_eu_500,0.030617,predicted_lowess,1661.0,EU
+E6D89E,"Illumina, Inc.",top_us_500,0.458098,predicted_lowess,25322,US
+E6E012,Hubbell Incorporated,top_us_500,0.096450,predicted_lowess,7001,US
+E70531,Exxon Mobil Corporation,top_us_10|top_us_100|top_us_500,0.587924,predicted_lowess,37840,US
+E7A2A5,"Woodward, Inc.",top_us_500,0.038008,predicted_lowess,4099,US
+E7D47B,"Marvell Technology, Inc.",top_us_500,0.233872,predicted_lowess,12306,US
+E845D9,APi Group Corporation,top_us_500,0.062556,predicted_lowess,5550,US
+E866D2,Southwest Airlines Co.,top_us_500,0.352651,predicted_lowess,17670,US
+E868F0,Yara International ASA,top_eu_500,0.149123,predicted_lowess,8801.0,EU
+E8846E,Wells Fargo & Company,top_us_100|top_us_500,0.730767,predicted_lowess,71844,US
+E894E1,Coloplast A/S,top_eu_500,0.030952,predicted_lowess,2645.0,EU
+E8B21D,IDEX Corporation,top_us_500,0.063384,predicted_lowess,5587,US
+E92DFC,Camurus AB,top_eu_500,0.029445,predicted_lowess,1150.0,EU
+E94704,Snap-on Incorporated,top_us_500,0.080922,predicted_lowess,6351,US
+E972A0,Veidekke ASA,top_eu_500,0.030427,predicted_lowess,1369.0,EU
+E9C8E8,CEZ A.S.,top_eu_500,0.033005,predicted_lowess,3370.0,EU
+E9E44A,Carrefour S.A.,top_eu_500,0.060189,predicted_lowess,5443.0,EU
+EA436E,TAV Havalimanlari Holding A.S.,top_eu_100|top_eu_500,0.030562,predicted_lowess,1513.0,EU
+EAEBF3,Targa Resources Corp.,top_us_500,0.083374,predicted_lowess,6458,US
+EB5D45,Ryanair Holdings PLC,top_eu_100|top_eu_500,0.215492,predicted_lowess,11554.0,EU
+EB6965,Colgate-Palmolive Company,top_us_500,0.185084,predicted_lowess,10288,US
+EC210B,Infineon Technologies AG,eurostoxx_50|top_eu_500,0.117608,predicted_lowess,7740.0,EU
+EC821B,Howmet Aerospace Inc.,top_us_500,0.181149,predicted_lowess,10121,US
+ECD263,"Netflix, Inc.",top_us_10|top_us_100|top_us_500,1.092569,predicted_lowess,230310,US
+ECF709,"AutoZone, Inc.",top_us_500,0.049369,predicted_lowess,4873,US
+ED0402,"CoStar Group, Inc.",top_us_500,0.131886,predicted_lowess,8204,US
+ED79D9,"Agilent Technologies, Inc.",top_us_500,0.190559,predicted_lowess,10519,US
+ED869A,Iberdrola S.A.,eurostoxx_50|top_eu_100|top_eu_500,0.098639,predicted_lowess,7082.0,EU
+EE6F1C,L3Harris Technologies Inc,top_us_500,0.243617,predicted_lowess,12718,US
+EEA1E7,Severn Trent PLC,top_eu_500,0.029001,predicted_lowess,1105.0,EU
+EEA6B3,Coca-Cola Company,dow_30|top_us_100|top_us_500,0.589064,predicted_lowess,38013,US
+EEEA9F,Ingersoll Rand Inc.,top_us_500,0.101072,predicted_lowess,7170,US
+EF5BED,Bank of New York Mellon Corp,top_us_500,0.452694,predicted_lowess,24910,US
+EQ23NL,OX2 AB,top_eu_500,0.001983,predicted_lowess,81.0,EU
+F045FF,OMV Petrom S.A.,top_eu_500,0.030294,predicted_lowess,2341.0,EU
+F0B2B5,Markel Group Inc.,top_us_500,0.155701,predicted_lowess,9052,US
+F0F3E1,CaixaBank S.A.,top_eu_500,0.265122,predicted_lowess,13653.0,EU
+F11638,Intuit Inc.,top_us_100|top_us_500,0.281947,predicted_lowess,14387,US
+F11C7D,SASA Polyester Sanayi A.S.,top_eu_100|top_eu_500,0.006368,predicted_lowess,197.0,EU
+F13DEB,Aselsan Elektronik San. Ve Tic. A.S.,top_eu_100|top_eu_500,0.030323,predicted_lowess,1311.0,EU
+F1529C,Cboe Global Markets Inc,top_us_500,0.247280,predicted_lowess,12875,US
+F15E41,Tenaris S.A.,top_eu_100|top_eu_500,0.060343,predicted_lowess,5450.0,EU
+F179ED,"Twilio, Inc. Class A",top_us_500,0.104549,predicted_lowess,7294,US
+F1C69A,Palantir Technologies Inc. Class A,top_us_100|top_us_500,0.686478,predicted_lowess,54515,US
+F30508,Eli Lilly and Company,top_us_100|top_us_500,0.660940,predicted_lowess,49857,US
+F329D5,Kazatomprom JSC NAC,top_eu_500,0.030606,predicted_lowess,1613.0,EU
+F3788A,Kone Oyj,top_eu_500,0.032801,predicted_lowess,3333.0,EU
+F40EE2,Corning Inc,top_us_100|top_us_500,0.225275,predicted_lowess,11956,US
+F4194B,Sanofi S.A.,eurostoxx_50|top_eu_500,0.592810,predicted_lowess,38585.0,EU
+F46EC9,Xylem Inc.,top_us_500,0.079064,predicted_lowess,6269,US
+F4D7DB,UCB S.A.,top_eu_500,0.093197,predicted_lowess,6872.0,EU
+F5221C,Danske Bank A/S,top_eu_500,0.379882,predicted_lowess,19567.0,EU
+F55A14,Spar Nord Bank A/S,top_eu_500,0.004489,predicted_lowess,151.0,EU
+F5C8AB,"Expeditors International of Washington, Inc.",top_us_500,0.039967,predicted_lowess,4255,US
+F5D410,Centene Corporation,top_us_500,0.146915,predicted_lowess,8717,US
+F5E860,Akbank T.A.S.,top_eu_100|top_eu_500,0.030294,predicted_lowess,2018.0,EU
+F60ACA,HAL Trust Co.,top_eu_500,0.030346,predicted_lowess,1322.0,EU
+F62500,AIB Group PLC,top_eu_500,0.061621,predicted_lowess,5508.0,EU
+F67165,"Essex Property Trust, Inc.",top_us_500,0.112175,predicted_lowess,7559,US
+F6DCE4,Target Corporation,top_us_500,0.453443,predicted_lowess,24967,US
+F6E248,"Gilead Sciences, Inc.",top_us_100|top_us_500,0.393109,predicted_lowess,20507,US
+F731C5,Bure Equity AB,top_eu_500,0.015507,predicted_lowess,429.0,EU
+F748C7,"Williams-Sonoma, Inc.",top_us_500,0.056823,predicted_lowess,5275,US
+F750A8,RELX PLC,top_eu_500,0.192845,predicted_lowess,10615.0,EU
+F7B8AC,CNH Industrial NV,top_eu_500,0.176558,predicted_lowess,9925,US
+F7E049,Rentokil Initial PLC,top_eu_500,0.112967,predicted_lowess,7586.0,EU
+F837A5,ING Groep N.V.,eurostoxx_50|top_eu_500,0.406090,predicted_lowess,21441.0,EU
+F862DA,SpareBank 1 Nord-Norge,top_eu_500,0.030605,predicted_lowess,1608.0,EU
+F8FB07,Experian PLC,top_eu_500,0.109353,predicted_lowess,7462.0,EU
+F92DBC,Veolia Environnement S.A.,top_eu_500,0.120894,predicted_lowess,7846.0,EU
+F93C8A,Alliant Energy Corporation,top_us_500,0.104153,predicted_lowess,7280,US
+F95404,Banca Mediolanum S.p.A.,top_eu_500,0.028033,predicted_lowess,1012.0,EU
+F9A645,SkiStar AB,top_eu_500,0.027397,predicted_lowess,961.0,EU
+F9F51C,Otokar Otomotiv ve Savunma Sanayi A.S.,top_eu_500,0.014200,predicted_lowess,392.0,EU
+FA1D11,BioArctic AB,top_eu_500,0.029807,predicted_lowess,1203.0,EU
+FA3D22,Kindred Group PLC,top_eu_500,0.022704,predicted_lowess,711.0,EU
+FA4263,Tesco PLC,top_eu_500,0.047202,predicted_lowess,4751.0,EU
+FAE021,"United Parcel Service, Inc. Class B",top_us_500,0.360884,predicted_lowess,18238,US
+FB49DF,SSE PLC,top_eu_500,0.030033,predicted_lowess,1238.0,EU
+FC1B7B,Northrop Grumman Corp.,top_us_500,0.316892,predicted_lowess,15926,US
+FC1F9D,Tractor Supply Company,top_us_500,0.109526,predicted_lowess,7468,US
+FC4652,nVent Electric plc,top_eu_500|top_us_500,0.077962,predicted_lowess,6220,US
+FC9869,Verbund AG,top_eu_500,0.053167,predicted_lowess,5080.0,EU
+FD39EB,"NRG Energy, Inc.",top_us_500,0.284113,predicted_lowess,14481,US
+FDF28E,US Foods Holding Corp.,top_us_500,0.087132,predicted_lowess,6620,US
+FE89E0,ConocoPhillips,top_us_100|top_us_500,0.341503,predicted_lowess,17009,US
+FEC475,"Prudential Financial, Inc.",top_us_500,0.145226,predicted_lowess,8654,US
+FEE4B0,Ball Corporation,top_us_500,0.086735,predicted_lowess,6603,US
+FF4BA4,Weyerhaeuser Company,top_us_500,0.068249,predicted_lowess,5794,US
+FF6644,Honeywell International Inc.,dow_30|top_us_100|top_us_500,0.427450,predicted_lowess,23002,US
+FF8514,SAP SE,eurostoxx_50|top_eu_500,0.487910,predicted_lowess,27628.0,EU
+FFC922,Enka Insaat ve Sanayi A.S.,top_eu_100|top_eu_500,0.021953,predicted_lowess,678.0,EU
+FFF3BE,AXA S.A.,eurostoxx_50|top_eu_100|top_eu_500,0.130559,predicted_lowess,8160.0,EU
+FUBDT6,InvestCo Holding AS,top_eu_100|top_eu_500,,not_found,,
+G47HNQ,Veralto Corporation,top_us_500,0.051932,predicted_lowess,5013,US
+HJ95FV,"BlackRock, Inc.",top_us_100|top_us_500,0.643733,predicted_lowess,46853,US
+HTA3J9,Constellation Energy Corporation,top_us_500,0.393822,predicted_lowess,20558,US
+HUJ7I1,Wise PLC,top_eu_500,0.027324,predicted_lowess,955.0,EU
+I8DQKN,Smurfit Westrock PLC,top_us_500,0.151768,predicted_lowess,8901,US
+K8XQN6,FTAI Aviation Ltd.,top_us_500,0.056766,predicted_lowess,5272,US
+LIVBLM,STERIS plc,top_eu_500|top_us_500,0.031544,predicted_lowess,2952,US
+LJPA1L,GE Healthcare Technologies Inc.,top_us_500,0.277394,predicted_lowess,14189,US
+LWY4AI,Höegh Autoliners ASA,top_eu_500,0.017421,predicted_lowess,490.0,EU
+M1IY57,Anglogold Ashanti PLC,top_eu_500|top_us_500,0.135230,predicted_lowess,8312,US
+OX35RU,AutoStore Holdings Ltd.,top_eu_500,0.018838,predicted_lowess,540.0,EU
+P4QYNH,Universal Music Group N.V.,top_eu_500,0.061533,predicted_lowess,5504.0,EU
+PL177A,Welltower Inc.,top_us_100|top_us_500,0.160387,predicted_lowess,9236,US
+QRHIPR,GE Vernova Inc.,top_us_100|top_us_500,0.283767,predicted_lowess,14466,US
+SNKMGL,Technoprobe S.p.A.,top_eu_500,0.029962,predicted_lowess,1227.0,EU
+SZDZBN,Storskogen Group AB,top_eu_500,0.029397,predicted_lowess,1145.0,EU
+THC8Q8,KKR & Co Inc,top_us_500,0.627392,predicted_lowess,44099,US
+U8X3QM,Bunge Global SA,top_us_500,0.123878,predicted_lowess,7941,US
+VFQXNH,Vimian Group AB,top_eu_500,0.030525,predicted_lowess,1454.0,EU
+VG3TB5,Daimler Truck Holding AG,top_eu_500,0.030405,predicted_lowess,1907.0,EU
+WDJL5K,Apollo Global Management Inc,top_us_500,0.609567,predicted_lowess,41204,US
