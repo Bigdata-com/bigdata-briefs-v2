@@ -83,6 +83,24 @@ def _as_utc_aware(dt: datetime) -> datetime:
     return dt.astimezone(timezone.utc)
 
 
+def _persisted_report_dates_after_success(
+    report_dates: ReportDates,
+    completion: datetime,
+) -> ReportDates:
+    """When nominal ``report_dates.end`` is after ``completion`` on the same UTC day, persist ``end = completion``.
+
+    A forced calendar-day window often uses 23:59:59 while the pipeline finishes hours earlier.
+    Storing the nominal end would claim the entire UTC day is already covered and block
+    legitimate same-day incremental scans under overlap rules before local midnight.
+    """
+    rs = _as_utc_aware(report_dates.start)
+    re = _as_utc_aware(report_dates.end)
+    c = _as_utc_aware(completion)
+    if re.date() == c.date() and re > c:
+        return ReportDates(start=rs, end=c)
+    return report_dates
+
+
 def _get_or_create_orch_row(session: Session, entity_id: str) -> SQLEntityOrchestrationState:
     row = session.get(SQLEntityOrchestrationState, entity_id)
     if row is None:
@@ -145,6 +163,23 @@ class OrchestratorWindowOverlapError(RuntimeError):
     """Requested window overlaps a completed run for this entity."""
 
 
+def _effective_window_end(row: "SQLEntityPipelineRunLog") -> datetime:
+    """Effective end for overlap purposes: min(report_window_end, process_completed_at_utc).
+
+    Old runs stored ``report_window_end = 23:59:59`` even when the pipeline finished hours
+    earlier.  The actual work ended at ``process_completed_at_utc``, so any window starting
+    after that is safe.  New runs (after the entity_runner fix) already persist the real
+    completion time in ``report_window_end``, so this helper is a no-op for them.
+    """
+    we = _as_utc_aware(row.report_window_end)
+    if row.process_completed_at_utc is None:
+        return we
+    pc = _as_utc_aware(row.process_completed_at_utc)
+    if we.date() == pc.date() and we > pc:
+        return pc
+    return we
+
+
 def _assert_no_overlapping_run(
     session: Session,
     *,
@@ -162,7 +197,7 @@ def _assert_no_overlapping_run(
     re = _as_utc_aware(report_dates.end)
     for row in rows:
         existing_start = _as_utc_aware(row.report_window_start)
-        existing_end = _as_utc_aware(row.report_window_end)
+        existing_end = _effective_window_end(row)
         if rs < existing_end and existing_start < re:
             raise OrchestratorWindowOverlapError(
                 f"entity_id={entity_id!r} requested window [{rs.isoformat()}, {re.isoformat()}) "
@@ -496,63 +531,47 @@ def _flush_bullet_run_log(eng: Engine, run_id: uuid.UUID, entity_id: str, final_
 
 
 _NARRATIVE_PROMPT_MANY = """\
-You are a financial news editor writing the opening lede for a daily market intelligence brief.
-
-You are given a list of bullet points — each is a materially new development about {entity_name} published today. \
-Write a single editorial paragraph of 2 to 3 sentences that:
-1. Mentions the total count of new developments ("X materially new developments").
-2. Names the 1 or 2 most important stories by their specific detail (a dollar figure, a named partner, a concrete action) — use the word "anchored by" or similar.
-3. Ends with a one-sentence thematic observation about the dominant framing across all bullets (e.g. "Capital expenditures continue to dominate the framing." or "The session is defined by regulatory pressure on multiple fronts.").
+You are a financial news editor. Write one flowing sentence (max 32 words) that captures today's brief for {entity_name}.
 
 Rules:
-- Be specific — use the numbers, names and entities from the bullets, do not be vague.
-- Do not list all bullets — select and synthesise.
-- Do not use "In summary", "Overall" or similar filler openers.
-- 2-3 sentences maximum, no bullet points, no headers.
-- Write in present tense.
-- Reference yesterday's brief with "since yesterday's brief" or "since yesterday".
+- Sound like a human desk note, not a template: never open with a tally or inventory line
+  (no "N new development(s):", "Two updates:", "Three things:", "Here are…", or similar).
+- You may weave several facts with commas, "and", "while", or a dash—still exactly one sentence.
+- Vary how you start: sometimes lead with the strongest fact, sometimes with short context—avoid
+  the same rhythm you would use for another ticker.
+- Include at least one concrete detail (figure, product, place, regulator, partner).
+- Present tense; no meta filler ("In summary", "Overall", "Notably").
 
 COMPANY: {entity_name}
 DATE: {report_date}
-TOTAL DEVELOPMENTS TODAY: {bullets_count}
+BULLET COUNT (sense of scope only—do not echo as a headline): {bullets_count}
 
 BULLETS:
 {bullets_text}
 
-OUTPUT: the editorial lede only, plain text, no quotes.
+OUTPUT: one sentence only.
 """
 
 _NARRATIVE_PROMPT_FEW = """\
-You are a financial news editor writing the opening lede for a daily market intelligence brief.
-
-You are given a small number of bullet points about {entity_name} published today, plus excerpts from \
-their original source articles. Use the source excerpts as additional context to write something \
-richer than a plain paraphrase of the bullets.
-
-Write a single editorial paragraph of 2 to 3 sentences that:
-1. Mentions the total count of new developments ("X materially new development" or "X materially new developments").
-2. Names the most important story by its specific detail — use the word "anchored by" or similar.
-3. Ends with a one-sentence thematic observation or forward-looking note drawn from the source context.
+You are a financial news editor. Write one flowing sentence (max 32 words) for {entity_name}'s brief today.
+Use the source excerpts for context but do NOT lift bullet wording verbatim.
 
 Rules:
-- Be specific — use numbers, names and entities from bullets and sources.
-- Do not copy the bullet text verbatim — the lede must add perspective.
-- Do not use "In summary", "Overall" or similar filler openers.
-- 2-3 sentences maximum, no bullet points, no headers.
-- Write in present tense.
-- Reference yesterday's brief with "since yesterday's brief" or "since yesterday".
+- Same conversational desk voice: no opening tally ("N new developments:", "Several items:", etc.).
+- One sentence, present tense; at least one concrete anchor detail.
+- Vary structure and opener; subordinate clauses or a single em-dash are fine if it stays one sentence.
 
 COMPANY: {entity_name}
 DATE: {report_date}
-TOTAL DEVELOPMENTS TODAY: {bullets_count}
+BULLET COUNT (scope only): {bullets_count}
 
 BULLETS:
 {bullets_text}
 
-TOP SOURCE EXCERPTS:
+SOURCE CONTEXT:
 {citations_text}
 
-OUTPUT: the editorial lede only, plain text, no quotes.
+OUTPUT: one sentence only.
 """
 
 
@@ -561,18 +580,24 @@ def _collect_todays_active_bullets(
     entity_id: str,
     report_date: datetime,
 ) -> list[SQLBulletRunLog]:
-    """Return all active bullets for entity_id on the same UTC calendar day as report_date."""
-    day_start = report_date.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc)
-    day_end = report_date.replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc)
+    """Return all active bullets for entity_id whose report window ends on the same UTC calendar day as report_date.
+
+    Aggregating by ``report_window_end`` (rather than ``process_completed_at_utc``)
+    lets backfill runs of historical days find their own bullets — a run executed
+    today for a window on 2026-04-20 belongs to the 2026-04-20 narrative.
+    """
+    if report_date.tzinfo is None:
+        report_date = report_date.replace(tzinfo=timezone.utc)
+    day_start = report_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    day_end = report_date.replace(hour=23, minute=59, second=59, microsecond=999999)
 
     with Session(eng) as session:
-        # Find all run_ids for this entity completed today
         run_rows = session.exec(
             select(SQLEntityPipelineRunLog).where(
                 SQLEntityPipelineRunLog.entity_id == entity_id,
                 SQLEntityPipelineRunLog.status.in_(["succeeded", "no_data"]),
-                SQLEntityPipelineRunLog.process_completed_at_utc >= day_start,
-                SQLEntityPipelineRunLog.process_completed_at_utc <= day_end,
+                SQLEntityPipelineRunLog.report_window_end >= day_start,
+                SQLEntityPipelineRunLog.report_window_end <= day_end,
             )
         ).all()
         if not run_rows:
@@ -664,11 +689,17 @@ def _generate_and_flush_narrative(
             narrative: str
 
         response = llm_client.call_with_response_format(
-            system=[{"role": "system", "content": "You are a concise financial news editor."}],
+            system=[{
+                "role": "system",
+                "content": (
+                    "You are a concise financial news editor. "
+                    "Each lede must read freshly written—no boilerplate openings or repeated cadence across companies."
+                ),
+            }],
             messages=[{"role": "user", "content": user_content}],
             model="gpt-4.1",
-            max_tokens=250,
-            response_format=_NarrativeResponse,
+            max_tokens=80,
+            text_format=_NarrativeResponse,
             step_name="narrative_generation",
         )
         if response is None:
@@ -697,6 +728,7 @@ def _flush_run_metrics(
     entity_id: str,
     report_dates: ReportDates,
     entity_metrics: EntityStepMetrics,
+    sources_scanned: int = 0,
 ) -> None:
     """Write one SQLRunMetrics row for the completed run.
 
@@ -727,6 +759,7 @@ def _flush_run_metrics(
             embedding_tokens=emb["tokens"],
             embedding_cost_usd=total_emb_cost,
             chunks_total=chunks_total,
+            sources_scanned=sources_scanned,
             step_detail_json=json.dumps(step_summary, default=str),
             total_llm_cost_usd=total_llm_cost,
             total_embedding_cost_usd=total_emb_cost,
@@ -944,6 +977,10 @@ def run_entity_incremental(
         log = session.get(SQLEntityPipelineRunLog, run_log.run_id) or session.merge(run_log)
         orch = _get_or_create_orch_row(session, entity_id)
         if pipeline_ok:
+            persisted_dates = _persisted_report_dates_after_success(report_dates, done)
+            log.report_window_start = persisted_dates.start
+            log.report_window_end = persisted_dates.end
+            session.add(log)
             _update_run_log_end(
                 session,
                 log,
@@ -955,7 +992,7 @@ def run_entity_incremental(
             _apply_success_orchestration_state(
                 session,
                 orch,
-                report_dates=report_dates,
+                report_dates=persisted_dates,
                 kg_record=kg_record,
                 now=done,
             )
@@ -973,11 +1010,23 @@ def run_entity_incremental(
                 output_json=bullet_trace_json,  # preserve partial state even on failure
             )
 
+    persisted_for_downstream = (
+        _persisted_report_dates_after_success(report_dates, done) if pipeline_ok else report_dates
+    )
+
     if final_state and pipeline_ok:
         _flush_bullet_run_log(eng, run_log.run_id, entity_id, final_state)
 
     if deps.entity_metrics is not None:
-        _flush_run_metrics(eng, run_log.run_id, entity_id, report_dates, deps.entity_metrics)
+        sources_scanned = len(final_state.get("source_references") or {}) if final_state else 0
+        _flush_run_metrics(
+            eng,
+            run_log.run_id,
+            entity_id,
+            persisted_for_downstream,
+            deps.entity_metrics,
+            sources_scanned=sources_scanned,
+        )
 
     if pipeline_ok:
         _generate_and_flush_narrative(
@@ -985,18 +1034,18 @@ def run_entity_incremental(
             run_log.run_id,
             entity_id,
             entity.name,
-            report_dates,
+            persisted_for_downstream,
             deps.llm_client,
         )
 
     previous = fetch_previous_bullets(eng, entity_id, report_dates)
     new_ok: list[dict[str, Any]] = []
     if pipeline_ok:
-        new_ok = fetch_new_novelty_ok_bullets(eng, entity_id, report_dates)
+        new_ok = fetch_new_novelty_ok_bullets(eng, entity_id, persisted_for_downstream)
 
     return EntityRunResult(
         entity_id=entity_id,
-        report_dates=report_dates,
+        report_dates=persisted_for_downstream,
         success=pipeline_ok,
         dry_run=False,
         previous_bullets=previous,

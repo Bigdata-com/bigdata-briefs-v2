@@ -18,6 +18,7 @@ def ensure_orchestration_schema(engine: Engine) -> None:
     _ensure_report_window_columns(engine)
     _ensure_not_fully_novel_column(engine)
     _ensure_bullet_run_log_json_columns(engine)
+    _ensure_run_metrics_columns(engine)
 
 
 def _ensure_bullet_run_log_json_columns(engine: Engine) -> None:
@@ -65,6 +66,19 @@ def _ensure_report_window_columns(engine: Engine) -> None:
                     "ADD COLUMN report_window_end TIMESTAMP"
                 )
             )
+            conn.commit()
+
+
+def _ensure_run_metrics_columns(engine: Engine) -> None:
+    """Add new columns to sqlrunmetrics for existing DBs."""
+    with engine.connect() as conn:
+        rows = conn.execute(text("PRAGMA table_info(sqlrunmetrics)")).fetchall()
+    if not rows:
+        return
+    colnames = {r[1] for r in rows}
+    if "sources_scanned" not in colnames:
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE sqlrunmetrics ADD COLUMN sources_scanned INTEGER NOT NULL DEFAULT 0"))
             conn.commit()
 
 

@@ -169,6 +169,23 @@ class SQLEntityOrchestrationState(SQLModel, table=True):
     updated_at: datetime | None = Field(default=None, nullable=True)
 
 
+class SQLEntityEarningsCalendar(SQLModel, table=True):
+    """Per-entity cache of earnings-calendar data (one upsert per entity, not per run).
+
+    Written when ``quarter_info`` fetches the events-calendar window. The Brief
+    front page reads ``earnings_events_json`` to flag earnings on a calendar day
+    without calling the external API again.
+    """
+
+    entity_id: str = Field(primary_key=True, max_length=64)
+    current_quarter_title: str | None = Field(default=None, sa_type=Text)
+    # JSON list of {event_datetime, fiscal_year, fiscal_period, title} sorted by event_datetime
+    earnings_events_json: str = Field(default="[]", sa_type=Text)
+    # report_start_date (ISO YYYY-MM-DD) used as reference_date for the fetch window
+    reference_as_of: str | None = Field(default=None, max_length=32)
+    updated_at: datetime
+
+
 class SQLEntityPipelineRunLog(SQLModel, table=True):
     """Append-style audit + single-flight lease per entity."""
 
@@ -230,6 +247,9 @@ class SQLRunMetrics(SQLModel, table=True):
 
     # Per-step breakdown: JSON dict of {step_name: {llm_cost_usd, llm_tokens, chunks_retrieved, ...}}
     step_detail_json: str = Field(default="{}", sa_type=Text)
+
+    # Sources retrieved (unique source_references from the final pipeline state)
+    sources_scanned: int = Field(default=0)
 
     # Scalar totals for easy filtering / aggregation
     total_llm_cost_usd: float = Field(default=0.0)
