@@ -142,27 +142,42 @@ class TestExecuteBroadTopicSearch:
 
 class TestResolveFiscalQuarterFromCalendar:
     def test_returns_quarter_title_from_api(self):
-        with patch(
-            "bigdata_briefs.graph.nodes.phase1_search.fetch_quarter_info.get_current_quarter_title",
-            return_value={"ENTITY123": "Q1 2025"},
+        with (
+            patch(
+                "bigdata_briefs.graph.nodes.phase1_search.fetch_quarter_info.fetch_earnings_calendar_window",
+                return_value=({"ENTITY123": "Q1 2025"}, {"ENTITY123": []}),
+            ),
+            patch(
+                "bigdata_briefs.graph.nodes.phase1_search.fetch_quarter_info.upsert_entity_earnings_calendar",
+            ),
         ):
             result = resolve_fiscal_quarter_from_calendar(_state(), make_config())
 
         assert result["current_quarter_title"] == "Q1 2025"
 
     def test_returns_empty_string_when_entity_not_in_response(self):
-        with patch(
-            "bigdata_briefs.graph.nodes.phase1_search.fetch_quarter_info.get_current_quarter_title",
-            return_value={},
+        with (
+            patch(
+                "bigdata_briefs.graph.nodes.phase1_search.fetch_quarter_info.fetch_earnings_calendar_window",
+                return_value=({}, {}),
+            ),
+            patch(
+                "bigdata_briefs.graph.nodes.phase1_search.fetch_quarter_info.upsert_entity_earnings_calendar",
+            ),
         ):
             result = resolve_fiscal_quarter_from_calendar(_state(), make_config())
 
         assert result["current_quarter_title"] == ""
 
     def test_returns_node_metrics(self):
-        with patch(
-            "bigdata_briefs.graph.nodes.phase1_search.fetch_quarter_info.get_current_quarter_title",
-            return_value={},
+        with (
+            patch(
+                "bigdata_briefs.graph.nodes.phase1_search.fetch_quarter_info.fetch_earnings_calendar_window",
+                return_value=({}, {}),
+            ),
+            patch(
+                "bigdata_briefs.graph.nodes.phase1_search.fetch_quarter_info.upsert_entity_earnings_calendar",
+            ),
         ):
             result = resolve_fiscal_quarter_from_calendar(_state(), make_config())
 

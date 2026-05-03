@@ -15,7 +15,13 @@ from bigdata_briefs.api.routes.scan import (
     build_scan_windows,
     resolve_scan_start,
 )
-from bigdata_briefs.orchestration.models import SQLEntityOrchestrationState, SQLUIScanRun
+from bigdata_briefs.orchestration.models import (
+    SQLEntityOrchestrationState,
+    SQLEntityPipelineRunLog,
+    SQLUIScanRun,
+)
+
+FAR_SCAN_END = datetime(2099, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
 
 
 @pytest.fixture
@@ -218,13 +224,24 @@ def test_build_scan_windows_empty_when_start_equals_end():
     assert windows == []
 
 
+def test_build_scan_windows_live_scan_clips_at_end():
+    """When end is mid-day (e.g. now), windows stop at that instant, not at 23:59:59."""
+    now = datetime(2026, 1, 5, 10, 30, 0, tzinfo=timezone.utc)
+    start = datetime(2026, 1, 4, 0, 0, 0, tzinfo=timezone.utc)
+    windows = build_scan_windows(start, now)
+    assert len(windows) == 2
+    assert windows[0][1] == datetime(2026, 1, 4, 23, 59, 59, tzinfo=timezone.utc)
+    assert windows[1][0] == datetime(2026, 1, 5, 0, 0, 0, tzinfo=timezone.utc)
+    assert windows[1][1] == now  # clipped at "now", not at 23:59:59
+
+
 # ── resolve_scan_start ────────────────────────────────────────────────────────
 
 
 def test_resolve_scan_start_no_prior_runs(engine):
     """Without prior runs, requested_start is used as-is."""
     start = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    result = resolve_scan_start(engine, "NEW_ENTITY", start)
+    result = resolve_scan_start(engine, "NEW_ENTITY", start, FAR_SCAN_END)
     assert result == start
 
 
@@ -236,7 +253,7 @@ def test_resolve_scan_start_resumes_from_last_window_end(engine):
         s.commit()
 
     start = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    result = resolve_scan_start(engine, "E5", start)
+    result = resolve_scan_start(engine, "E5", start, FAR_SCAN_END)
     assert result == last_end
 
 
@@ -248,5 +265,30 @@ def test_resolve_scan_start_uses_requested_when_prior_is_older(engine):
         s.commit()
 
     start = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    result = resolve_scan_start(engine, "E6", start)
+    result = resolve_scan_start(engine, "E6", start, FAR_SCAN_END)
     assert result == start
+
+
+def test_resolve_scan_start_same_day_stuck_uses_process_completed(engine):
+    """When last_window_end is same UTC day as scan_end but >= scan_end, use completion time."""
+    rid = uuid.uuid4()
+    day = datetime(2026, 4, 12, tzinfo=timezone.utc)
+    last_end = datetime(2026, 4, 12, 23, 59, 59, tzinfo=timezone.utc)
+    completed = datetime(2026, 4, 12, 13, 0, 0, tzinfo=timezone.utc)
+    with Session(engine) as s:
+        s.add(SQLEntityOrchestrationState(entity_id="E7", last_window_end=last_end))
+        s.add(SQLEntityPipelineRunLog(
+            run_id=rid,
+            entity_id="E7",
+            report_window_start=datetime(2026, 4, 12, 0, 0, 0, tzinfo=timezone.utc),
+            report_window_end=last_end,
+            process_started_at_utc=datetime(2026, 4, 12, 12, 0, 0, tzinfo=timezone.utc),
+            process_completed_at_utc=completed,
+            status="succeeded",
+        ))
+        s.commit()
+
+    requested = datetime(2026, 4, 12, 0, 0, 0, tzinfo=timezone.utc)
+    scan_end = datetime(2026, 4, 12, 15, 0, 0, tzinfo=timezone.utc)
+    result = resolve_scan_start(engine, "E7", requested, scan_end)
+    assert result == completed
