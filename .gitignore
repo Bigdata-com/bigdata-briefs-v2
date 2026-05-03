@@ -9,6 +9,8 @@ coverage-reports/
 .coverage
 .vscode/
 debug_logs/
+.brief_pipeline_state/
+.claude/
 docs/test_workflow/
 # Local workflow runs / analytics (large artifacts; not versioned)
 docs/test_wflow_py/
