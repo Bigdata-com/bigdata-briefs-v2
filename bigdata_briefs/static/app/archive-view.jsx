@@ -158,15 +158,15 @@ function ArchiveView({ tweaks }) {
                             </span>
                           </>
                         )}
-                        {entry.bullets?.length > 0 && (
-                          <button
-                            className="archive-expand-btn"
-                            onClick={() => setExpandedRunId(expandedRunId === entry.runId ? null : entry.runId)}
-                          >
-                            {expandedRunId === entry.runId ? "▴ hide bullets" : `▾ ${entry.bullets.length} bullet${entry.bullets.length !== 1 ? "s" : ""}`}
-                          </button>
-                        )}
                       </div>
+                      {entry.bullets?.length > 0 && (
+                        <button
+                          className="archive-expand-btn"
+                          onClick={() => setExpandedRunId(expandedRunId === entry.runId ? null : entry.runId)}
+                        >
+                          {expandedRunId === entry.runId ? `▴ hide bullets` : `▾ ${entry.bullets.length} bullet${entry.bullets.length !== 1 ? "s" : ""}`}
+                        </button>
+                      )}
                       {expandedRunId === entry.runId && entry.bullets?.length > 0 && (
                         <ol className="archive-bullets-list">
                           {entry.bullets.map((b, i) => (

@@ -681,13 +681,15 @@
 .archive-headline a { color: inherit; }
 .archive-headline a:hover { color: var(--accent); text-decoration: none; }
 .archive-expand-btn {
+  display: block;
   background: none;
   border: none;
   cursor: pointer;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 700;
   color: var(--accent);
-  padding: 0;
+  padding: 8px 0 0;
   letter-spacing: 0.02em;
 }
 .archive-expand-btn:hover { opacity: 0.75; }
