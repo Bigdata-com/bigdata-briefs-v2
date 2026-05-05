@@ -82,7 +82,7 @@ function ArchiveView({ tweaks }) {
                   onClick={() => loadCompany(c.id)}
                   disabled={loading}
                 >
-                  <span className="ac-runs">{runs}</span>
+                  <span className="ac-runs">{runs !== "—" ? `${runs} ${runs === 1 ? "day" : "days"}` : "—"}</span>
                   <span className="ac-name">{c.name}</span>
                   <span className="ac-meta">{c.ticker} · {c.sector?.split(" ")[0] || ""}</span>
                 </button>
