@@ -287,7 +287,7 @@ In the context of the original sentence: {sentence}
 """
 
 
-_REWRITE_PROMPT_MIXED = """\
+_REWRITE_PROMPT_NOVEL_WITH_CONTEXT = """\
 You are a financial news editor. You are given a sentence and a list of its claims, each labeled either "old" (already known) or "novel" (new information). Claims labeled "novel_trivial" or "novel_unsupported" must be dropped entirely.
 
 Rewrite the sentence using this structure:
@@ -425,7 +425,7 @@ OUTPUT (JSON):
 """
 
 
-_REWRITE_PROMPT_MIXED_PARTIAL = """\
+_REWRITE_PROMPT_PARTIAL_UPDATE_WITH_CONTEXT = """\
 You are a financial news editor. You are given a sentence and a list of its claims. Each claim is labeled either "old" (already covered in prior evidence) or "partially_novel" (the topic is known but the claim adds a specific new detail — a concrete figure, a named entity, a date, or a measurable attribute — not fully present in prior sources).
 
 Rewrite the sentence using this structure:
@@ -546,7 +546,7 @@ OUTPUT (JSON):
 """
 
 
-_REWRITE_PROMPT_MIXED_NOISE = """\
+_REWRITE_PROMPT_NOVEL_NOISY = """\
 You are a financial news editor. You are given a sentence and a list of its claims. Some claims are labeled "novel" (keep these), others are labeled "novel_trivial" or "novel_unsupported" (drop these entirely).
 
 Your task: produce a clean sentence containing only the information from claims labeled "novel". Do not add, infer, or paraphrase beyond what is necessary for grammatical correctness. Do not use a pivot marker — there is no known context to contrast with.
@@ -626,7 +626,7 @@ OUTPUT (JSON):
 """
 
 
-_REWRITE_PROMPT_SINGLE_PARTIALLY_NOVEL = """\
+_REWRITE_PROMPT_PARTIAL_UPDATE = """\
 You are a financial news editor. You are given a sentence about a company and a judge's analysis.
 
 The judge found that the sentence is partially novel: the topic and surrounding context are already known from prior coverage, but the sentence adds one specific new detail — a concrete figure, a named partner, a geographic market, or a specific attribute — that does not appear in prior sources.
@@ -740,7 +740,7 @@ OUTPUT (JSON):
 """
 
 
-_REWRITE_PROMPT_MULTI_PARTIALLY_NOVEL = """\
+_REWRITE_PROMPT_MULTI_PARTIAL_UPDATE = """\
 You are a financial news editor. You are given a sentence about a company and a list of its claims. The claims include two or more labeled "partially_novel": each of these touches on a topic that was already known from prior coverage, but adds one specific new detail — a concrete figure, a named partner, a geographic market, a date, or a specific attribute — that was not present in prior sources. There are no "old" claims and no "novel" claims. Any claim labeled "novel_trivial" or "novel_unsupported" must be dropped.
 
 Your task: rewrite the sentence so the shared known baseline across all claims is expressed as a subordinate clause, and all new specific details are introduced together after a pivot marker.

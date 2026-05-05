@@ -31,11 +31,11 @@ from bigdata_briefs.graph.nodes.novelty_search._search_impl import (
     _NSClaimVerdict,
     _NSRewriteResponseMixed,
     _NSSearchResult,
-    _REWRITE_PROMPT_MIXED,
-    _REWRITE_PROMPT_MIXED_NOISE,
-    _REWRITE_PROMPT_MIXED_PARTIAL,
-    _REWRITE_PROMPT_MULTI_PARTIALLY_NOVEL,
-    _REWRITE_PROMPT_SINGLE_PARTIALLY_NOVEL,
+    _REWRITE_PROMPT_NOVEL_WITH_CONTEXT,
+    _REWRITE_PROMPT_NOVEL_NOISY,
+    _REWRITE_PROMPT_PARTIAL_UPDATE_WITH_CONTEXT,
+    _REWRITE_PROMPT_MULTI_PARTIAL_UPDATE,
+    _REWRITE_PROMPT_PARTIAL_UPDATE,
     _ns_build_rewrite_claims_and_verdicts,
     _ns_build_rewrite_claims_with_reasoning,
     _ns_timestamp_to_date,
@@ -127,7 +127,7 @@ def rewrite_search_bullets(
           - discard_*     → discard
         Verdicts that go through the LLM rewriter:
           - novel_with_context, novel_noisy, partial_update_with_context, partial_update → existing paths
-          - multi_partial_update → new path using _REWRITE_PROMPT_MULTI_PARTIALLY_NOVEL
+          - multi_partial_update → new path using _REWRITE_PROMPT_MULTI_PARTIAL_UPDATE
         """
         claims: list[_NSClaim] = deps.get_search_data(trace_id, "claims")
         claim_verdicts: list[_NSClaimVerdict] = deps.get_search_data(trace_id, "claim_verdicts")
@@ -196,7 +196,7 @@ def rewrite_search_bullets(
             # Pass the judge's reasoning so the rewriter knows what is known vs new
             # without needing explicit old/novel labels.
             reasoning_text = claim_verdicts[0].reasoning if claim_verdicts else ""
-            user_content = _REWRITE_PROMPT_SINGLE_PARTIALLY_NOVEL.format(
+            user_content = _REWRITE_PROMPT_PARTIAL_UPDATE.format(
                 entity_name=entity_name,
                 sentence=sentence,
                 reasoning=reasoning_text,
@@ -207,7 +207,7 @@ def rewrite_search_bullets(
             claims_and_verdicts_text = _ns_build_rewrite_claims_and_verdicts(
                 claims, claim_verdicts
             )
-            user_content = _REWRITE_PROMPT_MIXED_PARTIAL.format(
+            user_content = _REWRITE_PROMPT_PARTIAL_UPDATE_WITH_CONTEXT.format(
                 entity_name=entity_name,
                 sentence=sentence,
                 claims_and_verdicts=claims_and_verdicts_text,
@@ -219,7 +219,7 @@ def rewrite_search_bullets(
             claims_with_reasoning_text = _ns_build_rewrite_claims_with_reasoning(
                 claims, claim_verdicts
             )
-            user_content = _REWRITE_PROMPT_MULTI_PARTIALLY_NOVEL.format(
+            user_content = _REWRITE_PROMPT_MULTI_PARTIAL_UPDATE.format(
                 entity_name=entity_name,
                 sentence=sentence,
                 claims_with_reasoning=claims_with_reasoning_text,
@@ -229,9 +229,9 @@ def rewrite_search_bullets(
                 claims, claim_verdicts
             )
             prompt_template = (
-                _REWRITE_PROMPT_MIXED_NOISE
+                _REWRITE_PROMPT_NOVEL_NOISY
                 if overall_verdict == "novel_noisy"
-                else _REWRITE_PROMPT_MIXED
+                else _REWRITE_PROMPT_NOVEL_WITH_CONTEXT
             )
             user_content = prompt_template.format(
                 entity_name=entity_name,

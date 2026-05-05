@@ -21,7 +21,7 @@ from bigdata_briefs.graph.nodes.novelty_search._search_impl import (
     _NSClaimVerdict,
     _NSPivotRelevanceResult,
     _NSRewriteResponseMixed,
-    _REWRITE_PROMPT_SINGLE_PARTIALLY_NOVEL,
+    _REWRITE_PROMPT_PARTIAL_UPDATE,
     _ns_compute_overall_verdict,
     run_pivot_relevance_check,
 )
