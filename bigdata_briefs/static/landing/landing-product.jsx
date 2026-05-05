@@ -404,9 +404,9 @@ function LandingProduct() {
             and per chunk, so the bill is honest down to the cent.
           </p>
           <p>
-            All in: <span className="num">{fmtUSDsmart(pipeline.cost)}/day</span>, on
-            the same <span className="num">{numCompanies}</span> companies, and the analyst
-            spends the morning thinking, not scrolling.
+            All in, for the same <span className="num">{numCompanies} companies</span> in one
+            daily refresh: <span className="num">{fmtUSDsmart(pipeline.cost)}/day</span>,
+            and the analyst spends the morning thinking, not scrolling.
           </p>
         </div>
       </section>
