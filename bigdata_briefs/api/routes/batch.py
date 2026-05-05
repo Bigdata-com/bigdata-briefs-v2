@@ -396,9 +396,11 @@ def _run_one_entity_safely(
     dependencies=[Depends(require_api_key)],
     summary="Run pipeline in parallel for multiple entities",
     description=(
-        "Submits a list of entity IDs (or a named universe) to the pipeline. All entities run "
+        "Submits entity IDs (or a named universe) to the pipeline. All entities run "
         "concurrently up to `MAX_CONCURRENT_ENTITIES`. Returns a single **batch_id** to monitor "
         "progress via **GET /api/v1/batch/parallel/{batch_id}/status**.\n\n"
+        "**Entity resolution** — provide `entity_ids`, a `universe`, or neither. "
+        "When neither is provided the pipeline runs on all entities tracked in the database.\n\n"
         "**Date window** — omit `force_window_start` / `force_window_end` to use the automatic "
         "incremental window controlled by `window_mode`. Pass explicit ISO 8601 dates to target a "
         "specific period. One day at a time is recommended: a single-day window produces sharper "
@@ -423,7 +425,7 @@ def batch_run_parallel(
     connection_sem: Semaphore = Depends(get_connection_sem),
     http_client: httpx.Client = Depends(get_http_client),
 ) -> BatchParallelRunResponse:
-    # Resolve entity_ids: either explicit list or from a named universe
+    # Resolve entity_ids: explicit list, named universe, or all DB entities
     if body.universe:
         if body.entity_ids:
             raise HTTPException(
@@ -436,8 +438,12 @@ def batch_run_parallel(
                 status_code=404,
                 detail=f"Universe '{body.universe}' not found. Available: {list(_UNIVERSES)}",
             )
-    else:
+    elif body.entity_ids:
         entity_ids = body.entity_ids
+    else:
+        # No entity_ids and no universe — run all entities tracked in the database.
+        # Typical use: window_mode=continuous with no explicit scope = full portfolio resume.
+        entity_ids = _all_entity_ids(get_engine())
 
     if not entity_ids:
         raise HTTPException(status_code=422, detail="No entity_ids to run.")

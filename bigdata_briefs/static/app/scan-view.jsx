@@ -93,9 +93,9 @@ function ScanView({ tweaks }) {
     const endStr   = today;
 
     const body = { window_mode: "continuous", categories: sources };
-    if (scope === "entity")   body.entity_ids = [entity?.id].filter(Boolean);
-    else if (scope === "universe") body.universe = universe?.id;
-    else body.entity_ids = runnableIds;
+    if (scope === "entity")        body.entity_ids = [entity?.id].filter(Boolean);
+    else if (scope === "universe") body.universe   = universe?.id;
+    // scope === "all": send no entity_ids — backend defaults to all DB entities
 
     fetch("/api/v1/batch/run-parallel", {
       method: "POST", headers: { "Content-Type": "application/json" },

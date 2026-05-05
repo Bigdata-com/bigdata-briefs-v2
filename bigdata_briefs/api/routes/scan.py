@@ -632,7 +632,10 @@ def get_scan_preview(
         if not eids:
             raise HTTPException(status_code=404, detail=f"universe '{universe}' not found or empty")
     elif scope == "all":
-        eids = list(csv_names.keys())
+        # Use entities that exist in the DB (have been run at least once or are tracked).
+        # CSV is only used as a name fallback, not as the entity source.
+        with Session(engine) as session:
+            eids = [r.entity_id for r in session.exec(select(SQLEntityOrchestrationState)).all()]
     else:
         raise HTTPException(status_code=422, detail=f"unknown scope '{scope}'")
 

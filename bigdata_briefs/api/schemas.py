@@ -170,7 +170,8 @@ class BatchParallelRunStatusResponse(BaseModel):
 class BatchRunRequest(BaseModel):
     """Body for POST /batch/run and POST /batch/run-parallel.
 
-    Either ``entity_ids`` or ``universe`` must be provided (not both).
+    ``entity_ids``, ``universe``, or neither may be provided (not both).
+    When neither is set, all entities tracked in the database are run.
     When ``universe`` is set, entity IDs are resolved from the named universe CSV.
     """
 
@@ -179,7 +180,7 @@ class BatchRunRequest(BaseModel):
         description=(
             "List of Bigdata entity IDs to process. "
             "Mutually exclusive with 'universe'. "
-            "Pass an empty list together with 'universe' to run a full pre-defined universe."
+            "Omit (or pass empty list) to run all entities in the database."
         ),
     )
     universe: str | None = Field(
