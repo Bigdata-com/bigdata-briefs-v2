@@ -45,7 +45,7 @@ function ScanView({ tweaks }) {
     if (mode !== "running" || !scanParams) return;
     const poll = () => {
       const ids = scanParams.entity_ids.join(",");
-      fetch(`/api/frontend/scan/status?entity_ids=${ids}&start_date=${scanParams.start_date}&end_date=${scanParams.end_date}`)
+      fetch(`/api/v1/scan/status?entity_ids=${ids}&start_date=${scanParams.start_date}&end_date=${scanParams.end_date}`)
         .then(r => r.json())
         .then(data => {
           setScanResults(data);
@@ -62,7 +62,7 @@ function ScanView({ tweaks }) {
   function loadPreview() {
     setPreviewError(null);
     setPreviewLoading(true);
-    let url = `/api/frontend/update/preview?scope=${scope}`;
+    let url = `/api/v1/scan/preview?scope=${scope}`;
     if (scope === "entity"   && entity)   url += `&entity_id=${entity.id}`;
     if (scope === "universe" && universe) url += `&universe=${universe.id}`;
     fetch(url)
@@ -79,17 +79,32 @@ function ScanView({ tweaks }) {
   // ── Resume: start run ───────────────────────────────────────────
   function startResume() {
     setRunError(null);
-    const body = { scope, source_categories: sources };
-    if (scope === "entity")   body.entity_id = entity?.id;
-    if (scope === "universe") body.universe  = universe?.id;
-    fetch("/api/frontend/update/run", {
+    // Derive entity_ids from preview data (entities that have windows to run)
+    const runnableIds = (preview?.entities || [])
+      .filter(r => r.est_windows > 0)
+      .map(r => r.entity_id);
+    if (!runnableIds.length) { setRunError("No entities to run."); return; }
+
+    // Derive date range from preview (earliest resume_date → today)
+    const resumeDates = (preview?.entities || [])
+      .filter(r => r.est_windows > 0 && r.resume_date)
+      .map(r => r.resume_date);
+    const startStr = resumeDates.length ? resumeDates.sort()[0] : today;
+    const endStr   = today;
+
+    const body = { window_mode: "continuous", categories: sources };
+    if (scope === "entity")   body.entity_ids = [entity?.id].filter(Boolean);
+    else if (scope === "universe") body.universe = universe?.id;
+    else body.entity_ids = runnableIds;
+
+    fetch("/api/v1/batch/run-parallel", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     })
       .then(r => r.json())
       .then(data => {
-        if (data.error) { setRunError(data.error); return; }
-        setScanParams({ entity_ids: data.entity_ids, start_date: data.start_date, end_date: data.end_date, total_windows: data.total_windows });
+        if (data.detail || data.error) { setRunError(data.detail || data.error); return; }
+        setScanParams({ entity_ids: runnableIds, start_date: startStr, end_date: endStr, total_windows: data.total });
         setScanResults(null);
         setMode("running");
       })
@@ -104,14 +119,25 @@ function ScanView({ tweaks }) {
     const body = { start_date: startDate, end_date: endDate, source_categories: sources };
     if (scope === "entity")   body.entity_id = entity.id;
     if (scope === "universe") body.universe  = universe.id;
-    fetch("/api/frontend/scan/run", {
+    fetch("/api/v1/scan", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     })
       .then(r => r.json())
       .then(data => {
-        if (data.error) { setRunError(data.error); return; }
-        setScanParams({ entity_ids: data.entity_ids, start_date: startDate, end_date: endDate, total_windows: data.total_windows });
+        if (data.detail || data.error) { setRunError(data.detail || data.error); return; }
+        // Core endpoint returns ScanResponse (single) or UniverseScanResponse (universe)
+        let entityIds, totalWindows;
+        if (data.scans) {
+          // UniverseScanResponse: { scans: [{scan_id, entity_id, windows_total, start, end}], total_entities, universe }
+          entityIds    = data.scans.map(s => s.entity_id);
+          totalWindows = data.scans.reduce((sum, s) => sum + s.windows_total, 0);
+        } else {
+          // ScanResponse: { scan_id, entity_id, windows_total, start, end }
+          entityIds    = [data.entity_id];
+          totalWindows = data.windows_total;
+        }
+        setScanParams({ entity_ids: entityIds, start_date: startDate, end_date: endDate, total_windows: totalWindows });
         setScanResults(null);
         setMode("running");
       })

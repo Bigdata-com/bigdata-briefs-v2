@@ -2,18 +2,22 @@
 Historical day-by-day scan for a single entity.
 
 REST:
-    POST /api/v1/scan        → start a scan, returns scan_id
-    GET  /api/v1/scan/{id}   → scan status + results
+    POST /api/v1/scan              → start a scan, returns scan_id(s)
+    GET  /api/v1/scan/status       → multi-entity aggregated scan status
+    GET  /api/v1/scan/preview      → multi-entity resume preview (dry-run)
+    GET  /api/v1/scan/{id}         → single scan status + results
 """
 
 from __future__ import annotations
 
+import csv
 import json
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date as date_cls, datetime, timedelta, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import desc
 from sqlmodel import Session, select
 
@@ -28,6 +32,7 @@ from bigdata_briefs.api.dependencies import (
 from bigdata_briefs.orchestration.config_load import load_pipeline_config_dict, resolve_config_path
 from bigdata_briefs.orchestration.entity_runner import run_entity_incremental
 from bigdata_briefs.orchestration.models import (
+    SQLBulletRunLog,
     SQLEntityOrchestrationState,
     SQLEntityPipelineRunLog,
     SQLUIScanRun,
@@ -39,6 +44,28 @@ from threading import Semaphore
 import httpx
 
 from bigdata_briefs import logger
+
+_ENTITY_COSTS_CSV = Path(__file__).parent.parent.parent / "data" / "universe_entity_costs.csv"
+_UNIVERSES_DIR = Path(__file__).parent.parent.parent / "data" / "universes"
+
+
+def _load_ticker_map_scan() -> dict[str, str]:
+    """Return {entity_id: ticker} from all universe CSVs that have a ticker column."""
+    mapping: dict[str, str] = {}
+    for csv_path in _UNIVERSES_DIR.glob("*.csv"):
+        try:
+            with open(csv_path, newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                if reader.fieldnames and "ticker" in reader.fieldnames:
+                    for row in reader:
+                        if row.get("id") and row.get("ticker"):
+                            mapping[row["id"]] = row["ticker"]
+        except Exception:
+            pass
+    return mapping
+
+
+_TICKER_MAP: dict[str, str] = _load_ticker_map_scan()
 
 router = APIRouter(tags=["scan"])
 
@@ -304,9 +331,6 @@ def run_scan_worker(
 # ── REST endpoint ─────────────────────────────────────────────────────────────
 
 
-from fastapi import HTTPException
-from pydantic import BaseModel
-
 from bigdata_briefs.api.routes.universes import _UNIVERSES
 
 
@@ -315,6 +339,7 @@ class ScanRequest(BaseModel):
     universe: str | None = None    # scan all entities in this universe
     start_date: str                # YYYY-MM-DD
     end_date: str | None = None    # YYYY-MM-DD, defaults to today
+    source_categories: list[str] | None = None  # override pipeline categories (news, news_premium, filings, transcripts)
 
 
 class ScanResponse(BaseModel):
@@ -359,6 +384,7 @@ def _start_one_scan(
     rate_limiter,
     connection_sem,
     http_client,
+    source_categories: list[str] | None = None,
 ) -> ScanResponse | None:
     """Create and submit one scan. Returns None if already up to date."""
     effective_start = resolve_scan_start(engine, entity_id, requested_start, end)
@@ -383,6 +409,7 @@ def _start_one_scan(
         rate_limiter=rate_limiter,
         connection_sem=connection_sem,
         http_client=http_client,
+        source_categories=source_categories,
     )
     return ScanResponse(
         scan_id=scan_id,
@@ -429,15 +456,249 @@ def start_scan(
             )
         scans: list[ScanResponse] = []
         for eid in entity_ids:
-            resp = _start_one_scan(eid, requested_start, end, engine, executor, rate_limiter, connection_sem, http_client)
+            resp = _start_one_scan(eid, requested_start, end, engine, executor, rate_limiter, connection_sem, http_client, source_categories=body.source_categories)
             if resp:
                 scans.append(resp)
         return UniverseScanResponse(scans=scans, total_entities=len(entity_ids), universe=body.universe)
 
-    resp = _start_one_scan(body.entity_id, requested_start, end, engine, executor, rate_limiter, connection_sem, http_client)
+    resp = _start_one_scan(body.entity_id, requested_start, end, engine, executor, rate_limiter, connection_sem, http_client, source_categories=body.source_categories)
     if resp is None:
         raise HTTPException(status_code=422, detail="No windows to process — already up to date.")
     return resp
+
+
+# ── GET /api/v1/scan/status ───────────────────────────────────────────────────
+
+
+@router.get(
+    "/scan/status",
+    dependencies=[Depends(require_api_key)],
+    summary="Multi-entity aggregated scan status",
+    description=(
+        "Poll scan progress for one or more entities over a date range. "
+        "Returns per-entity per-day status rows plus aggregate completed/total counts.\n\n"
+        "Query params:\n"
+        "- `entity_ids`: comma-separated entity IDs\n"
+        "- `start_date`: YYYY-MM-DD\n"
+        "- `end_date`: YYYY-MM-DD"
+    ),
+)
+def get_multi_scan_status(
+    entity_ids: str = Query(..., description="Comma-separated entity IDs"),
+    start_date: str = Query(..., description="YYYY-MM-DD"),
+    end_date: str = Query(..., description="YYYY-MM-DD"),
+) -> dict:
+    """Poll scan progress: returns per-entity per-day status."""
+    engine = get_engine()
+    ids = [x.strip() for x in entity_ids.split(",") if x.strip()]
+
+    try:
+        sd = date_cls.fromisoformat(start_date)
+        ed = date_cls.fromisoformat(end_date)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="invalid dates — use YYYY-MM-DD")
+
+    all_dates: list[str] = []
+    d = sd
+    while d <= ed:
+        all_dates.append(d.isoformat())
+        d += timedelta(days=1)
+
+    requested_start_dt = datetime(sd.year, sd.month, sd.day, 0, 0, 0, tzinfo=timezone.utc)
+    scan_range_end = datetime(ed.year, ed.month, ed.day, 23, 59, 59, tzinfo=timezone.utc)
+
+    with Session(engine) as session:
+        results: list[dict] = []
+        for entity_id in ids:
+            orch = session.get(SQLEntityOrchestrationState, entity_id)
+            entity_name = (orch.kg_name if orch else None) or entity_id
+            ticker = _TICKER_MAP.get(entity_id) or (orch.kg_ticker if orch else "") or ""
+
+            eff = resolve_scan_start(engine, entity_id, requested_start_dt, scan_range_end)
+            first_scan_day = eff.astimezone(timezone.utc).date()
+
+            day_results: list[dict] = []
+            for date_str in all_dates:
+                td_obj = date_cls.fromisoformat(date_str)
+                day_start = datetime(td_obj.year, td_obj.month, td_obj.day, 0, 0, 0, tzinfo=timezone.utc)
+                day_end = datetime(td_obj.year, td_obj.month, td_obj.day, 23, 59, 59, 999999, tzinfo=timezone.utc)
+
+                run = session.exec(
+                    select(SQLEntityPipelineRunLog).where(
+                        SQLEntityPipelineRunLog.entity_id == entity_id,
+                        SQLEntityPipelineRunLog.report_window_end >= day_start,
+                        SQLEntityPipelineRunLog.report_window_end <= day_end,
+                    ).order_by(desc(SQLEntityPipelineRunLog.process_completed_at_utc))
+                ).first()
+
+                if run is None:
+                    if first_scan_day is not None and td_obj < first_scan_day:
+                        day_results.append({
+                            "date": date_str,
+                            "status": "skipped",
+                            "reason": "before effective scan start (resume)",
+                        })
+                    else:
+                        day_results.append({"date": date_str, "status": "pending"})
+                    continue
+                elif run.status == "running":
+                    day_results.append({"date": date_str, "status": "running"})
+                elif run.status in ("succeeded", "no_data"):
+                    active = len(session.exec(
+                        select(SQLBulletRunLog).where(
+                            SQLBulletRunLog.run_id == run.run_id,
+                            SQLBulletRunLog.is_active == True,  # noqa: E712
+                        )
+                    ).all())
+                    discarded = len(session.exec(
+                        select(SQLBulletRunLog).where(
+                            SQLBulletRunLog.run_id == run.run_id,
+                            SQLBulletRunLog.is_active == False,  # noqa: E712
+                        )
+                    ).all())
+                    day_results.append({
+                        "date": date_str,
+                        "status": "succeeded",
+                        "saved": active,
+                        "discarded": discarded,
+                    })
+                else:
+                    day_results.append({
+                        "date": date_str,
+                        "status": "failed",
+                        "error": (run.error_summary or "")[:80],
+                    })
+
+            results.append({
+                "entityId": entity_id,
+                "entityName": entity_name,
+                "ticker": ticker,
+                "days": day_results,
+            })
+
+    total = len(ids) * len(all_dates)
+    completed = sum(
+        1 for r in results for dd in r["days"]
+        if dd["status"] in ("succeeded", "failed", "skipped")
+    )
+    return {"entities": results, "total": total, "completed": completed}
+
+
+# ── GET /api/v1/scan/preview ──────────────────────────────────────────────────
+
+
+@router.get(
+    "/scan/preview",
+    dependencies=[Depends(require_api_key)],
+    summary="Multi-entity resume preview (dry-run)",
+    description=(
+        "Returns per-entity resume point data without starting any scans.\n\n"
+        "Query params:\n"
+        "- `scope`: `entity` | `universe` | `all`\n"
+        "- `entity_id`: required when scope=entity\n"
+        "- `universe`: required when scope=universe"
+    ),
+)
+def get_scan_preview(
+    scope: str = Query("entity", description="entity | universe | all"),
+    entity_id: str | None = Query(None, description="Required when scope=entity"),
+    universe: str | None = Query(None, description="Required when scope=universe"),
+) -> dict:
+    """Return per-entity resume points for the update/scan preview."""
+    from bigdata_briefs.api.routes.universes import _UNIVERSES
+
+    engine = get_engine()
+    now = datetime.now(timezone.utc)
+
+    # Build CSV name lookup — used for name resolution and for scope=all entity list
+    csv_names: dict[str, str] = {}
+    if _ENTITY_COSTS_CSV.is_file():
+        with _ENTITY_COSTS_CSV.open(newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                eid_c = row.get("entity_id", "").strip()
+                name_c = row.get("name", "").strip()
+                if eid_c and eid_c not in csv_names:
+                    csv_names[eid_c] = name_c or eid_c
+
+    # Resolve the set of entity_ids to preview
+    if scope == "entity":
+        if not entity_id:
+            raise HTTPException(status_code=422, detail="entity_id required for scope=entity")
+        eids = [entity_id]
+    elif scope == "universe":
+        if not universe:
+            raise HTTPException(status_code=422, detail="universe required for scope=universe")
+        eids = list(_UNIVERSES.get(universe) or [])
+        if not eids:
+            raise HTTPException(status_code=404, detail=f"universe '{universe}' not found or empty")
+    elif scope == "all":
+        eids = list(csv_names.keys())
+    else:
+        raise HTTPException(status_code=422, detail=f"unknown scope '{scope}'")
+
+    rows: list[dict] = []
+    with Session(engine) as session:
+        for eid in eids:
+            orch = session.get(SQLEntityOrchestrationState, eid)
+            name = (orch.kg_name if orch else None) or csv_names.get(eid) or eid
+            ticker = (orch.kg_ticker if orch else None) or None
+
+            last_run = session.exec(
+                select(SQLEntityPipelineRunLog)
+                .where(SQLEntityPipelineRunLog.entity_id == eid)
+                .where(SQLEntityPipelineRunLog.process_completed_at_utc.isnot(None))
+                .order_by(desc(SQLEntityPipelineRunLog.process_completed_at_utc))
+            ).first()
+
+            if last_run is None or last_run.process_completed_at_utc is None:
+                yesterday = (now - timedelta(days=1)).replace(
+                    hour=0, minute=0, second=0, microsecond=0
+                )
+                fb_windows = build_scan_windows(yesterday, now)
+                rows.append({
+                    "entity_id": eid,
+                    "name": name,
+                    "ticker": ticker,
+                    "last_run_at": None,
+                    "resume_from": yesterday.isoformat(),
+                    "resume_date": yesterday.date().isoformat(),
+                    "est_windows": len(fb_windows),
+                    "has_history": False,
+                    "fallback": True,
+                })
+                continue
+
+            last_at = (
+                last_run.process_completed_at_utc.replace(tzinfo=timezone.utc)
+                if last_run.process_completed_at_utc.tzinfo is None
+                else last_run.process_completed_at_utc
+            )
+            req_start = last_at.replace(hour=0, minute=0, second=0, microsecond=0)
+            effective_start = resolve_scan_start(engine, eid, req_start, now)
+            windows = build_scan_windows(effective_start, now)
+
+            rows.append({
+                "entity_id": eid,
+                "name": name,
+                "ticker": ticker,
+                "last_run_at": last_at.isoformat(),
+                "resume_from": effective_start.isoformat(),
+                "resume_date": effective_start.date().isoformat(),
+                "est_windows": len(windows),
+                "has_history": True,
+            })
+
+    runnable = [r for r in rows if r["est_windows"] > 0]
+    total_windows = sum(r["est_windows"] for r in runnable)
+    return {
+        "scope": scope,
+        "entities": rows,
+        "runnable_count": len(runnable),
+        "total_est_windows": total_windows,
+    }
+
+
+# ── GET /api/v1/scan/{scan_id} ────────────────────────────────────────────────
 
 
 @router.get(
@@ -445,11 +706,10 @@ def start_scan(
     dependencies=[Depends(require_api_key)],
     summary="Get scan status",
 )
-def get_scan_status(scan_id: str) -> dict:
+def get_single_scan_status(scan_id: str) -> dict:
     engine = get_engine()
     row = db_get_scan(engine, scan_id)
     if row is None:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Scan not found")
     return {
         "scan_id": row.scan_id,
