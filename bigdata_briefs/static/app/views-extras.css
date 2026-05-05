@@ -1464,6 +1464,12 @@
 }
 .update-preview-warn { color: var(--discard); }
 .update-preview-ok   { color: var(--accent); }
+.update-preview-first-tag {
+  display: inline-block; margin-left: 8px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em;
+  color: var(--rewrite); background: var(--rewrite-bg); padding: 1px 5px;
+}
+.update-preview-row-fallback td { color: var(--ink-soft); }
 
 .update-preview-empty {
   font-family: var(--sans);
@@ -1540,3 +1546,46 @@
 .update-ent-row-failed  { background: rgba(var(--discard-rgb, 180,40,40), .05); }
 .update-ent-row-name    { font-weight: 500; color: var(--ink); }
 .update-ent-row-pills   { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* ── Cost phase grouping ─────────────────────────────────────── */
+.cost-phase-group { display: flex; flex-direction: column; }
+.cost-phase-expand {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  flex: 1;
+  text-align: left;
+}
+.cost-phase-expand-icon {
+  font-size: 11px;
+  color: var(--ink-mute);
+  width: 12px;
+  flex-shrink: 0;
+}
+.cost-phase-label-sub {
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--ink-mute);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+.cost-phase-open .cost-phase-label { color: var(--accent); }
+.cost-phase-children {
+  margin-left: 20px;
+  padding-left: 12px;
+  border-left: 2px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+}
+.cost-phase-indent .cost-phase-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+.cost-phase-indent .cost-phase-amt { font-size: 15px; }

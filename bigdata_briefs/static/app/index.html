@@ -21,13 +21,13 @@
   <script src="data.js"></script>
   <script src="run-data.js"></script>
   <script src="extras-data.js"></script>
+  <script type="text/babel" src="home-view.jsx"></script>
   <script type="text/babel" src="tweaks-panel.jsx"></script>
   <script type="text/babel" src="shared.jsx"></script>
   <script type="text/babel" src="brief-view.jsx"></script>
   <script type="text/babel" src="archive-view.jsx"></script>
   <script type="text/babel" src="run-view.jsx"></script>
   <script type="text/babel" src="scan-view.jsx"></script>
-  <script type="text/babel" src="update-view.jsx"></script>
   <script type="text/babel" src="history-details-view.jsx"></script>
   <script type="text/babel" src="cost-view.jsx"></script>
   <script type="text/babel" src="admin-view.jsx"></script>
@@ -50,7 +50,7 @@
 
     function App() {
       const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
-      const [view, setView] = useState(t.view === "ops" ? "brief" : (t.view || "brief"));
+      const [view, setView] = useState("home");
       const [showDiscarded, setShowDiscarded] = useState(t.showDiscarded);
 
       // Theme + accent + font scale applied to the document root
@@ -68,6 +68,7 @@
 
           <div className="page">
             <div className="page-inner">
+              {view === "home" && <HomeView setView={setView} />}
               {view === "brief" && (
                 <BriefView
                   density={t.density}
@@ -76,13 +77,10 @@
                   dropcap={t.dropcap}
                 />
               )}
-              {view === "run" && <RunView tweaks={t} />}
               {view === "scan" && <ScanView tweaks={t} />}
-              {view === "update" && <UpdateView tweaks={t} />}
               {view === "history" && <ArchiveView tweaks={t} />}
               {view === "history-details" && <HistoryDetailsView tweaks={t} />}
               {view === "cost" && <CostView tweaks={t} />}
-              {view === "admin" && <AdminView tweaks={t} />}
             </div>
           </div>
 
@@ -106,7 +104,7 @@
 
             <TweakSection label="View" />
             <TweakSelect label="Section" value={view}
-                        options={["brief", "run", "scan", "update", "history", "history-details", "cost", "admin"]}
+                        options={["brief", "scan", "update", "history", "history-details", "cost"]}
                         onChange={(v) => setView(v)} />
           </TweaksPanel>
         </React.Fragment>

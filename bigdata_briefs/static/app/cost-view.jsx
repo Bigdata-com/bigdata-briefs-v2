@@ -1,6 +1,197 @@
 // Cost Breakdown — drill-down for a single run.
 const { useState: useStateC, useEffect: useEffectC } = React;
 
+// ── Phase grouping ─────────────────────────────────────────────────
+// Phases that share a common prefix are collapsed into a group row.
+const PHASE_GROUP_PREFIXES = [
+  "Bullets Generation",
+  "Novelty Embedding Evaluation",
+  "Novelty Search",
+  "Entity Grounding Check",
+  "Relevance Score",
+  "Concept Search",
+];
+
+function getGroupKey(label) {
+  for (const prefix of PHASE_GROUP_PREFIXES) {
+    if (label.startsWith(prefix) && label.length > prefix.length) return prefix;
+  }
+  return null;
+}
+
+function buildPhaseGroups(phases) {
+  const order = [];
+  const byKey = {};
+
+  phases.forEach(p => {
+    const key = getGroupKey(p.label);
+    if (key) {
+      if (!byKey[key]) {
+        byKey[key] = { type: "group", key, label: key, items: [], total: 0, llm: 0, embed: 0, api: 0, calls: 0, chunks: 0, requests: 0 };
+        order.push(byKey[key]);
+      }
+      const g = byKey[key];
+      g.items.push(p);
+      g.total     += p.total;
+      g.llm       += p.llm;
+      g.embed     += p.embed;
+      g.api       += p.api;
+      g.calls     += p.calls;
+      g.chunks    += p.chunks;
+      g.requests  += p.requests;
+    } else {
+      order.push({ type: "single", data: p });
+    }
+  });
+
+  const grand = order.reduce((s, x) => s + (x.type === "group" ? x.total : x.data.total), 0);
+  order.forEach(x => {
+    if (x.type === "group") x.percent = grand > 0 ? (x.total / grand) * 100 : 0;
+  });
+
+  return { rows: order, grand };
+}
+
+function PhaseRow({ p, phaseMax, indent = false }) {
+  return (
+    <div className={"cost-phase" + (indent ? " cost-phase-indent" : "")}>
+      <div className="cost-phase-head">
+        <span className="cost-phase-label">{p.label}</span>
+        <span className="cost-phase-amt tnum">${p.total.toFixed(4)}</span>
+        <span className="cost-phase-pct tnum muted">{p.percent.toFixed(1)}%</span>
+      </div>
+      <div className="cost-phase-bar">
+        <div className="cost-phase-fill cost-phase-llm"   style={{ width: (p.llm   / phaseMax * 100) + "%" }} />
+        <div className="cost-phase-fill cost-phase-embed" style={{ width: (p.embed / phaseMax * 100) + "%" }} />
+        <div className="cost-phase-fill cost-phase-api"   style={{ width: (p.api   / phaseMax * 100) + "%" }} />
+      </div>
+      <div className="cost-phase-meta">
+        {p.calls    > 0 && <span><strong className="tnum">{p.calls}</strong> LLM calls</span>}
+        {p.requests > 0 && <span><strong className="tnum">{p.requests}</strong> API requests</span>}
+        {p.chunks   > 0 && <span><strong className="tnum">{p.chunks}</strong> chunks retrieved</span>}
+      </div>
+    </div>
+  );
+}
+
+// Extract the sub-operation name from a phase label given its group prefix.
+// e.g. prefix="Novelty Search", label="Novelty Search Parse 9 Attempt0" → "Parse"
+// Returns null if the remainder is only a number (no meaningful sub-type).
+function getSubKey(prefix, label) {
+  const rest = label.slice(prefix.length).trim();
+  const m = rest.match(/^([A-Za-z][A-Za-z\s]*?)(?=\s+\d|\s*$)/);
+  const key = m ? m[1].trim() : "";
+  return key || null;
+}
+
+function buildSubGroups(groupPrefix, items) {
+  const order = [];
+  const byKey = {};
+  let hasSubKeys = false;
+
+  items.forEach(p => {
+    const key = getSubKey(groupPrefix, p.label);
+    if (key) {
+      hasSubKeys = true;
+      if (!byKey[key]) {
+        byKey[key] = { key, label: key, items: [], total: 0, llm: 0, embed: 0, api: 0, calls: 0, chunks: 0, requests: 0, percent: 0 };
+        order.push(byKey[key]);
+      }
+      const sg = byKey[key];
+      sg.items.push(p);
+      sg.total    += p.total;
+      sg.llm      += p.llm;
+      sg.embed    += p.embed;
+      sg.api      += p.api;
+      sg.calls    += p.calls;
+      sg.chunks   += p.chunks;
+      sg.requests += p.requests;
+    } else {
+      order.push({ key: p.id, single: p });
+    }
+  });
+
+  if (!hasSubKeys) return null; // no sub-grouping needed
+
+  const grand = order.reduce((s, x) => s + (x.single ? x.single.total : x.total), 0);
+  order.forEach(x => { if (!x.single) x.percent = grand > 0 ? (x.total / grand) * 100 : 0; });
+
+  return order;
+}
+
+function SubGroupRow({ sg, phaseMax }) {
+  const [open, setOpen] = useStateC(false);
+  const isSingle = sg.items.length === 1;
+  return (
+    <div className="cost-phase-group">
+      <div className={"cost-phase cost-phase-indent" + (open ? " cost-phase-open" : "")}>
+        <div className="cost-phase-head">
+          <button className="cost-phase-expand" onClick={() => setOpen(v => !v)}>
+            <span className="cost-phase-expand-icon">{open ? "▾" : "▸"}</span>
+            <span className="cost-phase-label">{sg.label}</span>
+            {!isSingle && <span className="cost-phase-label-sub">{sg.items.length}×</span>}
+          </button>
+          <span className="cost-phase-amt tnum">${sg.total.toFixed(4)}</span>
+          <span className="cost-phase-pct tnum muted">{sg.percent.toFixed(1)}%</span>
+        </div>
+        <div className="cost-phase-meta">
+          {sg.calls    > 0 && <span><strong className="tnum">{sg.calls}</strong> LLM calls</span>}
+          {sg.requests > 0 && <span><strong className="tnum">{sg.requests}</strong> API requests</span>}
+          {sg.chunks   > 0 && <span><strong className="tnum">{sg.chunks}</strong> chunks</span>}
+        </div>
+      </div>
+      {open && (
+        <div className="cost-phase-children" style={{ marginLeft: 32 }}>
+          {sg.items.map(p => <PhaseRow key={p.id} p={p} phaseMax={phaseMax} indent />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GroupRow({ g, phaseMax }) {
+  const [open, setOpen] = useStateC(false);
+  const subGroups = React.useMemo(() => buildSubGroups(g.key, g.items), [g.key, g.items]);
+
+  return (
+    <div className="cost-phase-group">
+      <div className={"cost-phase" + (open ? " cost-phase-open" : "")}>
+        <div className="cost-phase-head">
+          <button className="cost-phase-expand" onClick={() => setOpen(v => !v)}>
+            <span className="cost-phase-expand-icon">{open ? "▾" : "▸"}</span>
+            <span className="cost-phase-label">{g.label}</span>
+            <span className="cost-phase-label-sub">{g.items.length} steps</span>
+          </button>
+          <span className="cost-phase-amt tnum">${g.total.toFixed(4)}</span>
+          <span className="cost-phase-pct tnum muted">{g.percent.toFixed(1)}%</span>
+        </div>
+        <div className="cost-phase-bar">
+          <div className="cost-phase-fill cost-phase-llm"   style={{ width: (g.llm   / phaseMax * 100) + "%" }} />
+          <div className="cost-phase-fill cost-phase-embed" style={{ width: (g.embed / phaseMax * 100) + "%" }} />
+          <div className="cost-phase-fill cost-phase-api"   style={{ width: (g.api   / phaseMax * 100) + "%" }} />
+        </div>
+        <div className="cost-phase-meta">
+          {g.calls    > 0 && <span><strong className="tnum">{g.calls}</strong> LLM calls</span>}
+          {g.requests > 0 && <span><strong className="tnum">{g.requests}</strong> API requests</span>}
+          {g.chunks   > 0 && <span><strong className="tnum">{g.chunks}</strong> chunks retrieved</span>}
+        </div>
+      </div>
+      {open && (
+        <div className="cost-phase-children">
+          {subGroups
+            ? subGroups.map(x =>
+                x.single
+                  ? <PhaseRow key={x.key} p={x.single} phaseMax={phaseMax} indent />
+                  : <SubGroupRow key={x.key} sg={x} phaseMax={phaseMax} />
+              )
+            : g.items.map(p => <PhaseRow key={p.id} p={p} phaseMax={phaseMax} indent />)
+          }
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CostView({ tweaks }) {
   const COMPANIES = window.DATA?.companies || [];
   const initial = window.EXTRAS.cost;
@@ -107,6 +298,7 @@ function CostView({ tweaks }) {
 
   const llmTotal = C.llmModels.reduce((s, m) => s + m.cost, 0);
   const phaseMax = Math.max(...C.phases.map(p => p.total), 0.0001);
+  const { rows: phaseRows } = buildPhaseGroups([...C.phases].sort((a, b) => b.total - a.total));
 
   return (
     <div className="cost-layout">
@@ -278,25 +470,11 @@ function CostView({ tweaks }) {
             <span className="ops-section-meta">Where the dollars actually went</span>
           </div>
           <div className="cost-phases">
-            {[...C.phases].sort((a, b) => b.total - a.total).map(p => (
-              <div key={p.id} className="cost-phase">
-                <div className="cost-phase-head">
-                  <span className="cost-phase-label">{p.label}</span>
-                  <span className="cost-phase-amt tnum">${p.total.toFixed(4)}</span>
-                  <span className="cost-phase-pct tnum muted">{p.percent.toFixed(1)}%</span>
-                </div>
-                <div className="cost-phase-bar">
-                  <div className="cost-phase-fill cost-phase-llm" style={{ width: (p.llm / phaseMax * 100) + "%" }} />
-                  <div className="cost-phase-fill cost-phase-embed" style={{ width: (p.embed / phaseMax * 100) + "%" }} />
-                  <div className="cost-phase-fill cost-phase-api" style={{ width: (p.api / phaseMax * 100) + "%" }} />
-                </div>
-                <div className="cost-phase-meta">
-                  {p.calls > 0 && <span><strong className="tnum">{p.calls}</strong> LLM calls</span>}
-                  {p.requests > 0 && <span><strong className="tnum">{p.requests}</strong> API requests</span>}
-                  {p.chunks > 0 && <span><strong className="tnum">{p.chunks}</strong> chunks retrieved</span>}
-                </div>
-              </div>
-            ))}
+            {phaseRows.map((row, i) =>
+              row.type === "group"
+                ? <GroupRow key={row.key} g={row} phaseMax={phaseMax} />
+                : <PhaseRow key={row.data.id} p={row.data} phaseMax={phaseMax} />
+            )}
             <div className="cost-phase-key">
               <span><span className="cost-key cost-key-llm" />LLM</span>
               <span><span className="cost-key cost-key-embed" />Embeddings</span>
@@ -305,37 +483,6 @@ function CostView({ tweaks }) {
           </div>
         </section>
 
-        <section className="cost-section">
-          <div className="ops-section-head">
-            <h2>BigData API · search activity</h2>
-            <span className="ops-section-meta">{C.summary.chunksTotal} chunks @ ${C.summary.chunkRate} = ${C.summary.apiChunks.toFixed(4)}</span>
-          </div>
-          <table className="editorial cost-table">
-            <thead>
-              <tr>
-                <th>Phase</th>
-                <th className="num">Requests</th>
-                <th className="num">Chunks</th>
-                <th className="num">Query units</th>
-                <th className="num">Cost</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(C.apiPhases && C.apiPhases.length > 0 ? C.apiPhases : []).map(p => (
-                <tr key={p.id}>
-                  <td>{p.label}</td>
-                  <td className="num">{p.requests}</td>
-                  <td className="num">{p.chunks.toLocaleString()}</td>
-                  <td className="num">{p.queryUnits.toFixed(2)}</td>
-                  <td className="num" style={{ fontWeight: 600 }}>${p.cost.toFixed(4)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {(!C.apiPhases || C.apiPhases.length === 0) && (
-            <p className="muted" style={{ fontFamily: "var(--sans)", fontSize: 12, marginTop: 8 }}>No per-phase API breakdown stored for this run.</p>
-          )}
-        </section>
       </main>
     </div>
   );

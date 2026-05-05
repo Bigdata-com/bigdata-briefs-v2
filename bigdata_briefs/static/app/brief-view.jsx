@@ -10,7 +10,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded }) {
   const initialDates = window.DATA.availableDates || [];
   const initialDate = initialBrief?.windowEnd?.slice(0, 10) || initialDates[initialDates.length - 1] || null;
 
-  const [currentBrief, setCurrentBrief] = React.useState(initialBrief);
+  const [currentBrief, setCurrentBrief] = React.useState(null);
   const [currentPulse, setCurrentPulse] = React.useState(window.DATA.pulse);
   const [availableDates, setAvailableDates] = React.useState(initialDates);
   const [selectedDate, setSelectedDate] = React.useState(initialDate);
@@ -56,7 +56,15 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded }) {
   const allCompanies = Array.isArray(window.DATA?.companies) ? window.DATA.companies : [];
 
   const companiesForFrontPage = React.useMemo(() => {
-    const bid = brief?.entityId;
+    if (!brief) {
+      return [...allCompanies].sort((a, b) => {
+        const ba = companySummaries[a.id]?.bulletsSaved ?? -1;
+        const bb = companySummaries[b.id]?.bulletsSaved ?? -1;
+        if (bb !== ba) return bb - ba;
+        return (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
+      });
+    }
+    const bid = brief.entityId;
     const list = allCompanies.filter(c => {
       if (c.id === bid) return true;
       const s = companySummaries[c.id];
@@ -136,20 +144,43 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded }) {
   const briefOk = brief != null && Array.isArray(brief.bullets);
   if (!briefOk) {
     return (
-      <div className="brief-layout" data-density={density}>
-        <aside className="brief-rail">
-          <div className="rail-section">
-            <p className="muted" style={{ fontSize: 13, lineHeight: 1.5 }}>
-              No succeeded brief is loaded yet. Use Compose to run the pipeline, or ensure the database has at least one entity with a completed run.
-            </p>
-          </div>
-        </aside>
-        <main className="brief-main" style={{ padding: "48px 32px" }}>
-          <h1 className="archive-title display" style={{ marginBottom: 12 }}>No brief available</h1>
-          <p style={{ color: "var(--ink-mute)", maxWidth: 520 }}>
-            The desk has no default brief to show (empty or missing runs). Reload after data exists, or open another section from the masthead.
+      <div className="brief-pick-wrap">
+        <div className="brief-pick-header">
+          <div className="dateline" style={{ marginBottom: 6 }}>The Brief</div>
+          <p className="brief-pick-sub">
+            {loading ? "Loading…" : "Choose a company to read its brief."}
           </p>
-        </main>
+        </div>
+        <div className="brief-pick-list">
+          <div className="brief-pick-row brief-pick-row-head">
+            <span className="brief-pick-col-ticker">Ticker</span>
+            <span className="brief-pick-col-name">Company</span>
+            <span className="brief-pick-col-date">Last run</span>
+            <span className="brief-pick-col-bullets">Published</span>
+            <span className="brief-pick-col-discarded">Discarded</span>
+          </div>
+          {companiesForFrontPage.map(c => {
+            const s = companySummaries[c.id] || {};
+            const saved = s.bulletsSaved != null ? s.bulletsSaved : "—";
+            const discarded = s.bulletsDiscarded != null ? s.bulletsDiscarded : "—";
+            const rawDate = s.lastRunDate || (s.pulse7?.length > 0 ? s.pulse7[s.pulse7.length - 1].date : null);
+            const date = rawDate
+              ? rawDate.includes("T")
+                ? rawDate.replace("T", " ").replace("Z", " UTC")
+                : rawDate
+              : "—";
+            return (
+              <button key={c.id} className="brief-pick-row brief-pick-row-item"
+                      onClick={() => loadEntity(c.id, null)} disabled={loading}>
+                <span className="brief-pick-col-ticker">{c.ticker}</span>
+                <span className="brief-pick-col-name">{c.name}</span>
+                <span className="brief-pick-col-date">{date}</span>
+                <span className="brief-pick-col-bullets">{saved}</span>
+                <span className="brief-pick-col-discarded">{discarded}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     );
   }
@@ -157,6 +188,14 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded }) {
   const allBullets = brief.bullets;
   const themesList = Array.isArray(brief.themes) ? brief.themes : [];
   const discardedList = Array.isArray(brief.discarded) ? brief.discarded : [];
+
+  // Assign maximally-separated hues using golden angle so sibling themes never clash
+  const _dark = document.documentElement.dataset.theme === "dark";
+  const _themeColorList = themesList.map((_, i) =>
+    `hsl(${(i * 137.508 + 30) % 360}, 70%, ${_dark ? 62 : 38}%)`
+  );
+  const themeColors = {};
+  themesList.forEach((t, i) => { themeColors[t.name] = _themeColorList[i]; });
 
   const bullets = filterTheme
     ? allBullets.filter(b => b.theme === filterTheme)
@@ -334,7 +373,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded }) {
           </button>
           {themesList.map(t => (
             <button key={t.name} className={`theme-chip ${filterTheme === t.name ? "active" : ""}`} onClick={() => setFilterTheme(t.name)}>
-              <ThemeDot theme={t.name} />
+              <ThemeDot theme={t.name} color={themeColors[t.name]} />
               {t.name} <span className="muted tnum">{t.count}</span>
             </button>
           ))}
@@ -350,6 +389,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded }) {
               isFirst={i === 0 && dropcap}
               active={activeBulletId === b.id}
               onActivate={() => setActiveBulletId(activeBulletId === b.id ? null : b.id)}
+              themeColor={themeColors[b.theme]}
             />
           ))}
         </div>
@@ -504,21 +544,17 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded }) {
 }
 
 // ── Single bullet ───────────────────────────────────────────────────
-function BulletItem({ bullet, index, isFirst, active, onActivate }) {
-  const noveltyTag = {
-    novel:     null,
-    rewritten: <span className="bullet-novelty-tag" title={bullet.rewriteReason}>rewritten</span>,
-  }[bullet.novelty];
+function BulletItem({ bullet, index, isFirst, active, onActivate, themeColor }) {
+  const [noteOpen, setNoteOpen] = React.useState(false);
 
   return (
     <article className={`bullet ${isFirst ? "bullet-first" : ""} ${active ? "bullet-active" : ""}`}>
       <div className="bullet-side">
         <span className="bullet-number tnum">{String(index + 1).padStart(2, "0")}</span>
         <span className="bullet-theme-label">
-          <ThemeDot theme={bullet.theme} />
+          <ThemeDot theme={bullet.theme} color={themeColor} />
           <span>{bullet.theme}</span>
         </span>
-        {noveltyTag}
       </div>
       <div className="bullet-body">
         <p className={`bullet-text t-body-large ${isFirst ? "dropcap" : ""}`}>
@@ -527,8 +563,11 @@ function BulletItem({ bullet, index, isFirst, active, onActivate }) {
         </p>
         {bullet.novelty === "rewritten" && (
           <div className="rewrite-note">
-            <span className="t-cap" style={{ color: "var(--rewrite)" }}>Editor's note</span>
-            <span className="rewrite-reason">{bullet.rewriteReason}</span>
+            <button className="rewrite-note-toggle" onClick={() => setNoteOpen(o => !o)}>
+              <span className="t-cap" style={{ color: "var(--rewrite)" }}>Editor's note</span>
+              <span className="rewrite-note-arrow">{noteOpen ? "▴" : "▾"}</span>
+            </button>
+            {noteOpen && <span className="rewrite-reason">{bullet.rewriteReason}</span>}
           </div>
         )}
         <div className="bullet-citations-row">

@@ -34,7 +34,7 @@ function Masthead({ view, setView, theme, setTheme }) {
           <div className="masthead-title masthead-title-with-logo">
             <img
               className="masthead-logo"
-              src="/app/bigdata-by-ravenpack-logo-light.svg"
+              src="/app/desk/bigdata-by-ravenpack-logo-light.svg"
               alt="Bigdata by RavenPack"
             />
             <span className="masthead-title-text">Briefs</span>
@@ -50,14 +50,10 @@ function Masthead({ view, setView, theme, setTheme }) {
       </div>
       <div className="section-nav">
         <div className="section-nav-inner">
+          <a href="#" className={view === "home" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("home");}}>Home</a>
           <a href="#" className={view === "brief" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("brief");}}>The Brief</a>
-          <a href="#" className={view === "run" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("run");}}>Compose</a>
-          <a href="#" className={view === "scan" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("scan");}}>Scan</a>
-          <a href="#" className={view === "update" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("update");}}>Update</a>
-          <a href="#" className={view === "history" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("history");}}>Archive</a>
-          <a href="#" className={view === "history-details" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("history-details");}}>AUDIT</a>
-          <a href="#" className={view === "cost" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("cost");}}>Cost</a>
-          <a href="#" className={view === "admin" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("admin");}}>Admin</a>
+          <a href="#" className={view === "scan" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("scan");}}>Portfolio Scan</a>
+          <a href="#" className={["history","history-details","cost"].includes(view) ? "active" : ""} onClick={(e) => {e.preventDefault();setView("history");}}>Reports</a>
           <span className="nav-spacer"></span>
           <span className="live-status">
             <span className="live-dot"></span>
@@ -65,14 +61,34 @@ function Masthead({ view, setView, theme, setTheme }) {
           </span>
         </div>
       </div>
+      {["history","history-details","cost"].includes(view) && (
+        <div className="section-subnav">
+          <div className="section-subnav-inner">
+            <a href="#" className={view === "history" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("history");}}>Archive</a>
+            <a href="#" className={view === "history-details" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("history-details");}}>Audit</a>
+            <a href="#" className={view === "cost" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("cost");}}>Cost</a>
+          </div>
+        </div>
+      )}
     </React.Fragment>);
 
 }
 
 // ── Theme dot ───────────────────────────────────────────────────────
-function ThemeDot({ theme }) {
-  const palette = window.DATA?.themePalette || {};
-  const color = palette[theme] || "var(--ink-mute)";
+// Derives a vivid, stable colour from any label string via a simple hash.
+function hashThemeColor(label) {
+  if (!label) return "var(--ink-mute)";
+  let h = 0;
+  for (let i = 0; i < label.length; i++) {
+    h = Math.imul(31, h) + label.charCodeAt(i) | 0;
+  }
+  const hue = ((h % 360) + 360) % 360;
+  const dark = document.documentElement.dataset.theme === "dark";
+  return `hsl(${hue}, 70%, ${dark ? 62 : 38}%)`;
+}
+
+function ThemeDot({ theme, color: colorProp }) {
+  const color = colorProp || hashThemeColor(theme);
   return <span className="theme-dot" style={{ background: color }}></span>;
 }
 
