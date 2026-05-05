@@ -227,8 +227,8 @@ function LandingEditorial() {
           </div>
           <div className="ed-savings-mid">
             That's <strong>{ratio >= 100 ? Math.round(ratio).toLocaleString() : ratio.toFixed(0)}×</strong> cheaper
-            than a desk analyst, and roughly <strong>{fmtHours(manual.totals.minutes)}</strong> of analyst time
-            redirected from scrolling to thinking.
+            than what a single analyst would spend to cover the same universe manually, and roughly{" "}
+            <strong>{fmtHours(manual.totals.minutes)}</strong> of time redirected from scrolling to thinking.
           </div>
           <div className="ed-savings-meta">
             Per run · per universe<br />Refresh daily, on-demand

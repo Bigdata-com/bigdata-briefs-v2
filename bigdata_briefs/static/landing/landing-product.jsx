@@ -384,9 +384,9 @@ function LandingProduct() {
             Finally, briefs are drafted and validated for each name.
           </p>
           <p>
-            All in: <span className="num">{fmtUSD(manual.totals.cost)}/day</span>,{" "}
-            <span className="num">{fmtHours(manual.totals.minutes)}</span> of analyst time, on{" "}
-            <span className="num">{numCompanies}</span> companies, for <em>one</em> daily refresh.
+            All in, for a single analyst to cover <span className="num">{numCompanies} companies</span> in one
+            daily refresh: <span className="num">{fmtHours(manual.totals.minutes)}</span> of work
+            at <span className="num">{fmtUSD(manual.totals.cost)}/day</span>.
           </p>
         </div>
 
