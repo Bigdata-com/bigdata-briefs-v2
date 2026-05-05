@@ -71,20 +71,20 @@ class TestComputeOverallVerdictSinglePartiallyNovel:
         verdicts = [_NSClaimVerdict(claim_index=0, novelty="partially_novel", evidence_ids=[], reasoning="")]
         assert _ns_compute_overall_verdict(verdicts) == "single_partially_novel"
 
-    def test_two_partially_novel_claims_returns_mixed_weak(self):
+    def test_two_partially_novel_claims_returns_multi_partially_novel(self):
         verdicts = [
             _NSClaimVerdict(claim_index=0, novelty="partially_novel", evidence_ids=[], reasoning=""),
             _NSClaimVerdict(claim_index=1, novelty="partially_novel", evidence_ids=[], reasoning=""),
         ]
-        assert _ns_compute_overall_verdict(verdicts) == "mixed_weak"
+        assert _ns_compute_overall_verdict(verdicts) == "multi_partially_novel"
 
-    def test_partially_novel_plus_old_returns_mixed_weak(self):
-        """Multiple claims, one partially_novel, one old → mixed_weak (no novel to anchor a pivot)."""
+    def test_partially_novel_plus_old_returns_mixed_partial(self):
+        """partially_novel + old → mixed_partial (old anchor present for pivot)."""
         verdicts = [
             _NSClaimVerdict(claim_index=0, novelty="partially_novel", evidence_ids=[], reasoning=""),
             _NSClaimVerdict(claim_index=1, novelty="old", evidence_ids=[], reasoning=""),
         ]
-        assert _ns_compute_overall_verdict(verdicts) == "mixed_weak"
+        assert _ns_compute_overall_verdict(verdicts) == "mixed_partial"
 
     def test_novel_takes_priority_over_partially_novel(self):
         """novel + partially_novel → mixed (not single_partially_novel)."""
@@ -194,8 +194,8 @@ class TestRewriteSinglePartiallyNovel:
         assert updated["novelty_search"]["search"]["verdict"] == "rewrite"
         assert updated["novelty_search"]["search"]["overall_verdict"] == "single_partially_novel"
 
-    def test_mixed_weak_multi_claim_still_discarded(self):
-        """mixed_weak (multiple partially_novel) must still be discarded without LLM call."""
+    def test_multi_partially_novel_calls_llm_for_rewrite(self):
+        """multi_partially_novel (multiple partially_novel, no old) must call LLM, not be discarded."""
         deps = make_deps()
         bp = make_bullet()
 
@@ -209,10 +209,10 @@ class TestRewriteSinglePartiallyNovel:
         deps.store_search_data(bp["trace_id"], "merged_results", [])
         deps.store_search_data(bp["trace_id"], "results_per_part", [[]])
         deps.store_search_data(bp["trace_id"], "claim_verdicts", [
-            _NSClaimVerdict(claim_index=0, novelty="partially_novel", evidence_ids=[], reasoning=""),
-            _NSClaimVerdict(claim_index=1, novelty="partially_novel", evidence_ids=[], reasoning=""),
+            _NSClaimVerdict(claim_index=0, novelty="partially_novel", evidence_ids=[], reasoning="Detail A is new."),
+            _NSClaimVerdict(claim_index=1, novelty="partially_novel", evidence_ids=[], reasoning="Detail B is new."),
         ])
-        deps.store_search_data(bp["trace_id"], "overall_verdict", "mixed_weak")
+        deps.store_search_data(bp["trace_id"], "overall_verdict", "multi_partially_novel")
 
         state = _state(
             bullet_points=[bp],
@@ -220,14 +220,18 @@ class TestRewriteSinglePartiallyNovel:
             entity_id="E1",
             report_start_date="2025-01-15",
         )
+        deps.llm_client.call_with_response_format.return_value = _NSRewriteResponseMixed(
+            rewritten_sentence="Corp Inc., which had X, has now reported A and B.",
+            reasoning="ok.",
+        )
 
         with patch(f"{_REWRITE_MODULE}.settings") as ms:
             ms.NOVELTY_SEARCH_ENABLED = True
             ms.NOVELTY_SEARCH_MAX_CONCURRENT = 4
             result = self._call(state, deps)
 
-        deps.llm_client.call_with_response_format.assert_not_called()
-        assert result["bullet_points"][0]["is_active"] is False
+        deps.llm_client.call_with_response_format.assert_called_once()
+        assert result["bullet_points"][0]["is_active"] is True
 
 
 # ── run_pivot_relevance_check ─────────────────────────────────────────────────
