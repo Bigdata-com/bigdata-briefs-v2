@@ -19,9 +19,9 @@ function HomeView({ setView }) {
           <div className="home-wf-num">01</div>
           <div className="home-wf-label">News Scan</div>
           <p className="home-wf-desc">
-            Select a universe or individual companies. The pipeline scans the news for each
-            company, drafts a brief, and runs novelty checks. Resume from the last run or
-            specify a custom date range. One brief per entity per day.
+            Select a universe, a custom portfolio, or individual companies. The pipeline scans
+            the news for each company, drafts a brief, and runs novelty checks. Resume from
+            the last run or specify a custom date range. One brief per entity per day.
           </p>
           <button className="home-wf-btn" onClick={() => setView("scan")}>Go to News Scan →</button>
         </div>
