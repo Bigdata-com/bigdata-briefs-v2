@@ -248,9 +248,9 @@ function CostExplorer({ universeData }) {
 function LandingProduct() {
   const universeData = useUniverseData();
 
-  // Calculator: hardcoded Top US 100
+  // Calculator: Top US 500
   const companies = (universeData && universeData["top_us_500"]) || [];
-  const numCompanies = companies.length || 100;
+  const numCompanies = companies.length || 500;
 
   const manual   = manualCost(numCompanies);
   const pipeline = pipelineCost(companies);
@@ -283,13 +283,13 @@ function LandingProduct() {
         </div>
       </section>
 
-      {/* Calculator — hardcoded Top US 100 */}
+      {/* Calculator — Top US 500 */}
       <section className="pr-calc-wrap" id="calc">
         <div className="pr-calc">
           <div className="pr-calc-head">
             <div className="pr-calc-h-left">
               <div className="lbl">The cost of the morning huddle</div>
-              <h2>What does covering <em>Top US 100</em> cost you?</h2>
+              <h2>What does covering <em>Top US 500</em> cost you?</h2>
             </div>
           </div>
 
