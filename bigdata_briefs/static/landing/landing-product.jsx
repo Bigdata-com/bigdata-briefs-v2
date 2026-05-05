@@ -384,9 +384,9 @@ function LandingProduct() {
             Finally, briefs are drafted and validated for each name.
           </p>
           <p>
-            All in: for a single analyst to cover <span className="num">{numCompanies} companies</span> in one
-            daily refresh: <span className="num">{fmtHours(manual.totals.minutes)}</span> of work
-            at <span className="num">{fmtUSD(manual.totals.cost)}/day</span>.
+            All in: <span className="num">{fmtUSD(manual.totals.cost)}/day</span> and{" "}
+            <span className="num">{fmtHours(manual.totals.minutes)}</span> of analyst time to cover{" "}
+            <span className="num">{numCompanies} companies</span> once.
           </p>
         </div>
 
@@ -404,9 +404,9 @@ function LandingProduct() {
             and per chunk, so the bill is honest down to the cent.
           </p>
           <p>
-            All in: for the same <span className="num">{numCompanies} companies</span> in one
-            daily refresh: <span className="num">{fmtUSDsmart(pipeline.cost)}/day</span>,
-            and the analyst spends the morning thinking, not scrolling.
+            All in: <span className="num">{fmtUSDsmart(pipeline.cost)}/day</span> for the same{" "}
+            <span className="num">{numCompanies} companies</span>, and the analyst spends the morning
+            thinking, not scrolling.
           </p>
         </div>
       </section>
