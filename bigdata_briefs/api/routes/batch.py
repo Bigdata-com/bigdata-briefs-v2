@@ -471,7 +471,7 @@ def batch_run_parallel(
     # Stagger only the first MAX_CONCURRENT_ENTITIES workers — they start immediately
     # and would all hammer the API at once. Entities beyond that are queued in the
     # ThreadPoolExecutor and already wait naturally for a free slot.
-    _ENTITY_STAGGER_SECONDS = 3.0
+    _ENTITY_STAGGER_SECONDS = 0.5
     _completed = [0]
     _lock = Lock()
 

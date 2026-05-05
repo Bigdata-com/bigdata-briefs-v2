@@ -329,7 +329,7 @@ def _ui_run_batch(
                 _db_finish_batch(engine, batch_id)
                 logger.info("ui_batch_finished", batch_id=batch_id, entity_count=total)
 
-    _ENTITY_STAGGER_SECONDS = 3.0
+    _ENTITY_STAGGER_SECONDS = 0.5
     for idx, entity_id in enumerate(entity_ids):
         delay = idx * _ENTITY_STAGGER_SECONDS if idx < settings.MAX_CONCURRENT_ENTITIES else 0.0
         future = executor.submit(
