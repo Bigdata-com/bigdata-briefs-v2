@@ -276,7 +276,7 @@ function ScanView({ tweaks }) {
               <button className={"seg-btn" + (scope === "all" ? " active" : "")}
                       onClick={() => { setScope("all"); resetToConfig(); }}>
                 <span className="seg-label">All entities</span>
-                <span className="seg-sub">All companies in the database</span>
+                <span className="seg-sub">All previously run companies</span>
               </button>
             )}
           </div>
