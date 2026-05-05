@@ -355,17 +355,12 @@ def _run_one_entity_safely(
     The stale ``running`` row (if any) will be reaped by the existing finalizer
     in ``entity_runner`` on the next run.
 
-    ``startup_delay_seconds`` staggers concurrent entity starts: each worker
-    sleeps this long before beginning so that API connections (Bigdata, OpenAI)
-    are not all opened at the exact same instant.
+    ``startup_delay_seconds`` is only applied to the first MAX_CONCURRENT_ENTITIES
+    workers to spread the initial burst. Entities queued behind those already wait
+    naturally for a free slot, so no extra delay is needed for them.
     """
     if startup_delay_seconds > 0:
         import time as _time
-        logger.info(
-            "Entity worker stagger delay",
-            entity_id=entity_id,
-            startup_delay_s=startup_delay_seconds,
-        )
         _time.sleep(startup_delay_seconds)
     try:
         run_entity_incremental(
@@ -473,7 +468,9 @@ def batch_run_parallel(
         ))
         session.commit()
 
-    # Stagger entity starts to avoid burst connection errors
+    # Stagger only the first MAX_CONCURRENT_ENTITIES workers — they start immediately
+    # and would all hammer the API at once. Entities beyond that are queued in the
+    # ThreadPoolExecutor and already wait naturally for a free slot.
     _ENTITY_STAGGER_SECONDS = 3.0
     _completed = [0]
     _lock = Lock()
@@ -504,7 +501,7 @@ def batch_run_parallel(
             rate_limiter=rate_limiter,
             connection_sem=connection_sem,
             http_client=http_client,
-            startup_delay_seconds=idx * _ENTITY_STAGGER_SECONDS,
+            startup_delay_seconds=idx * _ENTITY_STAGGER_SECONDS if idx < settings.MAX_CONCURRENT_ENTITIES else 0.0,
         )
         future.add_done_callback(_on_entity_done)
 

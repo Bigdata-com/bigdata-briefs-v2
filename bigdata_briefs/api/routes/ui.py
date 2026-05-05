@@ -67,7 +67,7 @@ from bigdata_briefs.pricing import calculate_chunk_cost
 from bigdata_briefs.orchestration.windows import WindowMode, build_report_dates_for_entity_run
 from bigdata_briefs.settings import settings
 
-_ENTITY_STAGGER_SECONDS = 3.0
+
 
 router = APIRouter(tags=["ui"])
 
@@ -186,10 +186,9 @@ def _run_one_ui_entity(
     startup_delay_seconds: float = 0.0,
 ) -> None:
     """Worker for one entity inside the parallel UI batch."""
-    import time as _time
     if startup_delay_seconds > 0:
+        import time as _time
         _time.sleep(startup_delay_seconds)
-
     if _db_is_cancelled(engine, batch_id):
         logger.warning(
             "ui_batch_entity_skipped_cancelled",
@@ -330,7 +329,9 @@ def _ui_run_batch(
                 _db_finish_batch(engine, batch_id)
                 logger.info("ui_batch_finished", batch_id=batch_id, entity_count=total)
 
+    _ENTITY_STAGGER_SECONDS = 3.0
     for idx, entity_id in enumerate(entity_ids):
+        delay = idx * _ENTITY_STAGGER_SECONDS if idx < settings.MAX_CONCURRENT_ENTITIES else 0.0
         future = executor.submit(
             _run_one_ui_entity,
             batch_id=batch_id,
@@ -341,7 +342,7 @@ def _ui_run_batch(
             connection_sem=connection_sem,
             http_client=http_client,
             source_categories=source_categories,
-            startup_delay_seconds=idx * _ENTITY_STAGGER_SECONDS,
+            startup_delay_seconds=delay,
         )
         future.add_done_callback(_on_done)
 
