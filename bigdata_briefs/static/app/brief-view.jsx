@@ -5,7 +5,7 @@
 /** When false, earnings release labels and earnings-based roster ordering are off. */
 const BRIEF_SHOW_EARNINGS_RELEASE_INFO = false;
 
-function BriefView({ density, showDiscarded, dropcap, setShowDiscarded }) {
+function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView, setAuditEntityId, setAuditDate }) {
   const initialBrief = window.DATA.todaysBrief;
   const initialDates = window.DATA.availableDates || [];
   const initialDate = initialBrief?.windowEnd?.slice(0, 10) || initialDates[initialDates.length - 1] || null;
@@ -19,6 +19,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded }) {
   const [activeBulletId, setActiveBulletId] = React.useState(null);
   const [filterTheme, setFilterTheme] = React.useState(null);
   const [relatedBriefs, setRelatedBriefs] = React.useState([]);
+  const [companySearch, setCompanySearch] = React.useState("");
 
   const brief = currentBrief;
 
@@ -54,6 +55,11 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded }) {
   }, [brief?.entityId, brief?.windowEnd, selectedDate]);
 
   const allCompanies = Array.isArray(window.DATA?.companies) ? window.DATA.companies : [];
+
+  const _searchLower = companySearch.toLowerCase();
+  const _filterCompany = (c) => !_searchLower ||
+    c.name.toLowerCase().includes(_searchLower) ||
+    (c.ticker || "").toLowerCase().includes(_searchLower);
 
   const companiesForFrontPage = React.useMemo(() => {
     if (!brief) {
@@ -150,6 +156,14 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded }) {
           <p className="brief-pick-sub">
             {loading ? "Loading…" : "Choose a company to read its brief."}
           </p>
+          <input
+            className="archive-search"
+            type="text"
+            placeholder="Search company or ticker…"
+            value={companySearch}
+            onChange={e => setCompanySearch(e.target.value)}
+            style={{ marginTop: 12 }}
+          />
         </div>
         <div className="brief-pick-list">
           <div className="brief-pick-row brief-pick-row-head">
@@ -159,7 +173,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded }) {
             <span className="brief-pick-col-bullets">Published</span>
             <span className="brief-pick-col-discarded">Discarded</span>
           </div>
-          {companiesForFrontPage.map(c => {
+          {companiesForFrontPage.filter(_filterCompany).map(c => {
             const s = companySummaries[c.id] || {};
             const saved = s.bulletsSaved != null ? s.bulletsSaved : "—";
             const discarded = s.bulletsDiscarded != null ? s.bulletsDiscarded : "—";
@@ -209,6 +223,14 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded }) {
       {/* ── Left rail: today's front page ── */}
       <aside className="brief-rail">
         <div className="rail-section">
+          <input
+            className="archive-search"
+            type="text"
+            placeholder="Search company or ticker…"
+            value={companySearch}
+            onChange={e => setCompanySearch(e.target.value)}
+            style={{ marginBottom: 10 }}
+          />
           <div className="t-meta" style={{ color: "var(--ink-faint)", marginBottom: 10, fontSize: 10.5 }}>
             {selectedDate
               ? "Companies on the desk for this date"
@@ -216,7 +238,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded }) {
           </div>
           <div className="frontpage-scroll">
           <ol className="frontpage-list">
-            {companiesForFrontPage.map(c => {
+            {companiesForFrontPage.filter(_filterCompany).map(c => {
               const isActive = c.id === brief?.entityId;
               const summary = companySummaries?.[c.id] || {};
               const pulse7 = (summary.pulse7 || []).map((p, i, arr) => ({
@@ -513,6 +535,21 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded }) {
             );
           })()}
         </div>
+
+        {setView && setAuditEntityId && (
+          <div className="rail-section">
+            <button
+              className="audit-link-btn"
+              onClick={() => {
+                setAuditEntityId(brief.entityId);
+                if (setAuditDate) setAuditDate(selectedDate);
+                setView("history-details");
+              }}
+            >
+              View Audit →
+            </button>
+          </div>
+        )}
 
         {relatedBriefs.length > 0 && (
           <div className="rail-section">
