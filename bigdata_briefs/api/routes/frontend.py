@@ -556,11 +556,20 @@ def _build_company_summaries(session: Session) -> dict[str, dict]:
             else None
         )
 
+        total_runs = session.exec(
+            select(SQLEntityPipelineRunLog)
+            .where(
+                SQLEntityPipelineRunLog.entity_id == entity_id,
+                SQLEntityPipelineRunLog.status.in_(["succeeded", "no_data"]),
+            )
+        ).all()
+
         result[entity_id] = {
             "bulletsSaved": bullets_saved,
             "bulletsDiscarded": bullets_discarded,
             "lastRunDate": last_run_date,
             "pulse7": pulse7,
+            "totalRuns": len(total_runs),
         }
 
     return result

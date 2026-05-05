@@ -74,7 +74,7 @@ function ArchiveView({ tweaks }) {
             const s = summaries[c.id] || {};
             const runs = c.id === historyData.entityId
               ? historyData.history.length
-              : (s.pulse7 || []).filter(p => p.saved > 0).length || "—";
+              : s.totalRuns ?? "—";
             return (
               <li key={c.id}>
                 <button
