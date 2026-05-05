@@ -187,7 +187,7 @@ function ScanView({ tweaks }) {
   }, [scanResults]);
 
   const entities      = scanResults?.entities || [];
-  const totalDays     = scanParams?.total_windows || 0;
+  const totalDays     = scanResults?.total || scanParams?.total_windows || 0;
   const completed     = scanResults?.completed || 0;
   const pct           = totalDays > 0 ? Math.min(100, (completed / totalDays) * 100) : 0;
   const entityRowsDone = useMemoS(() => {
