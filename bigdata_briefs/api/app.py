@@ -10,7 +10,7 @@ from threading import Semaphore
 import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -103,10 +103,23 @@ def create_app() -> FastAPI:
     if static_dir.is_dir():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-    # React frontend — served at /app, serves index.html on /app and /app/
+    # React frontend — served at /app/desk
     app_dir = _PACKAGE_DIR / "static" / "app"
     if app_dir.is_dir():
-        app.mount("/app", StaticFiles(directory=str(app_dir), html=True), name="app")
+        app.mount("/app/desk", StaticFiles(directory=str(app_dir), html=True), name="app")
+
+    # Landing pages — served at /landing/* and at /app (product page as entry point)
+    landing_dir = _PACKAGE_DIR / "static" / "landing"
+    if landing_dir.is_dir():
+        app.mount("/landing", StaticFiles(directory=str(landing_dir)), name="landing")
+
+    _product_html = landing_dir / "product.html"
+
+    @app.get("/app", include_in_schema=False)
+    async def app_entry() -> HTMLResponse:
+        html = _product_html.read_text(encoding="utf-8")
+        html = html.replace("<head>", '<head>\n  <base href="/landing/">', 1)
+        return HTMLResponse(content=html)
 
     # Jinja2 templates — shared across all template responses
     templates_dir = _PACKAGE_DIR / "templates"

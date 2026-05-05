@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analyst Cost Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #f5f4f0;
+    color: #1a1a1a;
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    padding: 48px 24px;
+  }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 800;
+    text-align: center;
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+  }
+
+  .subtitle {
+    text-align: center;
+    font-size: 0.8rem;
+    color: #888;
+    margin-bottom: 32px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .wrapper {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  /* Shared panel on top */
+  .shared-panel {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 20px;
+    border-top: 3px solid #1a1a1a;
+  }
+
+  .shared-panel .panel-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #888;
+  }
+
+  .shared-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0 40px;
+  }
+
+  /* Side by side scenario panels */
+  .panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  .panel {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    border-top: 3px solid #ccc;
+  }
+
+  .panel.manual { border-top-color: #e05a2b; }
+  .panel.bigdata { border-top-color: #2563eb; }
+
+  .panel-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .panel-desc {
+    font-size: 0.75rem;
+    color: #888;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+
+  /* Rows */
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 0;
+    border-bottom: 1px solid #f0f0f0;
+    gap: 16px;
+  }
+
+  .row:last-child { border-bottom: none; }
+
+  .row-label {
+    font-size: 0.82rem;
+    color: #444;
+    flex: 1;
+    line-height: 1.3;
+  }
+
+  .row-label small {
+    display: block;
+    font-size: 0.69rem;
+    color: #aaa;
+    margin-top: 1px;
+  }
+
+  input[type=number] {
+    width: 88px;
+    padding: 6px 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 6px;
+    background: #fafafa;
+    color: #1a1a1a;
+    text-align: right;
+    outline: none;
+    transition: border-color 0.15s;
+    -moz-appearance: textfield;
+  }
+
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  input[type=number]:focus { border-color: #1a1a1a; }
+  .panel.manual input[type=number]:focus { border-color: #e05a2b; }
+  .panel.bigdata input[type=number]:focus { border-color: #2563eb; }
+
+  /* Results */
+  .results {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  .result-box {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  .r-label {
+    font-size: 0.72rem;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 10px;
+  }
+
+  .big-number {
+    font-family: 'Inter', sans-serif;
+    font-size: 2.2rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .result-box.manual .big-number { color: #e05a2b; }
+  .result-box.bigdata .big-number { color: #2563eb; }
+
+  .r-sub {
+    font-size: 0.72rem;
+    color: #aaa;
+    margin-bottom: 16px;
+  }
+
+  .result-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6px 0;
+    border-bottom: 1px solid #f5f5f5;
+    font-size: 0.8rem;
+  }
+
+  .result-row:last-child { border-bottom: none; }
+  .result-row .r-key { color: #888; }
+  .result-box.manual .result-row .r-val { color: #e05a2b; font-weight: 600; }
+  .result-box.bigdata .result-row .r-val { color: #2563eb; font-weight: 600; }
+
+  .savings {
+    background: #1a1a1a;
+    border-radius: 12px;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .savings-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #666;
+  }
+
+  .savings-val {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #4ade80;
+    margin-left: auto;
+  }
+
+  .narrative-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-top: 24px;
+  }
+
+  .narrative {
+    background: #fff;
+    border-radius: 12px;
+    padding: 28px 32px;
+    font-size: 0.88rem;
+    line-height: 1.8;
+    color: #444;
+  }
+
+  .narrative .n-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #aaa;
+    margin-bottom: 12px;
+  }
+
+  .narrative p { margin-bottom: 10px; }
+  .narrative p:last-child { margin-bottom: 0; }
+  .narrative strong { color: #1a1a1a; font-weight: 600; }
+  .narrative .orange { color: #e05a2b; font-weight: 600; }
+  .narrative .blue { color: #2563eb; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <h1>Analyst Cost Calculator</h1>
+  <p class="subtitle">Manual research vs. Bigdata Search API</p>
+
+  <!-- SHARED PARAMS ON TOP -->
+  <div class="shared-panel">
+    <div class="panel-title">Shared parameters</div>
+    <div class="shared-grid">
+      <div class="row"><div class="row-label">Companies</div><input type="number" id="companies" value="100" min="1" oninput="calc()"></div>
+      <div class="row"><div class="row-label">Analysts</div><input type="number" id="analysts" value="1" min="1" oninput="calc()"></div>
+      <div class="row"><div class="row-label">Hourly rate<small>$ per hour</small></div><input type="number" id="rate" value="48" min="1" oninput="calc()"></div>
+      <div class="row"><div class="row-label">Reading speed<small>words per minute</small></div><input type="number" id="wpm" value="350" min="50" oninput="calc()"></div>
+      <div class="row"><div class="row-label">Briefs per company</div><input type="number" id="bullets" value="10" min="1" oninput="calc()"></div>
+      <div class="row"><div class="row-label">Minutes per brief generation and validation</div><input type="number" id="btime" value="1" min="1" oninput="calc()"></div>
+    </div>
+  </div>
+
+  <!-- SCENARIO PANELS SIDE BY SIDE -->
+  <div class="panels">
+
+    <div class="panel manual">
+      <div class="panel-title">Scenario A — Manual</div>
+      <p class="panel-desc">Analyst scans all sources, reads headlines, then reads relevant articles.</p>
+      <div class="row"><div class="row-label">Number of sources</div><input type="number" id="sources" value="50" min="1" oninput="calc()"></div>
+      <div class="row"><div class="row-label">Avg words per article</div><input type="number" id="art-words" value="600" min="50" oninput="calc()"></div>
+      <div class="row"><div class="row-label">Seconds to scan headlines<small>per source</small></div><input type="number" id="scan-sec" value="60" min="1" oninput="calc()"></div>
+      <div class="row"><div class="row-label">Max articles read per company</div><input type="number" id="max-art" value="20" min="1" oninput="calc()"></div>
+    </div>
+
+    <div class="panel bigdata">
+      <div class="panel-title">Scenario B — Bigdata API</div>
+      <p class="panel-desc">Relevant chunks retrieved automatically. Analyst reads top chunks directly.</p>
+      <div class="row"><div class="row-label">Avg words per chunk</div><input type="number" id="chunk-words" value="135" min="1" oninput="calc()"></div>
+      <div class="row"><div class="row-label">Max chunks read per company</div><input type="number" id="max-chunks" value="90" min="1" oninput="calc()"></div>
+    </div>
+
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results">
+    <div class="result-box manual">
+      <div class="r-label">Scenario A — Manual</div>
+      <div class="big-number" id="m-cost">—</div>
+      <div class="r-sub" id="m-cost-sub"></div>
+      <div class="result-row"><span class="r-key">Headline scanning</span><span class="r-val" id="m-scan-out">—</span></div>
+      <div class="result-row"><span class="r-key">Article reading</span><span class="r-val" id="m-read-out">—</span></div>
+      <div class="result-row"><span class="r-key">Brief validation</span><span class="r-val" id="m-bullet-out">—</span></div>
+      <div class="result-row"><span class="r-key">Total time per analyst</span><span class="r-val" id="m-time-out">—</span></div>
+    </div>
+
+    <div class="result-box bigdata">
+      <div class="r-label">Scenario B — Bigdata API</div>
+      <div class="big-number" id="b-cost">—</div>
+      <div class="r-sub" id="b-cost-sub"></div>
+      <div class="result-row"><span class="r-key">Headline scanning</span><span class="r-val" style="color:#aaa;font-weight:500">0 min</span></div>
+      <div class="result-row"><span class="r-key">Chunk reading</span><span class="r-val" id="b-read-out">—</span></div>
+      <div class="result-row"><span class="r-key">Brief validation</span><span class="r-val" id="b-bullet-out">—</span></div>
+      <div class="result-row"><span class="r-key">Total time per analyst</span><span class="r-val" id="b-time-out">—</span></div>
+    </div>
+  </div>
+
+  <!-- NARRATIVE -->
+  <div class="narrative-grid">
+    <div class="narrative" id="narrative-a"></div>
+    <div class="narrative" id="narrative-b"></div>
+  </div>
+
+</div>
+
+<script>
+function g(id) { return parseFloat(document.getElementById(id).value) || 0; }
+
+  function fmtTime(mins) {
+    if (mins < 1) return '<1 min';
+    if (mins < 60) return Math.round(mins) + ' min';
+    const h = Math.floor(mins / 60);
+    const m = Math.round(mins % 60);
+    return h + 'h' + (m > 0 ? ' ' + m + 'm' : '');
+  }
+
+  function fmtCost(n) {
+    return '$' + Math.round(n).toLocaleString('en-US');
+  }
+
+  function calc() {
+    const companies = g('companies');
+    const analysts  = Math.max(1, g('analysts'));
+    const wpm       = Math.max(1, g('wpm'));
+    const rate      = g('rate');
+    const bullets   = g('bullets');
+    const btime     = g('btime');
+
+    // Scenario A
+    const scanMin   = (g('sources') * g('scan-sec')) / 60;
+    const readMin   = g('max-art') * (g('art-words') / wpm);
+    const bulletMin = bullets * btime;
+    const totalMinM = (scanMin + readMin + bulletMin) * companies;
+    const timePerAnalystM = totalMinM / analysts;
+    const costM = (timePerAnalystM / 60) * rate * analysts;
+
+    document.getElementById('m-scan-out').textContent   = fmtTime(scanMin) + ' / co.';
+    document.getElementById('m-read-out').textContent   = fmtTime(readMin) + ' / co.';
+    document.getElementById('m-bullet-out').textContent = fmtTime(bulletMin) + ' / co.';
+    document.getElementById('m-time-out').textContent   = fmtTime(timePerAnalystM);
+    document.getElementById('m-cost').textContent       = fmtCost(costM);
+    document.getElementById('m-cost-sub').textContent   = `total · ${analysts} analyst${analysts>1?'s':''} · ${companies} co.`;
+
+    // Scenario B
+    const chunkMin   = g('max-chunks') * (g('chunk-words') / wpm);
+    const bulletMinB = bullets * btime;
+    const totalMinB  = (chunkMin + bulletMinB) * companies;
+    const timePerAnalystB = totalMinB / analysts;
+    const costB = (timePerAnalystB / 60) * rate * analysts;
+
+    document.getElementById('b-read-out').textContent   = fmtTime(chunkMin) + ' / co.';
+    document.getElementById('b-bullet-out').textContent = fmtTime(bulletMinB) + ' / co.';
+    document.getElementById('b-time-out').textContent   = fmtTime(timePerAnalystB);
+    document.getElementById('b-cost').textContent       = fmtCost(costB);
+    document.getElementById('b-cost-sub').textContent   = `total · ${analysts} analyst${analysts>1?'s':''} · ${companies} co.`;
+
+    // Narrative A — Manual only
+    document.getElementById('narrative-a').innerHTML = `
+      <div class="n-title">Scenario A — Manual Research</div>
+      <p>For each of the <strong>${companies} ${companies===1?'company':'companies'}</strong> on the list, an analyst starts by opening <strong>${g('sources')} different news sources</strong> one by one, spending about <strong>${g('scan-sec')} seconds</strong> scanning the headlines of each — just to figure out whether there is anything relevant. That alone takes <strong>${fmtTime(scanMin)}</strong> per company before a single article is read.</p>
+      <p>Once the relevant articles are identified, the analyst reads up to <strong>${g('max-art')} of them</strong>, each averaging <strong>${g('art-words')} words</strong>. At a reading speed of <strong>${wpm} words per minute</strong>, that is another <strong>${fmtTime(readMin)}</strong> per company.</p>
+      <p>Finally, the analyst generates and validates <strong>${bullets} briefs</strong> per company, spending <strong>${btime} minute${btime===1?'':'s'}</strong> per brief. In total, this process costs <span class="orange"><strong>${fmtCost(costM)}</strong></span> across ${analysts} analyst${analysts>1?'s':''} and ${companies} ${companies===1?'company':'companies'}, with each analyst spending <strong>${fmtTime(timePerAnalystM)}</strong> on the work.</p>
+    `;
+
+    // Narrative B — Bigdata only
+    document.getElementById('narrative-b').innerHTML = `
+      <div class="n-title">Scenario B — With Search API</div>
+      <p>For each of the <strong>${companies} ${companies===1?'company':'companies'}</strong> on the list, the relevant content is retrieved by the search API.</p>
+      <p>From the retrieved results, the analyst reads the top <strong>${g('max-chunks')} chunks</strong>, each averaging <strong>${g('chunk-words')} words</strong>. At a reading speed of <strong>${wpm} words per minute</strong>, that takes <strong>${fmtTime(chunkMin)}</strong> per company.</p>
+      <p>The analyst then validates <strong>${bullets} briefs</strong> per company, taking <strong>${btime} minute${btime===1?'':'s'}</strong> each to generate and validate. In total, this process costs <span class="blue"><strong>${fmtCost(costB)}</strong></span> across ${analysts} analyst${analysts>1?'s':''} and ${companies} ${companies===1?'company':'companies'}, with each analyst spending <strong>${fmtTime(timePerAnalystB)}</strong> on the work.</p>
+    `;
+  }
+
+  calc();
+</script>
+</body>
+</html>

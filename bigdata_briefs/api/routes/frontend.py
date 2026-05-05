@@ -112,10 +112,19 @@ def _load_compose_estimates() -> dict[str, dict]:
     """Load per-entity mean daily cost from universe_entity_costs.csv.
 
     Returns a dict {entity_id: {"costDisplay": "$X.XX"}} for all entities with a known cost.
+    The CSV may list the same ``entity_id`` in more than one ``region`` (e.g. US + EU index
+    overlap); we keep one display string per id by preferring curated ``universes`` rows over
+    ``index_*_volume`` rows, then the higher numeric cost.
     """
     if not _ENTITY_COSTS_CSV.is_file():
         return {}
-    estimates: dict[str, dict] = {}
+
+    def _compose_pick_key(row: dict[str, str], cost_val: float) -> tuple[int, float]:
+        u = (row.get("universes") or "").strip()
+        curated = 0 if u.startswith("index_") else 1
+        return (curated, cost_val)
+
+    best: dict[str, tuple[tuple[int, float], str]] = {}
     with _ENTITY_COSTS_CSV.open(newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             eid = row.get("entity_id", "").strip()
@@ -130,8 +139,11 @@ def _load_compose_estimates() -> dict[str, dict]:
                 display = "< $0.01"
             else:
                 display = f"${cost_val:.2f}"
-            estimates[eid] = {"costDisplay": display}
-    return estimates
+            key = _compose_pick_key(row, cost_val)
+            prev = best.get(eid)
+            if prev is None or key > prev[0]:
+                best[eid] = (key, display)
+    return {eid: {"costDisplay": disp} for eid, (_, disp) in best.items()}
 
 
 def _parse_kg_payload(kg_payload_json: str | None) -> dict:
@@ -188,19 +200,9 @@ def _load_ticker_map() -> dict[str, str]:
 _TICKER_MAP: dict[str, str] = _load_ticker_map()
 
 
-# Theme color palette (consumed by the React frontend)
-_THEME_PALETTE: dict[str, str] = {
-    "Strategic Partnerships": "#7B5BA6",
-    "Infrastructure Investment": "#C8742B",
-    "Financial Performance": "#2F5D62",
-    "Product & Technology": "#A24B5C",
-    "Operational Enhancements": "#5D7A3B",
-    "Operational": "#5D7A3B",
-    "Regulatory & Legal": "#856450",
-    "Leadership & Governance": "#506072",
-    "Capital Markets": "#6B4F8F",
-    "Market Outlook": "#5C8585",
-}
+# Theme palette — kept empty; colors are now generated deterministically
+# in the frontend via a string hash (see ThemeDot in shared.jsx).
+_THEME_PALETTE: dict[str, str] = {}
 
 
 def _iso(dt: datetime | None) -> str | None:
@@ -434,6 +436,37 @@ def _build_companies(session: Session) -> list[dict]:
     return out
 
 
+def _build_all_scan_entities(db_companies: list[dict]) -> list[dict]:
+    """All entities available for scanning: DB companies (with full metadata) +
+    CSV-only entities (name from CSV, empty ticker/exchange).  Sorted by rank in CSV."""
+    db_by_id = {c["id"]: c for c in db_companies}
+    out: list[dict] = []
+    seen: set[str] = set()
+    if _ENTITY_COSTS_CSV.is_file():
+        with _ENTITY_COSTS_CSV.open(newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                eid = row.get("entity_id", "").strip()
+                if not eid or eid in seen:
+                    continue
+                seen.add(eid)
+                if eid in db_by_id:
+                    out.append(db_by_id[eid])
+                else:
+                    out.append({
+                        "id": eid,
+                        "name": row.get("name", "").strip() or eid,
+                        "ticker": "",
+                        "exchange": "", "sector": "", "industry": "",
+                        "country": "", "countryCode": "",
+                        "description": "", "webpage": "",
+                    })
+    # Append any DB companies not in the CSV (edge case)
+    for c in db_companies:
+        if c["id"] not in seen:
+            out.append(c)
+    return out
+
+
 def _compose_entity_picks(companies: list[dict], *, max_picks: int = 9) -> list[dict]:
     """Compose (01 Entity): up to ``max_picks`` companies in ``top_us_100`` CSV order that exist in DB."""
     from bigdata_briefs.api.routes.universes import _UNIVERSES
@@ -484,14 +517,13 @@ def _build_company_summaries(session: Session) -> dict[str, dict]:
         ).first()
 
         bullets_saved = 0
+        bullets_discarded = 0
         if latest:
-            bullets_saved = session.exec(
-                select(SQLBulletRunLog).where(
-                    SQLBulletRunLog.run_id == latest.run_id,
-                    SQLBulletRunLog.is_active == True,  # noqa: E712
-                )
+            all_bullets = session.exec(
+                select(SQLBulletRunLog).where(SQLBulletRunLog.run_id == latest.run_id)
             ).all()
-            bullets_saved = len(bullets_saved)
+            bullets_saved = sum(1 for b in all_bullets if b.is_active)
+            bullets_discarded = sum(1 for b in all_bullets if not b.is_active)
 
         # Last 7 days pulse (aggregated by window date)
         recent_runs = session.exec(
@@ -518,9 +550,16 @@ def _build_company_summaries(session: Session) -> dict[str, dict]:
             by_day[day] = by_day.get(day, 0) + len(bullets)
 
         pulse7 = [{"date": d, "saved": v} for d, v in sorted(by_day.items())]
+        last_run_date = (
+            latest.report_window_end.strftime("%Y-%m-%dT%H:%MZ")
+            if latest and latest.report_window_end
+            else None
+        )
 
         result[entity_id] = {
             "bulletsSaved": bullets_saved,
+            "bulletsDiscarded": bullets_discarded,
+            "lastRunDate": last_run_date,
             "pulse7": pulse7,
         }
 
@@ -786,6 +825,7 @@ def get_data() -> dict:
     engine = get_engine()
     with Session(engine) as session:
         companies = _build_companies(session)
+        all_scan_entities = _build_all_scan_entities(companies)
         compose_entities = _compose_entity_picks(companies)
         compose_search_ids = _all_universe_entity_ids()
         company_summaries = _build_company_summaries(session)
@@ -807,6 +847,7 @@ def get_data() -> dict:
 
     return {
         "companies": companies,
+        "allScanEntities": all_scan_entities,
         "composeEntities": compose_entities,
         "composeSearchEntityIds": compose_search_ids,
         "companySummaries": company_summaries,
@@ -1072,14 +1113,13 @@ def get_companies_summaries(date: str | None = None) -> dict:
             ).first()
 
             bullets_saved = 0
+            bullets_discarded = 0
             if run_on_date:
-                active = session.exec(
-                    select(SQLBulletRunLog).where(
-                        SQLBulletRunLog.run_id == run_on_date.run_id,
-                        SQLBulletRunLog.is_active == True,  # noqa: E712
-                    )
+                all_bullets = session.exec(
+                    select(SQLBulletRunLog).where(SQLBulletRunLog.run_id == run_on_date.run_id)
                 ).all()
-                bullets_saved = len(active)
+                bullets_saved = sum(1 for b in all_bullets if b.is_active)
+                bullets_discarded = sum(1 for b in all_bullets if not b.is_active)
 
             has_run_on_date = run_on_date is not None
 
@@ -1107,9 +1147,26 @@ def get_companies_summaries(date: str | None = None) -> dict:
                 by_day[day] = by_day.get(day, 0) + len(active_b)
 
             pulse7 = [{"date": d, "saved": v} for d, v in sorted(by_day.items())]
+
+            latest_ever = session.exec(
+                select(SQLEntityPipelineRunLog)
+                .where(
+                    SQLEntityPipelineRunLog.entity_id == entity_id,
+                    SQLEntityPipelineRunLog.status.in_(["succeeded", "no_data"]),
+                )
+                .order_by(desc(SQLEntityPipelineRunLog.report_window_end))
+            ).first()
+            last_run_date = (
+                latest_ever.report_window_end.strftime("%Y-%m-%dT%H:%MZ")
+                if latest_ever and latest_ever.report_window_end
+                else None
+            )
+
             summaries[entity_id] = {
                 "bulletsSaved": bullets_saved,
+                "bulletsDiscarded": bullets_discarded,
                 "hasRunOnDate": has_run_on_date,
+                "lastRunDate": last_run_date,
                 "pulse7": pulse7,
             }
 
@@ -1406,8 +1463,8 @@ def get_run_data() -> dict:
             "Capital Markets",
         ],
         "sources": [
-            {"id": "news", "label": "News", "checked": True},
-            {"id": "news_premium", "label": "News (premium)", "checked": False},
+            {"id": "news", "label": "News", "checked": False},
+            {"id": "news_premium", "label": "News (premium)", "checked": True},
             {"id": "filings", "label": "SEC filings", "checked": False},
             {"id": "transcripts", "label": "Transcripts", "checked": False},
         ],
@@ -1899,6 +1956,16 @@ def get_update_preview(
     engine = get_engine()
     now = datetime.now(timezone.utc)
 
+    # Build CSV name lookup — used for name resolution and for scope=all entity list
+    csv_names: dict[str, str] = {}
+    if _ENTITY_COSTS_CSV.is_file():
+        with _ENTITY_COSTS_CSV.open(newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                eid_c = row.get("entity_id", "").strip()
+                name_c = row.get("name", "").strip()
+                if eid_c and eid_c not in csv_names:
+                    csv_names[eid_c] = name_c or eid_c
+
     # Resolve the set of entity_ids to preview
     if scope == "entity":
         if not entity_id:
@@ -1911,8 +1978,8 @@ def get_update_preview(
         if not eids:
             return {"error": f"universe '{universe}' not found or empty"}
     elif scope == "all":
-        with Session(engine) as session:
-            eids = [r.entity_id for r in session.exec(select(SQLEntityOrchestrationState)).all()]
+        # Use all entities from the CSV (covers entities never run yet)
+        eids = list(csv_names.keys())
     else:
         return {"error": f"unknown scope '{scope}'"}
 
@@ -1920,7 +1987,7 @@ def get_update_preview(
     with Session(engine) as session:
         for eid in eids:
             orch = session.get(SQLEntityOrchestrationState, eid)
-            name = (orch.kg_name if orch else None) or eid
+            name = (orch.kg_name if orch else None) or csv_names.get(eid) or eid
             ticker = (orch.kg_ticker if orch else None) or None
 
             # Find the most recent completed run for this entity
@@ -1932,15 +1999,21 @@ def get_update_preview(
             ).first()
 
             if last_run is None or last_run.process_completed_at_utc is None:
+                # No history — fall back to yesterday→today (1 window)
+                yesterday = (now - timedelta(days=1)).replace(
+                    hour=0, minute=0, second=0, microsecond=0
+                )
+                fb_windows = build_scan_windows(yesterday, now)
                 rows.append({
                     "entity_id": eid,
                     "name": name,
                     "ticker": ticker,
                     "last_run_at": None,
-                    "resume_from": None,
-                    "resume_date": None,
-                    "est_windows": 0,
+                    "resume_from": yesterday.isoformat(),
+                    "resume_date": yesterday.date().isoformat(),
+                    "est_windows": len(fb_windows),
                     "has_history": False,
+                    "fallback": True,
                 })
                 continue
 
@@ -1965,7 +2038,8 @@ def get_update_preview(
                 "has_history": True,
             })
 
-    runnable = [r for r in rows if r["has_history"] and r["est_windows"] > 0]
+    # Include fallback (no-history) entities — they will run yesterday→today
+    runnable = [r for r in rows if r["est_windows"] > 0]
     total_windows = sum(r["est_windows"] for r in runnable)
     return {
         "scope": scope,
@@ -2030,6 +2104,35 @@ def frontend_start_update(request: Request, body: UpdateRunRequest) -> dict:
                 .order_by(desc(SQLEntityPipelineRunLog.process_completed_at_utc))
             ).first()
             if last_run is None or last_run.process_completed_at_utc is None:
+                # No history — run last 24h instead of skipping
+                yesterday = (now - timedelta(days=1)).replace(
+                    hour=0, minute=0, second=0, microsecond=0
+                )
+                effective_start = yesterday
+                windows = build_scan_windows(effective_start, now)
+                if not windows:
+                    continue
+                orch = session.get(SQLEntityOrchestrationState, eid)
+                entity_name = (orch.kg_name if orch else None) or eid
+                scan_id = str(uuid.uuid4())
+                db_create_scan(engine, scan_id, eid, entity_name, len(windows))
+                cats = body.source_categories if body.source_categories else None
+                executor.submit(
+                    run_scan_worker,
+                    scan_id=scan_id,
+                    entity_id=eid,
+                    windows=windows,
+                    engine=engine,
+                    rate_limiter=rate_limiter,
+                    connection_sem=connection_sem,
+                    http_client=http_client,
+                    source_categories=cats,
+                )
+                scanned_entity_ids.append(eid)
+                total_windows += len(windows)
+                d = effective_start.date()
+                if earliest_resume is None or d < earliest_resume:
+                    earliest_resume = d
                 continue
             last_at = last_run.process_completed_at_utc.replace(tzinfo=timezone.utc) \
                 if last_run.process_completed_at_utc.tzinfo is None \
