@@ -42,7 +42,7 @@ class LLMClient:
         system: list,
         messages: list,
         model: str,
-        max_tokens: int,
+        max_tokens: int | None = None,
         step_name: str | None = None,
         debug_metadata: dict | None = None,
         debug_logger: "DebugLogger | None" = None,
@@ -60,15 +60,15 @@ class LLMClient:
             api_kwargs["reasoning"] = {"effort": reasoning_effort}
         if entity_metrics is not None and step_name:
             entity_metrics.start_step(step_name)
+        call_kwargs = dict(input=messages, model=model, **api_kwargs)
+        if max_tokens is not None:
+            call_kwargs["max_output_tokens"] = max_tokens
         try:
             response = self._call_with_retries(
                 self.client.responses.parse,
                 *args,
-                input=messages,
-                model=model,
-                max_output_tokens=max_tokens,
                 _log_context={"step_name": step_name, "model": model},
-                **api_kwargs,
+                **call_kwargs,
             )
 
             cost = calculate_llm_cost(

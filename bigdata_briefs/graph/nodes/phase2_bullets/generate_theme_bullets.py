@@ -16,9 +16,14 @@ Service type: llm (single structured LLM call per theme iteration)
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import datetime, timezone
 from uuid import uuid4
+
+from pydantic import ValidationError as PydanticValidationError
+
+_log = logging.getLogger(__name__)
 
 from langchain_core.runnables import RunnableConfig
 
@@ -153,7 +158,7 @@ def produce_bullets_for_theme(
         {"role": "assistant", "content": "```json\n{"},
     ]
 
-    collection: TopicCollectionNoScore = deps.llm_client.call_with_response_format(
+    _call_kwargs = dict(
         system=[{"role": "system", "content": prompt_keys.system_prompt}],
         messages=messages,
         text_format=TopicCollectionNoScore,
@@ -162,6 +167,18 @@ def produce_bullets_for_theme(
         entity_metrics=deps.entity_metrics,
         **prompt_keys.llm_kwargs,
     )
+    try:
+        collection: TopicCollectionNoScore = deps.llm_client.call_with_response_format(**_call_kwargs)
+    except PydanticValidationError as exc:
+        if any(e["type"] == "json_invalid" for e in exc.errors()):
+            _log.warning(
+                "bullets_generation: JSON truncated (max_tokens hit), retrying without limit — theme=%s",
+                current_theme,
+            )
+            _call_kwargs_no_limit = {k: v for k, v in _call_kwargs.items() if k != "max_tokens"}
+            collection = deps.llm_client.call_with_response_format(**_call_kwargs_no_limit)
+        else:
+            raise
 
     updated_collection = replace_references_in_topic_collection_no_score(
         collection,
