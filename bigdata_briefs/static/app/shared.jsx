@@ -52,7 +52,7 @@ function Masthead({ view, setView, theme, setTheme }) {
         <div className="section-nav-inner">
           <a href="#" className={view === "home" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("home");}}>Home</a>
           <a href="#" className={view === "brief" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("brief");}}>The Brief</a>
-          <a href="#" className={view === "scan" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("scan");}}>Portfolio Scan</a>
+          <a href="#" className={view === "scan" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("scan");}}>News Scan</a>
           <a href="#" className={["history","history-details","cost"].includes(view) ? "active" : ""} onClick={(e) => {e.preventDefault();setView("history");}}>Reports</a>
           <span className="nav-spacer"></span>
           <span className="live-status">

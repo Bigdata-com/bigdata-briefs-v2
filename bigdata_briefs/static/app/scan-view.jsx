@@ -1,4 +1,4 @@
-// Portfolio Scan — merged Scan + Update view.
+// News Scan — merged Scan + Update view.
 // dateMode "resume": resumes each entity from its last run (yesterday→today if none).
 // dateMode "custom": user-specified date range.
 
@@ -232,7 +232,7 @@ function ScanView({ tweaks }) {
       {/* ── Left: configure ── */}
       <aside className="scan-config">
         <header className="scan-config-head">
-          <div className="dateline">Portfolio Scan</div>
+          <div className="dateline">News Scan</div>
           <h1 className="display scan-config-title">Build and maintain <em>coverage</em>.</h1>
           <p className="scan-config-lede">
             Resume each company from its last run, or specify a custom date range.

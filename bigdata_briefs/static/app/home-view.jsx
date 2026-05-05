@@ -9,7 +9,7 @@ function HomeView({ setView }) {
           How the desk works.
         </h1>
         <p style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 19, color: "var(--ink-soft)", maxWidth: 560, lineHeight: 1.55, marginTop: 0 }}>
-          Scan your portfolio. Read the brief. Review the record.
+          Scan the news. Read the brief. Review the record.
         </p>
       </div>
 
@@ -17,13 +17,13 @@ function HomeView({ setView }) {
       <div className="home-workflow">
         <div className="home-wf-step">
           <div className="home-wf-num">01</div>
-          <div className="home-wf-label">Portfolio Scan</div>
+          <div className="home-wf-label">News Scan</div>
           <p className="home-wf-desc">
-            Select a universe or individual companies. Resume every company from its last
-            run to today, or specify a custom date range. The pipeline searches for relevant
-            news, drafts a brief, and runs novelty checks. One brief per entity per day.
+            Select a universe or individual companies. The pipeline scans the news for each
+            company, drafts a brief, and runs novelty checks. Resume from the last run or
+            specify a custom date range. One brief per entity per day.
           </p>
-          <button className="home-wf-btn" onClick={() => setView("scan")}>Go to Portfolio Scan →</button>
+          <button className="home-wf-btn" onClick={() => setView("scan")}>Go to News Scan →</button>
         </div>
 
         <div className="home-wf-divider">
