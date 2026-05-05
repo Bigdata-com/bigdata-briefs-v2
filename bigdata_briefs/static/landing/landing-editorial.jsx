@@ -127,10 +127,10 @@ function LandingEditorial() {
 
             <div className="ed-prose">
               <p className="dropcap-init">
-                The analyst starts by opening{" "}
+                Once a day, the analyst opens{" "}
                 <span className="num">{MANUAL_DEFAULTS.numSources} news sources</span> one by one,
                 spending about <span className="num">{MANUAL_DEFAULTS.secondsScanPerSource} seconds</span> per source
-                scanning headlines across the entire coverage universe. That takes{" "}
+                scanning headlines across the entire coverage universe. That is{" "}
                 <span className="num">{fmtMinShort(manual.scan.totalMin)}</span> before a single
                 article is read for any company.
               </p>

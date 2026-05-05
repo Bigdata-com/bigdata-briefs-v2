@@ -369,9 +369,9 @@ function LandingProduct() {
           <div className="lbl">The manual workflow</div>
           <h3>Open every wire. Skim every headline. Read what survives.</h3>
           <p>
-            The analyst opens <span className="num">{MANUAL_DEFAULTS.numSources} sources</span> one
+            Once a day, the analyst opens <span className="num">{MANUAL_DEFAULTS.numSources} sources</span> one
             by one, about <span className="num">{MANUAL_DEFAULTS.secondsScanPerSource}s per source</span>,
-            scanning headlines across the whole universe. That's{" "}
+            scanning headlines across the full universe. That is{" "}
             <span className="num">{fmtMinShort(manual.scan.totalMin)}</span> before a single
             article is read for any company.
           </p>
