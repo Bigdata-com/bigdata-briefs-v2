@@ -222,7 +222,7 @@ def test_flush_discarded_novelty_embedding(engine):
 def test_flush_not_fully_novel(engine):
     run_id = uuid.uuid4()
     bp = _make_active_bp("amber")
-    bp["novelty_search"]["search"]["overall_verdict"] = "mixed"
+    bp["novelty_search"]["search"]["overall_verdict"] = "novel_with_context"
     _flush_bullet_run_log(engine, run_id, "E1", {"bullet_points": [bp]})
 
     with Session(engine) as s:

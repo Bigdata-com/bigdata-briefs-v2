@@ -126,8 +126,8 @@ def rewrite_search_bullets(
           - novel         → keep as-is
           - discard_*     → discard
         Verdicts that go through the LLM rewriter:
-          - mixed, mixed_noise, mixed_partial, single_partially_novel → existing paths
-          - multi_partially_novel → new path using _REWRITE_PROMPT_MULTI_PARTIALLY_NOVEL
+          - novel_with_context, novel_noisy, partial_update_with_context, partial_update → existing paths
+          - multi_partial_update → new path using _REWRITE_PROMPT_MULTI_PARTIALLY_NOVEL
         """
         claims: list[_NSClaim] = deps.get_search_data(trace_id, "claims")
         claim_verdicts: list[_NSClaimVerdict] = deps.get_search_data(trace_id, "claim_verdicts")
@@ -189,9 +189,9 @@ def rewrite_search_bullets(
                 "overall_verdict_reason": reason,
             }
 
-        # --- LLM path: mixed / mixed_noise / single_partially_novel ---
+        # --- LLM path: mixed / novel_noisy / partial_update ---
 
-        if overall_verdict == "single_partially_novel":
+        if overall_verdict == "partial_update":
             # One claim that adds a specific new detail to a known topic.
             # Pass the judge's reasoning so the rewriter knows what is known vs new
             # without needing explicit old/novel labels.
@@ -201,7 +201,7 @@ def rewrite_search_bullets(
                 sentence=sentence,
                 reasoning=reasoning_text,
             )
-        elif overall_verdict == "mixed_partial":
+        elif overall_verdict == "partial_update_with_context":
             # old claims + partially_novel claims: old context into subordinate clause,
             # partially_novel material introduced after the pivot marker.
             claims_and_verdicts_text = _ns_build_rewrite_claims_and_verdicts(
@@ -212,7 +212,7 @@ def rewrite_search_bullets(
                 sentence=sentence,
                 claims_and_verdicts=claims_and_verdicts_text,
             )
-        elif overall_verdict == "multi_partially_novel":
+        elif overall_verdict == "multi_partial_update":
             # Two or more partially_novel claims, no old anchor, no novel.
             # Pass claim text + verdict + per-claim reasoning so the rewriter can
             # synthesise the shared known baseline for the subordinate clause.
@@ -230,7 +230,7 @@ def rewrite_search_bullets(
             )
             prompt_template = (
                 _REWRITE_PROMPT_MIXED_NOISE
-                if overall_verdict == "mixed_noise"
+                if overall_verdict == "novel_noisy"
                 else _REWRITE_PROMPT_MIXED
             )
             user_content = prompt_template.format(
@@ -256,7 +256,7 @@ def rewrite_search_bullets(
             "[novelty_search_rewrite] bullet=%d action=rewrite overall_verdict=%r prompt=%s",
             bullet_idx,
             overall_verdict,
-            "single_partially_novel" if overall_verdict == "single_partially_novel" else "mixed",
+            "partial_update" if overall_verdict == "partial_update" else "novel_with_context",
         )
         return {
             **base_result,

@@ -95,17 +95,17 @@ class SearchNoveltyMetadata(BaseModel):
     # Aggregate novelty verdict across all claims.
     # novel                  — all claims fully novel; published as-is
     # mixed                  — novel + old/partially_novel context; rewrite with pivot marker
-    # mixed_noise            — novel + only trivial/unsupported noise; strip noise, keep novel text
-    # single_partially_novel — 1 partially_novel claim (no old); rewrite with known-context clause
-    # mixed_partial          — partially_novel + old; rewrite with old clause + pivot
-    # multi_partially_novel  — 2+ partially_novel, no old; rewrite synthesising shared baseline
+    # novel_noisy            — novel + only trivial/unsupported noise; strip noise, keep novel text
+    # partial_update — 1 partially_novel claim (no old); rewrite with known-context clause
+    # partial_update_with_context          — partially_novel + old; rewrite with old clause + pivot
+    # multi_partial_update  — 2+ partially_novel, no old; rewrite synthesising shared baseline
     # discard_not_new        — all claims old or trivial; discarded
     # discard_unsupported    — at least one unsupported inference; discarded
     # Populated by rewrite_search_bullets; used by save_novel_bullets to flag
     # not_fully_novel bullets (overall_verdict in mixed family and not discarded).
     overall_verdict: Literal[
-        "novel", "mixed", "mixed_noise",
-        "single_partially_novel", "mixed_partial", "multi_partially_novel",
+        "novel", "novel_with_context", "novel_noisy",
+        "partial_update", "partial_update_with_context", "multi_partial_update",
         "discard_not_new", "discard_unsupported", "old"
     ] | None = None
 

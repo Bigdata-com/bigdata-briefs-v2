@@ -358,7 +358,7 @@ class BulletDiscardDetail(BaseModel):
     evaluator_details: list[dict] | None = None
     # novelty_search: per-claim verdicts with evidence references
     claim_verdicts: list[ClaimVerdictDetail] | None = None
-    overall_verdict: str | None = None  # novel | mixed | mixed_weak | discard_not_new | discard_unsupported
+    overall_verdict: str | None = None  # novel | novel_with_context | novel_noisy | partial_update | partial_update_with_context | multi_partial_update | discard_not_new | discard_unsupported
     # novelty_search_relevance: LLM justification for the relevance score
     evaluator_reasoning: str | None = None
 

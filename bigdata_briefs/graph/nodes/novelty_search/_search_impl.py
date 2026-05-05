@@ -1053,7 +1053,7 @@ def _ns_validate_parse_and_plan_response(
 def _ns_compute_overall_verdict(verdicts: list[_NSClaimVerdict]) -> str:
     """Compute bullet-level verdict from per-claim verdicts (5-label conservative aggregator).
 
-    Verdicts: novel | mixed | mixed_noise | mixed_partial | multi_partially_novel | single_partially_novel | discard_not_new | discard_unsupported
+    Verdicts: novel | novel_with_context | novel_noisy | partial_update_with_context | multi_partial_update | partial_update | discard_not_new | discard_unsupported
     """
     if not verdicts:
         return "old"
@@ -1063,13 +1063,13 @@ def _ns_compute_overall_verdict(verdicts: list[_NSClaimVerdict]) -> str:
     if any(l == "novel" for l in labels):
         if all(l == "novel" for l in labels):
             return "novel"
-        # Distinguish two sub-cases of "mixed":
+        # Distinguish two sub-cases of "novel_with_context":
         # - mixed      : novel + old/partially_novel → rewrite with old-context clause + pivot marker
-        # - mixed_noise: novel + only trivial/unsupported noise → strip noise, keep novel material
+        # - novel_noisy: novel + only trivial/unsupported noise → strip noise, keep novel material
         has_old_context = any(l in ("old", "partially_novel") for l in labels)
         if not has_old_context:
-            return "mixed_noise"  # rewriter strips noise, publishes novel claims as clean sentence
-        return "mixed"
+            return "novel_noisy"  # rewriter strips noise, publishes novel claims as clean sentence
+        return "novel_with_context"
 
     # Rule 2 — no fully novel, but at least one partially_novel
     if any(l == "partially_novel" for l in labels):
@@ -1080,18 +1080,18 @@ def _ns_compute_overall_verdict(verdicts: list[_NSClaimVerdict]) -> str:
             # Exactly one partially_novel claim (rest is trivial/unsupported noise that
             # the rewriter drops). Treat the known topic as subordinate context and
             # introduce the new detail after a pivot marker.
-            return "single_partially_novel"
+            return "partial_update"
 
         if has_old:
             # One or more partially_novel claims alongside at least one old claim.
             # Old claims become the subordinate context clause; partially_novel claims
             # introduce the specific new material after the pivot.
-            return "mixed_partial"
+            return "partial_update_with_context"
 
         # Two or more partially_novel claims, no old anchor, no novel.
         # Each claim adds a specific new detail on a known topic. Rewrite by
         # synthesising the shared known baseline and introducing all new details.
-        return "multi_partially_novel"
+        return "multi_partial_update"
 
     # Rule 3 — only old / novel_trivial / novel_unsupported
     if any(l == "novel_unsupported" for l in labels):
@@ -1162,7 +1162,7 @@ def _ns_build_rewrite_claims_with_reasoning(
     claims: list[_NSClaim],
     claim_verdicts: list[_NSClaimVerdict],
 ) -> str:
-    """Build the claims+verdicts+reasoning section for the multi_partially_novel rewrite prompt.
+    """Build the claims+verdicts+reasoning section for the multi_partial_update rewrite prompt.
 
     Unlike _ns_build_rewrite_claims_and_verdicts, includes the judge's per-claim
     reasoning so the rewriter can infer the known baseline for each partially_novel

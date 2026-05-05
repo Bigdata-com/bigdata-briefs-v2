@@ -1,10 +1,10 @@
-"""Tests for the multi_partially_novel rewrite path and related verdict routing.
+"""Tests for the multi_partial_update rewrite path and related verdict routing.
 
 Covers:
   - _ns_compute_overall_verdict: routing for all partially_novel combinations
   - _ns_build_rewrite_claims_with_reasoning: helper output format
-  - rewrite_search_bullets: multi_partially_novel calls LLM with new prompt
-  - check_search_rewrite_relevance: multi_partially_novel uses pivot relevance check
+  - rewrite_search_bullets: multi_partial_update calls LLM with new prompt
+  - check_search_rewrite_relevance: multi_partial_update uses pivot relevance check
 """
 
 from __future__ import annotations
@@ -62,7 +62,7 @@ def _seed_cache_for_multi_pn(deps, trace_id: str, n_claims: int = 2) -> None:
         for i in range(n_claims)
     ]
     deps.store_search_data(trace_id, "claim_verdicts", verdicts)
-    deps.store_search_data(trace_id, "overall_verdict", "multi_partially_novel")
+    deps.store_search_data(trace_id, "overall_verdict", "multi_partial_update")
 
 
 _REWRITE_MODULE = "bigdata_briefs.graph.nodes.novelty_search.rewrite_search_bullets"
@@ -74,55 +74,55 @@ _CHECK_MODULE = "bigdata_briefs.graph.nodes.novelty_search.check_search_rewrite_
 
 class TestComputeOverallVerdictPartiallyNovelCombinations:
 
-    def test_single_pn_no_old_returns_single_partially_novel(self):
+    def test_single_pn_no_old_returns_partial_update(self):
         verdicts = [_verdict("partially_novel")]
-        assert _ns_compute_overall_verdict(verdicts) == "single_partially_novel"
+        assert _ns_compute_overall_verdict(verdicts) == "partial_update"
 
-    def test_single_pn_plus_trivial_returns_single_partially_novel(self):
-        """1 pn + trivial noise: len > 1 but pn_count == 1, no old → single_partially_novel."""
+    def test_single_pn_plus_trivial_returns_partial_update(self):
+        """1 pn + trivial noise: len > 1 but pn_count == 1, no old → partial_update."""
         verdicts = [_verdict("partially_novel", 0), _verdict("novel_trivial", 1)]
-        assert _ns_compute_overall_verdict(verdicts) == "single_partially_novel"
+        assert _ns_compute_overall_verdict(verdicts) == "partial_update"
 
-    def test_single_pn_plus_unsupported_returns_single_partially_novel(self):
-        """1 pn + unsupported noise → single_partially_novel (not multi)."""
+    def test_single_pn_plus_unsupported_returns_partial_update(self):
+        """1 pn + unsupported noise → partial_update (not multi)."""
         verdicts = [_verdict("partially_novel", 0), _verdict("novel_unsupported", 1)]
-        assert _ns_compute_overall_verdict(verdicts) == "single_partially_novel"
+        assert _ns_compute_overall_verdict(verdicts) == "partial_update"
 
-    def test_two_pn_no_old_returns_multi_partially_novel(self):
+    def test_two_pn_no_old_returns_multi_partial_update(self):
         verdicts = [_verdict("partially_novel", 0), _verdict("partially_novel", 1)]
-        assert _ns_compute_overall_verdict(verdicts) == "multi_partially_novel"
+        assert _ns_compute_overall_verdict(verdicts) == "multi_partial_update"
 
-    def test_three_pn_no_old_returns_multi_partially_novel(self):
+    def test_three_pn_no_old_returns_multi_partial_update(self):
         verdicts = [_verdict("partially_novel", i) for i in range(3)]
-        assert _ns_compute_overall_verdict(verdicts) == "multi_partially_novel"
+        assert _ns_compute_overall_verdict(verdicts) == "multi_partial_update"
 
-    def test_two_pn_plus_trivial_returns_multi_partially_novel(self):
-        """2 pn + trivial: pn_count == 2, no old → multi_partially_novel."""
+    def test_two_pn_plus_trivial_returns_multi_partial_update(self):
+        """2 pn + trivial: pn_count == 2, no old → multi_partial_update."""
         verdicts = [
             _verdict("partially_novel", 0),
             _verdict("partially_novel", 1),
             _verdict("novel_trivial", 2),
         ]
-        assert _ns_compute_overall_verdict(verdicts) == "multi_partially_novel"
+        assert _ns_compute_overall_verdict(verdicts) == "multi_partial_update"
 
-    def test_single_pn_plus_old_returns_mixed_partial(self):
-        """1 pn + old: has_old is True → mixed_partial."""
+    def test_single_pn_plus_old_returns_partial_update_with_context(self):
+        """1 pn + old: has_old is True → partial_update_with_context."""
         verdicts = [_verdict("partially_novel", 0), _verdict("old", 1)]
-        assert _ns_compute_overall_verdict(verdicts) == "mixed_partial"
+        assert _ns_compute_overall_verdict(verdicts) == "partial_update_with_context"
 
-    def test_two_pn_plus_old_returns_mixed_partial(self):
-        """2 pn + old → mixed_partial (old anchor present)."""
+    def test_two_pn_plus_old_returns_partial_update_with_context(self):
+        """2 pn + old → partial_update_with_context (old anchor present)."""
         verdicts = [
             _verdict("partially_novel", 0),
             _verdict("partially_novel", 1),
             _verdict("old", 2),
         ]
-        assert _ns_compute_overall_verdict(verdicts) == "mixed_partial"
+        assert _ns_compute_overall_verdict(verdicts) == "partial_update_with_context"
 
     def test_novel_takes_priority_over_pn(self):
-        """novel + pn → mixed, not multi_partially_novel."""
+        """novel + pn → mixed, not multi_partial_update."""
         verdicts = [_verdict("novel", 0), _verdict("partially_novel", 1)]
-        assert _ns_compute_overall_verdict(verdicts) == "mixed"
+        assert _ns_compute_overall_verdict(verdicts) == "novel_with_context"
 
     def test_mixed_weak_no_longer_returned(self):
         """mixed_weak is no longer a valid return value from the aggregator."""
@@ -181,7 +181,7 @@ class TestBuildRewriteClaimsWithReasoning:
         assert text == ""
 
 
-# ── rewrite_search_bullets: multi_partially_novel routing ────────────────────
+# ── rewrite_search_bullets: multi_partial_update routing ────────────────────
 
 
 class TestRewriteMultiPartiallyNovel:
@@ -190,7 +190,7 @@ class TestRewriteMultiPartiallyNovel:
         return rewrite_search_bullets(state, make_config(deps))
 
     def test_multi_pn_calls_llm(self):
-        """multi_partially_novel verdict must reach the LLM rewriter."""
+        """multi_partial_update verdict must reach the LLM rewriter."""
         deps = make_deps()
         bp = make_bullet(text="Intel reported EPS of $0.13 and revenue of $12.67B.")
         _seed_cache_for_multi_pn(deps, bp["trace_id"], n_claims=2)
@@ -229,7 +229,7 @@ class TestRewriteMultiPartiallyNovel:
             _NSClaimVerdict(claim_index=0, novelty="partially_novel", evidence_ids=[], reasoning="EPS range was $0.08-0.10."),
             _NSClaimVerdict(claim_index=1, novelty="partially_novel", evidence_ids=[], reasoning="Revenue range was $12.2-12.5B."),
         ])
-        deps.store_search_data(trace_id, "overall_verdict", "multi_partially_novel")
+        deps.store_search_data(trace_id, "overall_verdict", "multi_partial_update")
 
         state = _state(
             bullet_points=[bp],
@@ -276,10 +276,10 @@ class TestRewriteMultiPartiallyNovel:
         assert updated["is_active"] is True
         assert "has now reported" in updated["text"]
         assert updated["novelty_search"]["search"]["verdict"] == "rewrite"
-        assert updated["novelty_search"]["search"]["overall_verdict"] == "multi_partially_novel"
+        assert updated["novelty_search"]["search"]["overall_verdict"] == "multi_partial_update"
 
     def test_multi_pn_not_discarded_without_llm(self):
-        """multi_partially_novel must NOT be bypassed as a Python-level discard."""
+        """multi_partial_update must NOT be bypassed as a Python-level discard."""
         deps = make_deps()
         bp = make_bullet()
         _seed_cache_for_multi_pn(deps, bp["trace_id"])
@@ -302,7 +302,7 @@ class TestRewriteMultiPartiallyNovel:
         deps.llm_client.call_with_response_format.assert_called_once()
 
     def test_single_pn_plus_trivial_routes_to_single_pn_not_multi(self):
-        """1 pn + trivial: should use single_partially_novel path, not multi_partially_novel."""
+        """1 pn + trivial: should use partial_update path, not multi_partial_update."""
         deps = make_deps()
         bp = make_bullet(text="One real claim plus noise.")
         trace_id = bp["trace_id"]
@@ -319,7 +319,7 @@ class TestRewriteMultiPartiallyNovel:
             _NSClaimVerdict(claim_index=0, novelty="partially_novel", evidence_ids=[], reasoning=reasoning),
             _NSClaimVerdict(claim_index=1, novelty="novel_trivial", evidence_ids=[], reasoning="Trivial."),
         ])
-        deps.store_search_data(trace_id, "overall_verdict", "single_partially_novel")
+        deps.store_search_data(trace_id, "overall_verdict", "partial_update")
 
         state = _state(
             bullet_points=[bp],
@@ -338,13 +338,13 @@ class TestRewriteMultiPartiallyNovel:
             self._call(state, deps)
 
         user_msg = deps.llm_client.call_with_response_format.call_args[1]["messages"][0]["content"]
-        # single_partially_novel passes judge reasoning as {reasoning}, not claims_with_reasoning.
-        # multi_partially_novel would include "Verdict 1:" labels; single_pn does not.
+        # partial_update passes judge reasoning as {reasoning}, not claims_with_reasoning.
+        # multi_partial_update would include "Verdict 1:" labels; single_pn does not.
         assert reasoning in user_msg
         assert "Verdict 1:" not in user_msg
 
 
-# ── check_search_rewrite_relevance: multi_partially_novel uses pivot check ────
+# ── check_search_rewrite_relevance: multi_partial_update uses pivot check ────
 
 
 class TestCheckSearchRewriteRelevanceMultiPN:
@@ -368,9 +368,9 @@ class TestCheckSearchRewriteRelevanceMultiPN:
         return score_search_rewrite_relevance(state, make_config(deps))
 
     def test_multi_pn_uses_pivot_relevance_check(self):
-        """multi_partially_novel rewrite → run_pivot_relevance_check, not general."""
+        """multi_partial_update rewrite → run_pivot_relevance_check, not general."""
         deps = make_deps()
-        bp = self._make_bp_with_verdict("multi_partially_novel")
+        bp = self._make_bp_with_verdict("multi_partial_update")
         state = _state(
             bullet_points=[bp],
             entity_name="Corp Inc.",
@@ -391,7 +391,7 @@ class TestCheckSearchRewriteRelevanceMultiPN:
 
     def test_multi_pn_low_score_deactivates_bullet(self):
         deps = make_deps()
-        bp = self._make_bp_with_verdict("multi_partially_novel")
+        bp = self._make_bp_with_verdict("multi_partial_update")
         state = _state(
             bullet_points=[bp],
             entity_name="Corp Inc.",
@@ -410,7 +410,7 @@ class TestCheckSearchRewriteRelevanceMultiPN:
 
     def test_multi_pn_high_score_keeps_bullet_active(self):
         deps = make_deps()
-        bp = self._make_bp_with_verdict("multi_partially_novel")
+        bp = self._make_bp_with_verdict("multi_partial_update")
         state = _state(
             bullet_points=[bp],
             entity_name="Corp Inc.",

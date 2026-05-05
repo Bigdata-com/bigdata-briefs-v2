@@ -1,11 +1,11 @@
-"""Tests for the single_partially_novel rewrite path.
+"""Tests for the partial_update rewrite path.
 
 Covers:
   - _ns_compute_overall_verdict routing (single vs multiple partially_novel)
-  - rewrite_search_bullets: single_partially_novel uses new prompt, mixed_weak still discarded
+  - rewrite_search_bullets: partial_update uses new prompt, mixed_weak still discarded
   - run_pivot_relevance_check: calls LLM with pivot prompt, returns score
   - check_search_rewrite_relevance: pivot verdicts use run_pivot_relevance_check
-  - Existing test fix: single partially_novel now returns single_partially_novel, not mixed
+  - Existing test fix: single partially_novel now returns partial_update, not mixed
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ def _seed_cache_for_single_pn(deps, trace_id: str, reasoning: str = "Topic known
     deps.store_search_data(trace_id, "merged_results", [])
     deps.store_search_data(trace_id, "results_per_part", [[]])
     deps.store_search_data(trace_id, "claim_verdicts", [_pn_verdict(reasoning)])
-    deps.store_search_data(trace_id, "overall_verdict", "single_partially_novel")
+    deps.store_search_data(trace_id, "overall_verdict", "partial_update")
 
 
 _REWRITE_MODULE = "bigdata_briefs.graph.nodes.novelty_search.rewrite_search_bullets"
@@ -67,42 +67,42 @@ _CHECK_MODULE = "bigdata_briefs.graph.nodes.novelty_search.check_search_rewrite_
 
 class TestComputeOverallVerdictSinglePartiallyNovel:
 
-    def test_single_partially_novel_claim_returns_new_verdict(self):
+    def test_partial_update_claim_returns_new_verdict(self):
         verdicts = [_NSClaimVerdict(claim_index=0, novelty="partially_novel", evidence_ids=[], reasoning="")]
-        assert _ns_compute_overall_verdict(verdicts) == "single_partially_novel"
+        assert _ns_compute_overall_verdict(verdicts) == "partial_update"
 
-    def test_two_partially_novel_claims_returns_multi_partially_novel(self):
+    def test_two_partially_novel_claims_returns_multi_partial_update(self):
         verdicts = [
             _NSClaimVerdict(claim_index=0, novelty="partially_novel", evidence_ids=[], reasoning=""),
             _NSClaimVerdict(claim_index=1, novelty="partially_novel", evidence_ids=[], reasoning=""),
         ]
-        assert _ns_compute_overall_verdict(verdicts) == "multi_partially_novel"
+        assert _ns_compute_overall_verdict(verdicts) == "multi_partial_update"
 
-    def test_partially_novel_plus_old_returns_mixed_partial(self):
-        """partially_novel + old → mixed_partial (old anchor present for pivot)."""
+    def test_partially_novel_plus_old_returns_partial_update_with_context(self):
+        """partially_novel + old → partial_update_with_context (old anchor present for pivot)."""
         verdicts = [
             _NSClaimVerdict(claim_index=0, novelty="partially_novel", evidence_ids=[], reasoning=""),
             _NSClaimVerdict(claim_index=1, novelty="old", evidence_ids=[], reasoning=""),
         ]
-        assert _ns_compute_overall_verdict(verdicts) == "mixed_partial"
+        assert _ns_compute_overall_verdict(verdicts) == "partial_update_with_context"
 
     def test_novel_takes_priority_over_partially_novel(self):
-        """novel + partially_novel → mixed (not single_partially_novel)."""
+        """novel + partially_novel → mixed (not partial_update)."""
         verdicts = [
             _NSClaimVerdict(claim_index=0, novelty="novel", evidence_ids=[], reasoning=""),
             _NSClaimVerdict(claim_index=1, novelty="partially_novel", evidence_ids=[], reasoning=""),
         ]
-        assert _ns_compute_overall_verdict(verdicts) == "mixed"
+        assert _ns_compute_overall_verdict(verdicts) == "novel_with_context"
 
-    def test_single_partially_novel_plus_trivial_still_novel_path(self):
-        """If there's a novel claim, partially_novel doesn't trigger single_partially_novel."""
+    def test_partial_update_plus_trivial_still_novel_path(self):
+        """If there's a novel claim, partially_novel doesn't trigger partial_update."""
         verdicts = [
             _NSClaimVerdict(claim_index=0, novelty="novel", evidence_ids=[], reasoning=""),
         ]
         assert _ns_compute_overall_verdict(verdicts) == "novel"
 
 
-# ── rewrite_search_bullets: single_partially_novel routing ───────────────────
+# ── rewrite_search_bullets: partial_update routing ───────────────────
 
 
 class TestRewriteSinglePartiallyNovel:
@@ -110,8 +110,8 @@ class TestRewriteSinglePartiallyNovel:
     def _call(self, state, deps=None):
         return rewrite_search_bullets(state, make_config(deps))
 
-    def test_single_partially_novel_calls_llm_with_pivot_prompt(self):
-        """single_partially_novel verdict must reach the LLM (not be bypassed as discard)."""
+    def test_partial_update_calls_llm_with_pivot_prompt(self):
+        """partial_update verdict must reach the LLM (not be bypassed as discard)."""
         deps = make_deps()
         bp = make_bullet(text="UnitedHealth posted Q1 pre-tax profit of $8.04B.")
         reasoning = "Q1 results topic known, $8.04B figure is new."
@@ -140,8 +140,8 @@ class TestRewriteSinglePartiallyNovel:
         assert "pivot marker" in user_msg
         assert reasoning in user_msg
 
-    def test_single_partially_novel_prompt_contains_reasoning_not_claim_labels(self):
-        """single_partially_novel passes judge reasoning, not old/novel claim labels."""
+    def test_partial_update_prompt_contains_reasoning_not_claim_labels(self):
+        """partial_update passes judge reasoning, not old/novel claim labels."""
         deps = make_deps()
         bp = make_bullet()
         reasoning = "The specific figure $8.04B is not in evidence."
@@ -168,7 +168,7 @@ class TestRewriteSinglePartiallyNovel:
         assert reasoning in user_msg
         assert "Verdict 1:" not in user_msg
 
-    def test_single_partially_novel_rewrite_updates_text_and_stays_active(self):
+    def test_partial_update_rewrite_updates_text_and_stays_active(self):
         deps = make_deps()
         bp = make_bullet(text="Original.")
         _seed_cache_for_single_pn(deps, bp["trace_id"])
@@ -192,10 +192,10 @@ class TestRewriteSinglePartiallyNovel:
         assert updated["is_active"] is True
         assert updated["text"] == "Corp Inc., which had X, has now disclosed Y."
         assert updated["novelty_search"]["search"]["verdict"] == "rewrite"
-        assert updated["novelty_search"]["search"]["overall_verdict"] == "single_partially_novel"
+        assert updated["novelty_search"]["search"]["overall_verdict"] == "partial_update"
 
-    def test_multi_partially_novel_calls_llm_for_rewrite(self):
-        """multi_partially_novel (multiple partially_novel, no old) must call LLM, not be discarded."""
+    def test_multi_partial_update_calls_llm_for_rewrite(self):
+        """multi_partial_update (multiple partially_novel, no old) must call LLM, not be discarded."""
         deps = make_deps()
         bp = make_bullet()
 
@@ -212,7 +212,7 @@ class TestRewriteSinglePartiallyNovel:
             _NSClaimVerdict(claim_index=0, novelty="partially_novel", evidence_ids=[], reasoning="Detail A is new."),
             _NSClaimVerdict(claim_index=1, novelty="partially_novel", evidence_ids=[], reasoning="Detail B is new."),
         ])
-        deps.store_search_data(bp["trace_id"], "overall_verdict", "multi_partially_novel")
+        deps.store_search_data(bp["trace_id"], "overall_verdict", "multi_partial_update")
 
         state = _state(
             bullet_points=[bp],
@@ -304,7 +304,7 @@ class TestCheckSearchRewriteRelevanceRouting:
     def _make_bp_with_search_verdict(
         self,
         rewritten_text: str = "Corp Inc., which had X, has now reported Y.",
-        overall_verdict: str = "mixed",
+        overall_verdict: str = "novel_with_context",
     ) -> dict:
         bp = make_bullet(text="Original.")
         bp["is_active"] = True
@@ -326,7 +326,7 @@ class TestCheckSearchRewriteRelevanceRouting:
     def test_pivot_verdict_uses_pivot_check(self):
         """mixed verdict → run_pivot_relevance_check, not the general one."""
         deps = make_deps()
-        bp = self._make_bp_with_search_verdict(overall_verdict="mixed")
+        bp = self._make_bp_with_search_verdict(overall_verdict="novel_with_context")
         state = _state(
             bullet_points=[bp],
             entity_name="Corp Inc.",
@@ -346,10 +346,10 @@ class TestCheckSearchRewriteRelevanceRouting:
         mock_pivot.assert_called_once()
         mock_general.assert_not_called()
 
-    def test_single_partially_novel_verdict_uses_pivot_check(self):
-        """single_partially_novel → run_pivot_relevance_check."""
+    def test_partial_update_verdict_uses_pivot_check(self):
+        """partial_update → run_pivot_relevance_check."""
         deps = make_deps()
-        bp = self._make_bp_with_search_verdict(overall_verdict="single_partially_novel")
+        bp = self._make_bp_with_search_verdict(overall_verdict="partial_update")
         state = _state(
             bullet_points=[bp],
             entity_name="Corp Inc.",
@@ -368,10 +368,10 @@ class TestCheckSearchRewriteRelevanceRouting:
         mock_pivot.assert_called_once()
         mock_general.assert_not_called()
 
-    def test_mixed_noise_verdict_uses_general_check(self):
-        """mixed_noise is not a pivot verdict → general relevance check."""
+    def test_novel_noisy_verdict_uses_general_check(self):
+        """novel_noisy is not a pivot verdict → general relevance check."""
         deps = make_deps()
-        bp = self._make_bp_with_search_verdict(overall_verdict="mixed_noise")
+        bp = self._make_bp_with_search_verdict(overall_verdict="novel_noisy")
         state = _state(
             bullet_points=[bp],
             entity_name="Corp Inc.",
@@ -392,7 +392,7 @@ class TestCheckSearchRewriteRelevanceRouting:
 
     def test_low_pivot_score_deactivates_bullet(self):
         deps = make_deps()
-        bp = self._make_bp_with_search_verdict(overall_verdict="mixed")
+        bp = self._make_bp_with_search_verdict(overall_verdict="novel_with_context")
         state = _state(
             bullet_points=[bp],
             entity_name="Corp Inc.",
@@ -411,7 +411,7 @@ class TestCheckSearchRewriteRelevanceRouting:
 
     def test_high_pivot_score_keeps_bullet_active(self):
         deps = make_deps()
-        bp = self._make_bp_with_search_verdict(overall_verdict="single_partially_novel")
+        bp = self._make_bp_with_search_verdict(overall_verdict="partial_update")
         state = _state(
             bullet_points=[bp],
             entity_name="Corp Inc.",

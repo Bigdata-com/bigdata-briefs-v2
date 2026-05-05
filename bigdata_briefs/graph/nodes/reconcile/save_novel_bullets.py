@@ -92,7 +92,7 @@ def save_novel_bullet_points(
             # at least one claim was already known in the evidence.
             not_fully_novel = (
                 search_action == "keep"
-                and record.novelty_search.search.overall_verdict == "mixed"
+                and record.novelty_search.search.overall_verdict == "novel_with_context"
             )
 
         # Resolve citation IDs → {id, headline, text} using source_references.

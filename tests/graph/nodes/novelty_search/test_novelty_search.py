@@ -138,10 +138,10 @@ def _seed_cache_for_judgment(
         deps.store_search_data(trace_id, "results_per_part", [[]])
 
 
-def _seed_cache_for_rewrite(deps, trace_id: str, overall_verdict: str = "mixed") -> None:
+def _seed_cache_for_rewrite(deps, trace_id: str, overall_verdict: str = "novel_with_context") -> None:
     """Seed all intermediate data so the rewrite node can run.
 
-    Defaults to "mixed" so tests that call the LLM path work out of the box.
+    Defaults to "novel_with_context" so tests that call the LLM path work out of the box.
     Pass overall_verdict="novel" explicitly for tests that exercise the bypass path.
     """
     _seed_cache_for_judgment(deps, trace_id, n_claims=1, with_evidence=True)
@@ -198,21 +198,21 @@ class TestNsComputeOverallVerdict:
             _NSClaimVerdict(claim_index=0, novelty="novel", evidence_ids=[], reasoning=""),
             _NSClaimVerdict(claim_index=1, novelty="old", evidence_ids=[], reasoning=""),
         ]
-        assert _ns_compute_overall_verdict(verdicts) == "mixed"
+        assert _ns_compute_overall_verdict(verdicts) == "novel_with_context"
 
     def test_partially_novel_single_claim(self):
         # Single partially_novel claim now routes to the dedicated rewriter
         verdicts = [
             _NSClaimVerdict(claim_index=0, novelty="partially_novel", evidence_ids=[], reasoning=""),
         ]
-        assert _ns_compute_overall_verdict(verdicts) == "single_partially_novel"
+        assert _ns_compute_overall_verdict(verdicts) == "partial_update"
 
     def test_partially_novel_multiple_claims(self):
         verdicts = [
             _NSClaimVerdict(claim_index=0, novelty="partially_novel", evidence_ids=[], reasoning=""),
             _NSClaimVerdict(claim_index=1, novelty="partially_novel", evidence_ids=[], reasoning=""),
         ]
-        assert _ns_compute_overall_verdict(verdicts) == "multi_partially_novel"
+        assert _ns_compute_overall_verdict(verdicts) == "multi_partial_update"
 
     def test_empty_list_returns_old(self):
         assert _ns_compute_overall_verdict([]) == "old"

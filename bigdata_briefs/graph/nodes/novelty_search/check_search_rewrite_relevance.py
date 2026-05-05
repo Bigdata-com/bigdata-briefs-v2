@@ -39,7 +39,7 @@ from bigdata_briefs.graph.nodes.novelty_search._search_impl import run_pivot_rel
 from bigdata_briefs.novelty.novelty_service import run_relevance_check_for_bullet_text
 from bigdata_briefs.novelty.step_names import novelty_search_rewrite_relevance_check_step_name
 
-_PIVOT_VERDICTS = {"mixed", "single_partially_novel", "mixed_partial", "multi_partially_novel"}
+_PIVOT_VERDICTS = {"novel_with_context", "partial_update", "partial_update_with_context", "multi_partial_update"}
 from bigdata_briefs.settings import settings
 
 
@@ -117,7 +117,7 @@ def score_search_rewrite_relevance(
         overall_verdict: str = search_block.get("overall_verdict") or ""
         step_name = novelty_search_rewrite_relevance_check_step_name(bullet_idx)
 
-        # Pivot-rewritten bullets (mixed / single_partially_novel) get a dedicated
+        # Pivot-rewritten bullets (mixed / partial_update) get a dedicated
         # relevance check that focuses only on the new detail added after the pivot
         # marker, ignoring the known subordinate context clause.
         if overall_verdict in _PIVOT_VERDICTS:
