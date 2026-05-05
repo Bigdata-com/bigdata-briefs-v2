@@ -6,7 +6,7 @@ function HomeView({ setView }) {
       <div className="home-intro">
         <div className="dateline">Bigdata Briefs</div>
         <h1 className="t-display" style={{ marginTop: 12, marginBottom: 8, letterSpacing: "-0.025em" }}>
-          How the desk works.
+          Get Started.
         </h1>
         <p style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 19, color: "var(--ink-soft)", maxWidth: 560, lineHeight: 1.55, marginTop: 0 }}>
           Scan the news. Read the brief. Review the record.
