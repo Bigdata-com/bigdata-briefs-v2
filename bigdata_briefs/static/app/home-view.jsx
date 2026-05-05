@@ -4,7 +4,7 @@ function HomeView({ setView }) {
   return (
     <div className="home-view">
       <div className="home-intro">
-        <div className="dateline">BigData Briefs</div>
+        <div className="dateline">Bigdata Briefs</div>
         <h1 className="t-display" style={{ marginTop: 12, marginBottom: 8, letterSpacing: "-0.025em" }}>
           How the desk works.
         </h1>

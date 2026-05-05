@@ -905,7 +905,7 @@ class StepUsage(BaseModel):
     embedding_tokens: int = 0
     duration_seconds: float = 0.0
     
-    # BigData API metrics
+    # Bigdata API metrics
     api_calls: int = 0
     api_query_units: float = 0.0
 

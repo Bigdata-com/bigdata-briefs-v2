@@ -1,5 +1,5 @@
 {% extends "ui/base.html" %}
-{% block title %}Cost Breakdown — BigData Briefs{% endblock %}
+{% block title %}Cost Breakdown — Bigdata Briefs{% endblock %}
 {% block nav_details %}active{% endblock %}
 
 {% block content %}
@@ -193,7 +193,7 @@
 {% set has_api = namespace(v=false) %}
 {% for g in step_groups %}{% if g.totals.api_calls > 0 %}{% set has_api.v = true %}{% endif %}{% endfor %}
 {% if has_api.v %}
-<div style="margin-top:1.5rem;margin-bottom:.5rem;font-size:.78rem;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.04em">BigData API</div>
+<div style="margin-top:1.5rem;margin-bottom:.5rem;font-size:.78rem;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.04em">Bigdata API</div>
 {% set api_group_max = namespace(v=0) %}
 {% for g in step_groups %}{% if g.totals.api_calls > api_group_max.v %}{% set api_group_max.v = g.totals.api_calls %}{% endif %}{% endfor %}
 

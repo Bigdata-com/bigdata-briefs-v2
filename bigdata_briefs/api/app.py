@@ -80,7 +80,7 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="BigData Briefs Pipeline API",
+        title="Bigdata Briefs Pipeline API",
         description=(
             "Trigger and monitor incremental entity report pipeline runs.\n\n"
             "Authentication: set `PIPELINE_API_KEY` in `.env` and pass the value "

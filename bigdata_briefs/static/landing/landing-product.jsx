@@ -421,7 +421,7 @@ function LandingProduct() {
           <div className="pr-method-card">
             <div className="step">01 · Surface</div>
             <h4>Relevant news, automatically</h4>
-            <p>The pipeline searches BigData's licensed news corpus and surfaces the content relevant to each issuer. No source list to maintain, no wires to open.</p>
+            <p>The pipeline searches Bigdata's licensed news corpus and surfaces the content relevant to each issuer. No source list to maintain, no wires to open.</p>
           </div>
           <div className="pr-method-card">
             <div className="step">02 · First screen</div>

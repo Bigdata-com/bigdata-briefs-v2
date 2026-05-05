@@ -621,7 +621,7 @@ class EntityStepMetrics:
         *,
         attributee_step: str | None = None,
     ):
-        """Track BigData search API calls. Always accumulates run totals; also updates
+        """Track Bigdata search API calls. Always accumulates run totals; also updates
         the step breakdown when a step name is known."""
         with self.lock:
             self._total_api_calls += n_calls

@@ -242,7 +242,7 @@ function LandingEditorial() {
             <div className="ed-method-num">01 · Surface</div>
             <div className="ed-method-title">Relevant news, automatically</div>
             <p className="ed-method-body">
-              The pipeline searches across BigData's licensed news corpus and surfaces
+              The pipeline searches across Bigdata's licensed news corpus and surfaces
               the content relevant to each issuer. No source list to maintain,
               no wires to open.
             </p>
