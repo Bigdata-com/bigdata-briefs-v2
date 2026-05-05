@@ -25,10 +25,6 @@ class Settings(BaseSettings):
 
     BIGDATA_API_KEY: str | Literal["<UNSET>"] = UNSET
     OPENAI_API_KEY: str | Literal["<UNSET>"] = UNSET
-    # FastAPI layer: set to a non-empty string to require X-API-Key header on all routes.
-    # Leave empty to disable authentication (e.g. internal/local use).
-    PIPELINE_API_KEY: str = ""
-
     # Data storage configuration (override with ``DB_STRING`` in ``.env`` if needed)
     DB_STRING: str = _DEFAULT_DB_SQLITE_URL
     # Pipeline JSON state directory for ``PipelineRunner`` when using entity orchestrator CLI.
