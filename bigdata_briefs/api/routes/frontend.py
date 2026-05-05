@@ -762,8 +762,8 @@ def _build_history(session: Session, entity_id: str, limit: int = 30) -> list[di
             "saved": len(active),
             "discarded": len(discarded),
             "themes": themes,
-            "headline": (active[0].text[:80] + "…") if active else "No material developments",
-            "preview": narrative.narrative_text if narrative else "",
+            "narrative": narrative.narrative_text if narrative else "",
+            "bullets": [{"text": b.text, "theme": b.theme or ""} for b in active],
         })
     return out
 

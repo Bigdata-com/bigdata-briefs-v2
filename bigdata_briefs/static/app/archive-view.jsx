@@ -1,5 +1,5 @@
 // History / Archive view — calendar-style timeline of past briefs
-const { useState: useStateH, useMemo: useMemoH, useEffect: useEffectH } = React;
+const { useState: useStateH, useMemo: useMemoH, useEffect: useEffectH, useCallback: useCallbackH } = React;
 
 function ArchiveView({ tweaks }) {
   const companies = window.DATA?.companies || [];
@@ -8,6 +8,7 @@ function ArchiveView({ tweaks }) {
   const [selectedId, setSelectedId] = useStateH(initialId);
   const [search, setSearch] = useStateH("");
   const [sortMode, setSortMode] = useStateH("recent");
+  const [expandedRunId, setExpandedRunId] = useStateH(null);
   const [historyData, setHistoryData] = useStateH({
     entityId: initialId,
     entityName: window.DATA.todaysBrief?.entityName || "",
@@ -138,8 +139,9 @@ function ArchiveView({ tweaks }) {
                       <div className="archive-day-weekday">{wd}</div>
                     </div>
                     <div className="archive-day-content">
-                      <h2 className="archive-headline">{entry.headline || "No material developments"}</h2>
-                      {entry.preview && <p className="archive-preview">{entry.preview}</p>}
+                      <h2 className="archive-headline">
+                        {entry.narrative || (entry.bullets?.length > 0 ? entry.bullets[0].text : "No material developments")}
+                      </h2>
                       <div className="archive-meta">
                         <span style={{ fontFamily: "var(--mono)", textTransform: "none", letterSpacing: 0 }}>run-{entry.runId}</span>
                         <span>·</span>
@@ -156,7 +158,25 @@ function ArchiveView({ tweaks }) {
                             </span>
                           </>
                         )}
+                        {entry.bullets?.length > 0 && (
+                          <button
+                            className="archive-expand-btn"
+                            onClick={() => setExpandedRunId(expandedRunId === entry.runId ? null : entry.runId)}
+                          >
+                            {expandedRunId === entry.runId ? "▴ hide bullets" : `▾ ${entry.bullets.length} bullet${entry.bullets.length !== 1 ? "s" : ""}`}
+                          </button>
+                        )}
                       </div>
+                      {expandedRunId === entry.runId && entry.bullets?.length > 0 && (
+                        <ol className="archive-bullets-list">
+                          {entry.bullets.map((b, i) => (
+                            <li key={i} className="archive-bullet-item">
+                              {b.theme && <span className="archive-bullet-theme"><ThemeDot theme={b.theme} />&nbsp;{b.theme}</span>}
+                              <p className="archive-bullet-text">{b.text}</p>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
                     </div>
                   </article>
                 );
