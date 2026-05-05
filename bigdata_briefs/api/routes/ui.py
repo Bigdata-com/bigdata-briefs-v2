@@ -671,7 +671,7 @@ def _convert_bp(bp: dict, source_refs: dict) -> dict:
     search_action = s.get("verdict")
     is_active = bp.get("is_active", True)
     overall_verdict = s.get("overall_verdict")
-    not_fully_novel = bool(is_active and overall_verdict in ("mixed", "mixed_partial"))
+    not_fully_novel = bool(is_active and overall_verdict in ("mixed", "mixed_partial", "multi_partially_novel"))
 
     ne_rewrite = (ne.get("rewrite") or {}).get("text_after")
     search_rewrite = s.get("rewritten_text")
@@ -787,7 +787,7 @@ _NOVELTY_VERDICT_COLORS: dict[str, str] = {
     "novel":               ("color:#166534", "background:#dcfce7", "border:1px solid #86efac"),
     "mixed":               ("color:#92400e", "background:#fef3c7", "border:1px solid #fcd34d"),
     "mixed_noise":         ("color:#92400e", "background:#fef3c7", "border:1px solid #fcd34d"),
-    "mixed_weak":          ("color:#991b1b", "background:#fee2e2", "border:1px solid #fca5a5"),
+    "multi_partially_novel": ("color:#92400e", "background:#fef3c7", "border:1px solid #fcd34d"),
     "discard_not_new":     ("color:#991b1b", "background:#fee2e2", "border:1px solid #fca5a5"),
     "discard_unsupported": ("color:#991b1b", "background:#fee2e2", "border:1px solid #fca5a5"),
     "old":                 ("color:#6b7280", "background:#f3f4f6", "border:1px solid #d1d5db"),

@@ -740,6 +740,131 @@ OUTPUT (JSON):
 """
 
 
+_REWRITE_PROMPT_MULTI_PARTIALLY_NOVEL = """\
+You are a financial news editor. You are given a sentence about a company and a list of its claims. The claims include two or more labeled "partially_novel": each of these touches on a topic that was already known from prior coverage, but adds one specific new detail — a concrete figure, a named partner, a geographic market, a date, or a specific attribute — that was not present in prior sources. There are no "old" claims and no "novel" claims. Any claim labeled "novel_trivial" or "novel_unsupported" must be dropped.
+
+Your task: rewrite the sentence so the shared known baseline across all claims is expressed as a subordinate clause, and all new specific details are introduced together after a pivot marker.
+
+Structure:
+
+    <subject>, <subordinate clause with the shared known baseline>, <pivot marker> <all new specific details combined>.
+
+For each "partially_novel" claim, the judge's analysis explains what was already known about the topic and what the new specific detail is. Use that reasoning to build the subordinate clause and to identify what must appear after the pivot.
+
+ENTITY: "{entity_name}"
+
+SUBJECT RULE:
+Open with "{entity_name}" ONLY when the original sentence uses {entity_name} as its grammatical subject — i.e. the entity itself did, said, reported, or announced something. When the original sentence opens with an external actor (analysts, prediction markets, investors, a market metric, a regulatory body), preserve that external actor as the grammatical subject of the rewrite. The known-context → pivot → new details structure still applies regardless.
+
+EXPECTATION FRAMING RULE:
+When the original sentence uses expectation or forecast language — "is expected to", "is projected to", "is forecast to", "analysts estimate", "analysts project", "consensus forecasts", "is anticipated to" — the claim is an analyst estimate or forward projection, NOT a company disclosure. Do NOT convert it to a disclosure verb (has disclosed, has confirmed, has reported). Preserve the expectation framing using: "is now expected to", "is now projected to", "analysts now project", "is now forecast to".
+
+PIVOT MARKERS — when the grammatical subject is {entity_name} AND the claims are company actions or disclosures, use exactly one from this list:
+- has now <verb> / have now <verb>
+- has just <verb>
+- has confirmed
+- has disclosed
+- has reported
+
+When the grammatical subject is NOT {entity_name}, use a pivot that fits the actual subject naturally (e.g. "are now pricing", "now stands at", "now show"). When the claims are analyst estimates or forecasts (even if {entity_name} is the grammatical subject), use an expectation-preserving pivot: "is now expected to", "is now projected to", "analysts now project".
+
+RULES:
+1. If the original sentence opens with "{entity_name}" as subject, open the rewrite with "{entity_name}", exactly as written. Otherwise, preserve the natural subject of the sentence.
+2. Build the subordinate clause by synthesising the shared known baseline implied across all claims, using the judge's analysis for each. Use past tense for the known part.
+3. Place the pivot marker between the known-context clause and the new material.
+4. After the pivot marker, include the full substance of ALL partially_novel claims — every new specific detail. Do not omit any. Do not repeat the entity name after the pivot when the subject is {entity_name}.
+5. Claims labeled "novel_trivial" or "novel_unsupported" must be dropped entirely.
+6. The result must be a single, coherent, publishable sentence.
+
+---
+
+EXAMPLES:
+
+Example 1 — entity as subject, two new financial metrics both above prior analyst estimates:
+  Sentence: "Intel Corp. reported Q1 2026 adjusted EPS of $0.13 and revenue of $12.67 billion, both above consensus."
+  Claims:
+    Claim 1: Intel Corp. reported Q1 2026 adjusted EPS of $0.13
+    Verdict 1: partially_novel
+    Judge's analysis: Analyst EPS estimates for Q1 2026 were in the $0.08–$0.10 range. The specific reported figure of $0.13 is not in prior evidence.
+
+    Claim 2: Intel Corp. reported Q1 2026 revenue of $12.67 billion
+    Verdict 2: partially_novel
+    Judge's analysis: Analyst revenue estimates for Q1 2026 were in the $12.2–$12.5 billion range. The specific reported figure of $12.67 billion is not in prior evidence.
+  Rewritten: "Intel Corp., which had been expected to report Q1 2026 adjusted EPS in the $0.08–$0.10 range and revenue of approximately $12.2–$12.5 billion, has now reported EPS of $0.13 and revenue of $12.67 billion, both ahead of consensus."
+
+Example 2 — entity as subject, two new geographic markets in a known international rollout:
+  Sentence: "Microsoft Corp. has expanded its Copilot+ PC program to France and Australia, bringing its international rollout to 12 markets."
+  Claims:
+    Claim 1: Microsoft Corp. has expanded its Copilot+ PC program to France
+    Verdict 1: partially_novel
+    Judge's analysis: Microsoft's international Copilot+ PC rollout was known from prior coverage. France was not previously mentioned as a market.
+
+    Claim 2: Microsoft Corp. has expanded its Copilot+ PC program to Australia
+    Verdict 2: partially_novel
+    Judge's analysis: Microsoft's international Copilot+ PC rollout was known from prior coverage. Australia was not previously mentioned as a market.
+  Rewritten: "Microsoft Corp., which had been expanding its Copilot+ PC program internationally across several markets, has now added France and Australia to its rollout."
+
+Example 3 — entity as subject, two new specific metrics in a known quarterly results context:
+  Sentence: "Apple Inc. reported Q3 2026 EPS of $1.52 and services revenue of $27.3 billion, both above prior analyst estimates."
+  Claims:
+    Claim 1: Apple Inc. reported Q3 2026 EPS of $1.52
+    Verdict 1: partially_novel
+    Judge's analysis: Analyst Q3 2026 EPS estimates were in the $1.45–$1.49 range. The specific reported figure of $1.52 is not in prior evidence.
+
+    Claim 2: Apple Inc. reported Q3 2026 services revenue of $27.3 billion
+    Verdict 2: partially_novel
+    Judge's analysis: Apple's services revenue growth trajectory was known from prior coverage. The specific Q3 figure of $27.3 billion is not in prior evidence.
+  Rewritten: "Apple Inc., which had been expected to report Q3 2026 EPS near $1.45–$1.49 and continue its services revenue growth, has now reported EPS of $1.52 and services revenue of $27.3 billion, both above prior estimates."
+
+Example 4 — EXTERNAL subject: sentence opens with analyst consensus data; two new specific metrics:
+  Sentence: "The analyst consensus for Intel Corp. now shows a price target of $47.23 and a 12-month EPS estimate of $1.08, both revised upward."
+  Claims:
+    Claim 1: Analyst consensus price target for Intel Corp. is $47.23
+    Verdict 1: partially_novel
+    Judge's analysis: Prior analyst consensus price targets for Intel were in the $40–$44 range. The specific revised figure of $47.23 is not in prior evidence.
+
+    Claim 2: Analyst 12-month EPS estimate for Intel Corp. is $1.08
+    Verdict 2: partially_novel
+    Judge's analysis: Prior analyst EPS estimates for Intel were below $1.00. The specific revised figure of $1.08 is not in prior evidence.
+  Rewritten: "With analyst consensus for Intel Corp. previously showing a price target in the $40–$44 range and EPS estimates below $1.00, the consensus has now been revised to a $47.23 price target and $1.08 EPS estimate."
+  Note: the original opens with analyst data — preserve the external framing. Do not rewrite as "Intel Corp. has disclosed that analyst consensus is..."
+
+Example 5 — EXPECTATION FRAMING: entity as subject, two new analyst estimate figures on future results:
+  Sentence: "Intel Corp. is expected to deliver Q2 2026 revenue of $13.1 billion and adjusted gross margin of 40.5%, above prior consensus."
+  Claims:
+    Claim 1: Intel Corp. is expected to deliver Q2 2026 revenue of $13.1 billion
+    Verdict 1: partially_novel
+    Judge's analysis: Prior consensus revenue estimates for Q2 2026 were approximately $12.5–$12.8 billion. The specific new estimate of $13.1 billion is not in prior evidence.
+
+    Claim 2: Intel Corp. is expected to deliver Q2 2026 adjusted gross margin of 40.5%
+    Verdict 2: partially_novel
+    Judge's analysis: Prior consensus gross margin estimates for Q2 2026 were approximately 39%. The specific new estimate of 40.5% is not in prior evidence.
+  Rewritten: "Intel Corp., which had been expected to deliver Q2 2026 revenue near $12.5–$12.8 billion and adjusted gross margin near 39%, is now projected by analysts to reach $13.1 billion in revenue and 40.5% gross margin."
+  Note: both claims are analyst estimates on future results — do not use "has disclosed" or "has confirmed".
+
+---
+
+SENTENCE:
+
+{sentence}
+
+---
+
+CLAIMS:
+
+{claims_with_reasoning}
+
+---
+
+OUTPUT (JSON):
+
+{{
+  "rewritten_sentence": "...",
+  "reasoning": "Brief explanation: what was synthesised as the shared known baseline and what new details were introduced."
+}}
+"""
+
+
 _PIVOT_RELEVANCE_CHECK_PROMPT = """\
 You are a financial analyst evaluating the relevance of individual news items for an investor-focused market intelligence feed. Your job is to assess how material and actionable each item is for the specified entity.
 
@@ -928,7 +1053,7 @@ def _ns_validate_parse_and_plan_response(
 def _ns_compute_overall_verdict(verdicts: list[_NSClaimVerdict]) -> str:
     """Compute bullet-level verdict from per-claim verdicts (5-label conservative aggregator).
 
-    Verdicts: novel | mixed | mixed_weak | discard_not_new | discard_unsupported
+    Verdicts: novel | mixed | mixed_noise | mixed_partial | multi_partially_novel | single_partially_novel | discard_not_new | discard_unsupported
     """
     if not verdicts:
         return "old"
@@ -948,20 +1073,25 @@ def _ns_compute_overall_verdict(verdicts: list[_NSClaimVerdict]) -> str:
 
     # Rule 2 — no fully novel, but at least one partially_novel
     if any(l == "partially_novel" for l in labels):
-        # Special case: exactly one claim and it is partially_novel.
-        # The topic is known from evidence but the sentence adds a specific new detail
-        # (a figure, a partner name, a geography, a specific attribute). Route to a
-        # dedicated rewriter that treats the known topic as subordinate context and
-        # introduces the new detail after a pivot marker.
-        if len(verdicts) == 1:
-            return "single_partially_novel"
-        # Special case: old + partially_novel (one or more claims old, one or more
-        # partially_novel). The old claims become the subordinate context clause;
-        # the partially_novel claims introduce the specific new material after the pivot.
+        pn_count = sum(l == "partially_novel" for l in labels)
         has_old = any(l == "old" for l in labels)
+
+        if pn_count == 1 and not has_old:
+            # Exactly one partially_novel claim (rest is trivial/unsupported noise that
+            # the rewriter drops). Treat the known topic as subordinate context and
+            # introduce the new detail after a pivot marker.
+            return "single_partially_novel"
+
         if has_old:
+            # One or more partially_novel claims alongside at least one old claim.
+            # Old claims become the subordinate context clause; partially_novel claims
+            # introduce the specific new material after the pivot.
             return "mixed_partial"
-        return "mixed_weak"  # multiple partially_novel with no old context — discard
+
+        # Two or more partially_novel claims, no old anchor, no novel.
+        # Each claim adds a specific new detail on a known topic. Rewrite by
+        # synthesising the shared known baseline and introducing all new details.
+        return "multi_partially_novel"
 
     # Rule 3 — only old / novel_trivial / novel_unsupported
     if any(l == "novel_unsupported" for l in labels):
@@ -1023,6 +1153,29 @@ def _ns_build_rewrite_claims_and_verdicts(
             lines += [
                 f"Claim {i + 1}: {claims[idx].text}",
                 f"Verdict {i + 1}: {verdict.novelty}",
+                "",
+            ]
+    return "\n".join(lines).rstrip()
+
+
+def _ns_build_rewrite_claims_with_reasoning(
+    claims: list[_NSClaim],
+    claim_verdicts: list[_NSClaimVerdict],
+) -> str:
+    """Build the claims+verdicts+reasoning section for the multi_partially_novel rewrite prompt.
+
+    Unlike _ns_build_rewrite_claims_and_verdicts, includes the judge's per-claim
+    reasoning so the rewriter can infer the known baseline for each partially_novel
+    claim and construct the subordinate clause without an explicit old-claim anchor.
+    """
+    lines: list[str] = []
+    for i, verdict in enumerate(claim_verdicts):
+        idx = verdict.claim_index
+        if 0 <= idx < len(claims):
+            lines += [
+                f"Claim {i + 1}: {claims[idx].text}",
+                f"Verdict {i + 1}: {verdict.novelty}",
+                f"Judge's analysis: {verdict.reasoning or '(no reasoning provided)'}",
                 "",
             ]
     return "\n".join(lines).rstrip()

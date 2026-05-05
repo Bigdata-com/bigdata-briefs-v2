@@ -463,9 +463,9 @@ def _flush_bullet_run_log(eng: Engine, run_id: uuid.UUID, entity_id: str, final_
         j = ne.get("judgment") or {}
 
         overall_verdict = s.get("overall_verdict")
-        # mixed / mixed_partial: old context explicitly in the subordinate clause → amber
+        # mixed / mixed_partial / multi_partially_novel: rewritten with known context → amber
         # mixed_noise / single_partially_novel: result is fully novel after rewrite → green
-        not_fully_novel = bool(is_active and overall_verdict in ("mixed", "mixed_partial"))
+        not_fully_novel = bool(is_active and overall_verdict in ("mixed", "mixed_partial", "multi_partially_novel"))
 
         ne_rewrite = (ne.get("rewrite") or {}).get("text_after")
         search_rewrite = s.get("rewritten_text")
