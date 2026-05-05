@@ -270,7 +270,7 @@ function ScanView({ tweaks }) {
             <button className={"seg-btn" + (scope === "universe" ? " active" : "")}
                     onClick={() => { setScope("universe"); resetToConfig(); }}>
               <span className="seg-label">Universe</span>
-              <span className="seg-sub">All in basket</span>
+              <span className="seg-sub">All in universe</span>
             </button>
             {dateMode === "resume" && (
               <button className={"seg-btn" + (scope === "all" ? " active" : "")}
