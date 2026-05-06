@@ -648,40 +648,73 @@ def _latest_succeeded_run(session: Session, entity_id: str) -> SQLEntityPipeline
 
 
 def _build_brief(session: Session, run: SQLEntityPipelineRunLog) -> dict:
-    bullets = session.exec(
-        select(SQLBulletRunLog).where(SQLBulletRunLog.run_id == run.run_id)
-    ).all()
-    active = [_bullet_to_dict(b) for b in bullets if b.is_active]
-    discarded = [_discarded_to_dict(b) for b in bullets if not b.is_active]
+    """Build a brief from a single run. Used for todays_brief on the home page."""
+    return _build_brief_for_day(session, [run])
 
-    # Theme grouping
+
+def _build_brief_for_day(session: Session, runs: list[SQLEntityPipelineRunLog]) -> dict:
+    """Build a combined brief from all runs on the same calendar day.
+
+    Bullets from every run are merged; stats are summed; the coverage window
+    spans from the earliest run's window_start to the latest run's window_end.
+    """
+    if not runs:
+        return {}
+
+    # Sort chronologically so bullets appear in temporal order and coverage dates are correct
+    runs_sorted = sorted(
+        runs,
+        key=lambda r: r.report_window_start or datetime.min.replace(tzinfo=timezone.utc),
+    )
+    latest_run = runs_sorted[-1]
+
+    active_all: list[dict] = []
+    discarded_all: list[dict] = []
+    total_chunks = 0
+    total_sources = 0
+    total_duration = 0.0
+
+    for run in runs_sorted:
+        bullets = session.exec(
+            select(SQLBulletRunLog).where(SQLBulletRunLog.run_id == run.run_id)
+        ).all()
+        active_all.extend([_bullet_to_dict(b) for b in bullets if b.is_active])
+        discarded_all.extend([_discarded_to_dict(b) for b in bullets if not b.is_active])
+
+        metrics = session.exec(
+            select(SQLRunMetrics).where(SQLRunMetrics.run_id == run.run_id)
+        ).first()
+        if metrics:
+            total_chunks   += metrics.chunks_total or 0
+            total_sources  += metrics.sources_scanned or 0
+
+        if run.process_completed_at_utc and run.process_started_at_utc:
+            total_duration += (run.process_completed_at_utc - run.process_started_at_utc).total_seconds()
+
+    # Theme grouping across all runs
     theme_counts: dict[str, int] = defaultdict(int)
-    for b in active:
+    for b in active_all:
         theme_counts[b["theme"]] += 1
     themes = [{"name": t, "count": c} for t, c in theme_counts.items()]
 
-    metrics = session.exec(
-        select(SQLRunMetrics).where(SQLRunMetrics.run_id == run.run_id)
-    ).first()
-    chunks = metrics.chunks_total if metrics else 0
-    sources_scanned = metrics.sources_scanned if metrics else 0
-
+    # Narrative from the latest run
     narrative = session.exec(
         select(SQLRunNarrative)
-        .where(SQLRunNarrative.run_id == run.run_id)
+        .where(SQLRunNarrative.run_id == latest_run.run_id)
         .order_by(desc(SQLRunNarrative.created_at))
     ).first()
 
-    orch = session.get(SQLEntityOrchestrationState, run.entity_id)
+    orch = session.get(SQLEntityOrchestrationState, latest_run.entity_id)
     kg = _parse_kg_payload(orch.kg_payload_json if orch else None)
-    ticker = _TICKER_MAP.get(run.entity_id) or kg.get("ticker") or (orch.kg_ticker if orch else "") or ""
-    duration = None
-    if run.process_completed_at_utc and run.process_started_at_utc:
-        duration = (run.process_completed_at_utc - run.process_started_at_utc).total_seconds()
+    ticker = _TICKER_MAP.get(latest_run.entity_id) or kg.get("ticker") or (orch.kg_ticker if orch else "") or ""
+
+    # Coverage = first run start → last run end
+    coverage_start = runs_sorted[0].report_window_start
+    coverage_end   = latest_run.report_window_end
 
     return {
-        "entityId": run.entity_id,
-        "entityName": (orch.kg_name if orch else None) or run.entity_id,
+        "entityId": latest_run.entity_id,
+        "entityName": (orch.kg_name if orch else None) or latest_run.entity_id,
         "ticker": ticker,
         "exchange": kg.get("exchange") or "",
         "sector": kg.get("sector") or "",
@@ -689,19 +722,21 @@ def _build_brief(session: Session, run: SQLEntityPipelineRunLog) -> dict:
         "country": kg.get("country") or "",
         "description": kg.get("description") or "",
         "webpage": kg.get("webpage") or "",
-        "runId": str(run.run_id)[:8],
-        "windowStart": _iso(run.report_window_start),
-        "windowEnd": _iso(run.report_window_end),
-        "runCreatedAt": _iso(run.process_completed_at_utc),
-        "durationSec": int(duration) if duration else 0,
-        "bulletsSaved": len(active),
-        "bulletsDiscarded": len(discarded),
-        "chunksReviewed": chunks,
-        "sourcesScanned": sources_scanned,
+        "runId": str(latest_run.run_id)[:8],
+        "windowStart":    _iso(coverage_start),
+        "windowEnd":      _iso(coverage_end),
+        "coverageStart":  _iso(coverage_start),
+        "coverageEnd":    _iso(coverage_end),
+        "runCreatedAt": _iso(latest_run.process_completed_at_utc),
+        "durationSec": int(total_duration),
+        "bulletsSaved": len(active_all),
+        "bulletsDiscarded": len(discarded_all),
+        "chunksReviewed": total_chunks,
+        "sourcesScanned": total_sources,
         "narrative": narrative.narrative_text if narrative else None,
         "themes": themes,
-        "bullets": active,
-        "discarded": discarded,
+        "bullets": active_all,
+        "discarded": discarded_all,
     }
 
 
@@ -846,7 +881,19 @@ def get_data() -> dict:
             .order_by(desc(SQLEntityPipelineRunLog.process_completed_at_utc))
         ).first()
 
-        todays_brief = _build_brief(session, latest_run) if latest_run else None
+        if latest_run:
+            latest_day = latest_run.report_window_end.date().isoformat() if latest_run.report_window_end else None
+            home_day_runs = session.exec(
+                select(SQLEntityPipelineRunLog)
+                .where(
+                    SQLEntityPipelineRunLog.entity_id == latest_run.entity_id,
+                    SQLEntityPipelineRunLog.status.in_(["succeeded", "no_data"]),
+                )
+            ).all()
+            home_day_runs = [r for r in home_day_runs if r.report_window_end and r.report_window_end.date().isoformat() == latest_day]
+            todays_brief = _build_brief_for_day(session, home_day_runs if home_day_runs else [latest_run])
+        else:
+            todays_brief = None
         pulse = _build_pulse(session, latest_run.entity_id) if latest_run else []
         history = _build_history(session, latest_run.entity_id) if latest_run else []
         batches = _build_batches(session)
@@ -1252,8 +1299,12 @@ def get_entity_brief(entity_id: str, date: str | None = None) -> dict:
                 "availableDates": available_dates,
             }
 
-        brief = _build_brief(session, run)
         end = run.report_window_end.date().isoformat() if run.report_window_end else None
+
+        # Aggregate ALL runs that ended on the same calendar day
+        day_runs = [r for r in all_runs if r.report_window_end and r.report_window_end.date().isoformat() == end]
+        brief = _build_brief_for_day(session, day_runs if day_runs else [run])
+
         pulse = _build_pulse(session, entity_id, end_date=end)
         history = _build_history(session, entity_id)
 
@@ -1545,8 +1596,8 @@ def get_entity_forensics(entity_id: str) -> dict:
             date = r.report_window_end.date().isoformat() if r.report_window_end else ""
             run_dict = {
                 "runId": str(r.run_id)[:8],
-                "windowStart": r.report_window_start.strftime("%H:%M UTC") if r.report_window_start else None,
-                "windowEnd": r.report_window_end.strftime("%H:%M UTC") if r.report_window_end else None,
+                "windowStart": r.report_window_start.strftime("%Y-%m-%d %H:%M UTC") if r.report_window_start else None,
+                "windowEnd": r.report_window_end.strftime("%Y-%m-%d %H:%M UTC") if r.report_window_end else None,
                 "published": len(published),
                 "rejected": rejected_n,
                 "narrative": narrative.narrative_text if narrative else None,
