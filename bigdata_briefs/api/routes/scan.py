@@ -337,8 +337,8 @@ from bigdata_briefs.api.routes.universes import _UNIVERSES
 class ScanRequest(BaseModel):
     entity_id: str | None = None   # required unless universe is set
     universe: str | None = None    # scan all entities in this universe
-    start_date: str                # YYYY-MM-DD
-    end_date: str | None = None    # YYYY-MM-DD, defaults to today
+    start_date: str                # YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS
+    end_date: str | None = None    # YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS; defaults to now
     source_categories: list[str] | None = None  # override pipeline categories (news, news_premium, filings, transcripts)
 
 
@@ -357,21 +357,31 @@ class UniverseScanResponse(BaseModel):
 
 
 def _parse_dates(start_date: str, end_date: str | None) -> tuple[datetime, datetime]:
-    try:
-        requested_start = datetime.strptime(start_date, "%Y-%m-%d").replace(
-            hour=0, minute=0, second=0, tzinfo=timezone.utc
+    _FORMATS = ["%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d"]
+
+    now = datetime.now(timezone.utc)
+    today = now.date()
+
+    def _parse(value: str, field: str) -> datetime:
+        for fmt in _FORMATS:
+            try:
+                dt = datetime.strptime(value, fmt).replace(tzinfo=timezone.utc)
+                if fmt == "%Y-%m-%d":
+                    # date-only: start → 00:00:00; end → 23:59:59 unless it's today
+                    if field == "start_date":
+                        dt = dt.replace(hour=0, minute=0, second=0)
+                    else:
+                        dt = now if dt.date() == today else dt.replace(hour=23, minute=59, second=59)
+                return dt
+            except ValueError:
+                continue
+        raise HTTPException(
+            status_code=422,
+            detail=f"{field} must be YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS",
         )
-    except ValueError:
-        raise HTTPException(status_code=422, detail="start_date must be YYYY-MM-DD")
-    if end_date:
-        try:
-            end = datetime.strptime(end_date, "%Y-%m-%d").replace(
-                hour=23, minute=59, second=59, tzinfo=timezone.utc
-            )
-        except ValueError:
-            raise HTTPException(status_code=422, detail="end_date must be YYYY-MM-DD")
-    else:
-        end = datetime.now(timezone.utc)
+
+    requested_start = _parse(start_date, "start_date")
+    end = _parse(end_date, "end_date") if end_date else now
     return requested_start, end
 
 
