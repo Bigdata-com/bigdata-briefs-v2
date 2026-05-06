@@ -5,6 +5,53 @@
 /** When false, earnings release labels and earnings-based roster ordering are off. */
 const BRIEF_SHOW_EARNINGS_RELEASE_INFO = false;
 
+function _parseWindowParts(iso) {
+  if (!iso) return { date: "—", time: "—" };
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false });
+  return { date, time };
+}
+
+function BriefWindowBand({ start, end }) {
+  const s = _parseWindowParts(start);
+  const e = _parseWindowParts(end);
+  const sameDay = start && end && start.slice(0, 10) === end.slice(0, 10);
+  return (
+    <div className="bwb">
+      <div className="bwb-endpoint">
+        <span className="bwb-date">{s.date}</span>
+        <span className="bwb-time">{s.time}</span>
+      </div>
+      <div className="bwb-track">
+        <div className="bwb-line" />
+        <span className="bwb-label">coverage window</span>
+        <div className="bwb-line" />
+      </div>
+      <div className="bwb-endpoint bwb-endpoint-right">
+        {!sameDay && <span className="bwb-date">{e.date}</span>}
+        <span className="bwb-time">{e.time} <span className="bwb-tz">UTC</span></span>
+      </div>
+    </div>
+  );
+}
+
+function _fmtWindow(start, end) {
+  if (!start) return "—";
+  const fmt = iso => {
+    const d = new Date(iso);
+    const mon = d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+    const t   = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false });
+    return `${mon} ${t}`;
+  };
+  if (!end) return fmt(start) + " UTC";
+  const s = fmt(start), e = fmt(end);
+  // Drop date prefix on the end side when same calendar day
+  const sDate = start.slice(0, 10), eDate = (end || "").slice(0, 10);
+  const eShort = sDate === eDate ? e.replace(/^[A-Z][a-z]+ \d+ /, "") : e;
+  return `${s} → ${eShort} UTC`;
+}
+
 function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView, setAuditEntityId, setAuditDate }) {
   const initialBrief = window.DATA.todaysBrief;
   const initialDates = window.DATA.availableDates || [];
@@ -383,6 +430,13 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
               <div className="brief-stat-label">Pipeline<br />runtime</div>
             </div>
           </div>
+
+          {(brief.coverageStart || brief.windowStart) && (
+            <BriefWindowBand
+              start={brief.coverageStart || brief.windowStart}
+              end={brief.coverageEnd   || brief.windowEnd}
+            />
+          )}
         </header>
 
         <hr className="rule-thick" />
