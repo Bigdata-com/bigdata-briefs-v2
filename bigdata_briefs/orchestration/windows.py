@@ -24,13 +24,7 @@ class WindowMode(str, Enum):
         Guarantees a gap-free timeline across consecutive runs.
         Falls back to UTC midnight of today on the very first run.
 
-    rolling_24h
-        Always covers the 24 hours preceding the current run, capped at
-        ``last_window_end`` to avoid re-querying already-searched content.
-        Equivalent to ``start = max(last_window_end, now - 24h)``.
-        Falls back to UTC midnight of today on the very first run.
-
-    daily_update
+    update
         Covers at most the 24 hours preceding ``end``, extended to 72 hours when
         ``end`` falls on a Monday (UTC) to bridge the weekend gap.
         If a previous run exists whose ``last_window_end`` falls within that
@@ -40,8 +34,7 @@ class WindowMode(str, Enum):
 
     DAILY = "daily"
     CONTINUOUS = "continuous"
-    ROLLING_24H = "rolling_24h"
-    DAILY_UPDATE = "daily_update"
+    UPDATE = "update"
 
 
 class WindowEndNotAfterStartError(ValueError):
@@ -91,15 +84,7 @@ def build_report_dates_for_entity_run(
         else:
             start = _ensure_utc(last_window_end)
 
-    elif window_mode == WindowMode.ROLLING_24H:
-        # Cover the last 24 hours, capped at last_window_end to avoid overlap.
-        if last_window_end is None:
-            start = utc_midnight(end.date())
-        else:
-            floor = end - timedelta(hours=MAX_LOOKBACK_HOURS)
-            start = max(_ensure_utc(last_window_end), floor)
-
-    else:  # DAILY_UPDATE
+    else:  # UPDATE
         # Monday: extend lookback to 72h to bridge the weekend gap.
         # All other days: standard 24h lookback.
         lookback_hours = 72 if end.weekday() == 0 else MAX_LOOKBACK_HOURS
