@@ -519,11 +519,24 @@ def _build_company_summaries(session: Session) -> dict[str, dict]:
         bullets_saved = 0
         bullets_discarded = 0
         if latest:
-            all_bullets = session.exec(
-                select(SQLBulletRunLog).where(SQLBulletRunLog.run_id == latest.run_id)
-            ).all()
-            bullets_saved = sum(1 for b in all_bullets if b.is_active)
-            bullets_discarded = sum(1 for b in all_bullets if not b.is_active)
+            # Aggregate across all runs that ended on the same calendar day as latest,
+            # mirroring _build_brief_for_day so the list preview matches the brief.
+            latest_day = latest.report_window_end.date().isoformat() if latest.report_window_end else None
+            day_run_ids = [
+                r.run_id for r in session.exec(
+                    select(SQLEntityPipelineRunLog).where(
+                        SQLEntityPipelineRunLog.entity_id == entity_id,
+                        SQLEntityPipelineRunLog.status.in_(["succeeded", "no_data"]),
+                    )
+                ).all()
+                if r.report_window_end and r.report_window_end.date().isoformat() == latest_day
+            ]
+            for rid in day_run_ids:
+                day_bullets = session.exec(
+                    select(SQLBulletRunLog).where(SQLBulletRunLog.run_id == rid)
+                ).all()
+                bullets_saved     += sum(1 for b in day_bullets if b.is_active)
+                bullets_discarded += sum(1 for b in day_bullets if not b.is_active)
 
         # Last 7 days pulse (aggregated by window date)
         recent_runs = session.exec(

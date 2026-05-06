@@ -192,6 +192,16 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
         if (data.brief) {
           setCurrentBrief(data.brief);
           setCurrentPulse(data.pulse || []);
+          // Keep sidebar counts in sync: brief already aggregates all day's runs
+          setCompanySummaries(prev => ({
+            ...prev,
+            [entityId]: {
+              ...(prev[entityId] || {}),
+              bulletsSaved:     data.brief.bulletsSaved,
+              bulletsDiscarded: data.brief.bulletsDiscarded,
+              lastRunDate:      data.brief.coverageEnd || data.brief.windowEnd,
+            },
+          }));
           const asked = targetDate && /^\d{4}-\d{2}-\d{2}$/.test(targetDate) ? targetDate.slice(0, 10) : null;
           if (asked) {
             setSelectedDate(asked);
