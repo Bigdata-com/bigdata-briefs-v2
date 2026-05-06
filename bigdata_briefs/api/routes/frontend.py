@@ -1178,26 +1178,26 @@ def get_companies_summaries(date: str | None = None) -> dict:
         for orch in orches:
             entity_id = orch.entity_id
 
-            # Bullets saved on the exact target date
-            run_on_date = session.exec(
+            # Bullets saved on the exact target date — aggregate across all runs that day
+            runs_on_date = session.exec(
                 select(SQLEntityPipelineRunLog).where(
                     SQLEntityPipelineRunLog.entity_id == entity_id,
                     SQLEntityPipelineRunLog.status.in_(["succeeded", "no_data"]),
                     SQLEntityPipelineRunLog.report_window_end >= datetime(td.year, td.month, td.day, 0, 0, 0),
                     SQLEntityPipelineRunLog.report_window_end <= datetime(td.year, td.month, td.day, 23, 59, 59),
                 )
-            ).first()
+            ).all()
 
             bullets_saved = 0
             bullets_discarded = 0
-            if run_on_date:
+            for run_on_date in runs_on_date:
                 all_bullets = session.exec(
                     select(SQLBulletRunLog).where(SQLBulletRunLog.run_id == run_on_date.run_id)
                 ).all()
-                bullets_saved = sum(1 for b in all_bullets if b.is_active)
-                bullets_discarded = sum(1 for b in all_bullets if not b.is_active)
+                bullets_saved     += sum(1 for b in all_bullets if b.is_active)
+                bullets_discarded += sum(1 for b in all_bullets if not b.is_active)
 
-            has_run_on_date = run_on_date is not None
+            has_run_on_date = len(runs_on_date) > 0
 
             # 7-day pulse ending on target_date
             recent_runs = session.exec(
