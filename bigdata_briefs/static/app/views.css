@@ -150,68 +150,101 @@
   margin-top: 8px;
 }
 
-/* Coverage window band */
-.bwb {
-  display: flex;
-  align-items: center;
-  gap: 14px;
+/* Coverage window band — Variant 02 · Newsprint banner */
+.cw-v6 {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: stretch;
+  gap: 0;
+  border: 1px solid var(--ink);
   margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--rule);
 }
-.bwb-endpoint {
+.cw-v6-plate {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 18px 22px;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 2px;
-  flex-shrink: 0;
+  min-width: 140px;
 }
-.bwb-endpoint-right {
-  text-align: right;
+.cw-v6-plate-main {
+  font-family: var(--serif-display);
+  font-weight: 800;
+  font-size: 26px;
+  letter-spacing: -0.01em;
+  line-height: 1;
 }
-.bwb-date {
+.cw-v6-plate-sub {
   font-family: var(--sans);
   font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.28em;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--paper) 65%, transparent);
   text-transform: uppercase;
-  color: var(--ink-mute);
+  margin-top: 4px;
 }
-.bwb-time {
-  font-family: var(--mono, monospace);
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--ink);
-  letter-spacing: 0.01em;
+.cw-v6-content {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 14px 22px;
+  gap: 22px;
+  background: var(--paper);
 }
-.bwb-tz {
+.cw-v6-stamp { display: flex; flex-direction: column; gap: 4px; }
+.cw-v6-stamp-end { text-align: right; }
+.cw-v6-stamp-eyebrow {
+  font-family: var(--sans);
   font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.07em;
-  color: var(--ink-mute);
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  margin-left: 2px;
+  font-weight: 700;
+  color: var(--accent);
 }
-.bwb-track {
-  flex: 1;
+.cw-v6-stamp-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.cw-v6-stamp-end .cw-v6-stamp-row { justify-content: flex-end; }
+.cw-v6-stamp-date {
+  font-family: var(--serif-display);
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--ink);
+}
+.cw-v6-stamp-time {
+  font-family: var(--mono);
+  font-size: 16px;
+  color: var(--ink-soft);
+  letter-spacing: 0.02em;
+}
+.cw-v6-spine {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 0;
+  color: var(--ink-mute);
 }
-.bwb-line {
-  flex: 1;
+.cw-v6-spine-line {
+  width: 28px;
   height: 1px;
-  background: var(--rule);
+  background: var(--ink-mute);
+  display: inline-block;
 }
-.bwb-label {
+.cw-v6-spine-meta {
   font-family: var(--sans);
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-size: 10px;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--ink-faint);
-  white-space: nowrap;
-  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--ink);
+}
+.cw-v6-spine-arrow {
+  font-size: 14px;
+  color: var(--ink);
+  margin-left: 2px;
 }
 
 /* Theme filter chips */

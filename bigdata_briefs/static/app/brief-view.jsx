@@ -6,31 +6,59 @@
 const BRIEF_SHOW_EARNINGS_RELEASE_INFO = false;
 
 function _parseWindowParts(iso) {
-  if (!iso) return { date: "—", time: "—" };
+  if (!iso) return { weekday: "—", monShort: "—", day: "—", time: "—" };
   const d = new Date(iso);
-  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-  const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false });
-  return { date, time };
+  return {
+    weekday:  d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" }),
+    monShort: d.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }),
+    day:      d.getUTCDate(),
+    time:     d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false }),
+  };
+}
+
+function _fmtDur(start, end) {
+  if (!start || !end) return "—";
+  const ms = new Date(end) - new Date(start);
+  if (ms < 0) return "—";
+  const mins = Math.round(ms / 60000);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h < 1) return `${m}m`;
+  if (h < 24) return `${h}h ${String(m).padStart(2, "0")}m`;
+  const days = Math.floor(h / 24);
+  return `${days}d ${h % 24}h`;
 }
 
 function BriefWindowBand({ start, end }) {
   const s = _parseWindowParts(start);
   const e = _parseWindowParts(end);
-  const sameDay = start && end && start.slice(0, 10) === end.slice(0, 10);
   return (
-    <div className="bwb">
-      <div className="bwb-endpoint">
-        <span className="bwb-date">{s.date}</span>
-        <span className="bwb-time">{s.time}</span>
+    <div className="cw-v6">
+      <div className="cw-v6-plate">
+        <div className="cw-v6-plate-main">Coverage</div>
+        <div className="cw-v6-plate-sub">UTC</div>
       </div>
-      <div className="bwb-track">
-        <div className="bwb-line" />
-        <span className="bwb-label">coverage window</span>
-        <div className="bwb-line" />
-      </div>
-      <div className="bwb-endpoint bwb-endpoint-right">
-        {!sameDay && <span className="bwb-date">{e.date}</span>}
-        <span className="bwb-time">{e.time} <span className="bwb-tz">UTC</span></span>
+      <div className="cw-v6-content">
+        <div className="cw-v6-stamp">
+          <div className="cw-v6-stamp-eyebrow">Begins</div>
+          <div className="cw-v6-stamp-row">
+            <span className="cw-v6-stamp-date">{s.weekday}, {s.monShort} {s.day}</span>
+            <span className="cw-v6-stamp-time tnum">{s.time}</span>
+          </div>
+        </div>
+        <div className="cw-v6-spine">
+          <span className="cw-v6-spine-line" />
+          <span className="cw-v6-spine-meta tnum">{_fmtDur(start, end)}</span>
+          <span className="cw-v6-spine-line" />
+          <span className="cw-v6-spine-arrow">▸</span>
+        </div>
+        <div className="cw-v6-stamp cw-v6-stamp-end">
+          <div className="cw-v6-stamp-eyebrow">Ends</div>
+          <div className="cw-v6-stamp-row">
+            <span className="cw-v6-stamp-date">{e.weekday}, {e.monShort} {e.day}</span>
+            <span className="cw-v6-stamp-time tnum">{e.time}</span>
+          </div>
+        </div>
       </div>
     </div>
   );
