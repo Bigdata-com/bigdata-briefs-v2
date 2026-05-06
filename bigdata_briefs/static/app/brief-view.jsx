@@ -533,9 +533,9 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
           <div className="t-cap" style={{ marginBottom: 12 }}>About this brief</div>
           <div className="entity-card surface">
             <div className="entity-card-name t-h3">{brief.entityName}</div>
-            <div className="entity-card-meta" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <span className="t-mono">{brief.ticker}</span>
-              {brief.exchange && <span style={{ color: "var(--ink-mute)", fontSize: 12 }}>· {brief.exchange}</span>}
+            <div className="entity-card-meta">
+              <span className="entity-card-ticker">{brief.ticker}</span>
+              {brief.exchange && <span className="entity-card-exchange">· {brief.exchange}</span>}
             </div>
             <hr className="rule" style={{ margin: "12px 0" }} />
             <dl className="entity-dl">
