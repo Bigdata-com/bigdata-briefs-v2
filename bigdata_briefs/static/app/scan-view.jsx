@@ -338,7 +338,7 @@ function ScanView({ tweaks }) {
           <h2 className="scan-section-title">Sources</h2>
           <div className="scan-source-grid">
             {[
-              { id: "news",         label: "General news" },
+              { id: "news",         label: "Web news" },
               { id: "news_premium", label: "Premium news" },
             ].map(s => (
               <label key={s.id} className={"scan-source" + (sources.includes(s.id) ? " active" : "")}>
