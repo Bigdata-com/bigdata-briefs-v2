@@ -670,6 +670,7 @@ def _build_brief_for_day(session: Session, runs: list[SQLEntityPipelineRunLog]) 
 
     active_all: list[dict] = []
     discarded_all: list[dict] = []
+    active_count_by_run: dict = {}
     total_chunks = 0
     total_sources = 0
     total_duration = 0.0
@@ -678,8 +679,10 @@ def _build_brief_for_day(session: Session, runs: list[SQLEntityPipelineRunLog]) 
         bullets = session.exec(
             select(SQLBulletRunLog).where(SQLBulletRunLog.run_id == run.run_id)
         ).all()
-        active_all.extend([_bullet_to_dict(b) for b in bullets if b.is_active])
+        run_active = [b for b in bullets if b.is_active]
+        active_all.extend([_bullet_to_dict(b) for b in run_active])
         discarded_all.extend([_discarded_to_dict(b) for b in bullets if not b.is_active])
+        active_count_by_run[run.run_id] = len(run_active)
 
         metrics = session.exec(
             select(SQLRunMetrics).where(SQLRunMetrics.run_id == run.run_id)
@@ -697,10 +700,14 @@ def _build_brief_for_day(session: Session, runs: list[SQLEntityPipelineRunLog]) 
         theme_counts[b["theme"]] += 1
     themes = [{"name": t, "count": c} for t, c in theme_counts.items()]
 
-    # Narrative from the latest run
+    # Narrative: last run (chronologically) that has at least one active bullet
+    narrative_run = next(
+        (r for r in reversed(runs_sorted) if active_count_by_run.get(r.run_id, 0) > 0),
+        latest_run,
+    )
     narrative = session.exec(
         select(SQLRunNarrative)
-        .where(SQLRunNarrative.run_id == latest_run.run_id)
+        .where(SQLRunNarrative.run_id == narrative_run.run_id)
         .order_by(desc(SQLRunNarrative.created_at))
     ).first()
 

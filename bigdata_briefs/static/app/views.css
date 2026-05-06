@@ -761,6 +761,9 @@
   margin-top: 2px;
 }
 .archive-day-content {}
+.archive-meta-day-total { margin-bottom: 10px; font-weight: 600; }
+.archive-run-sub { padding-top: 10px; border-top: 1px solid var(--rule); margin-top: 10px; }
+.archive-run-sub:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
 .archive-headline {
   font-family: var(--serif-display);
   font-size: 22px;
