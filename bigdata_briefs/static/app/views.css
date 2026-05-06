@@ -156,18 +156,19 @@
   grid-template-columns: auto 1fr;
   align-items: stretch;
   gap: 0;
-  border: 1px solid var(--ink);
+  border: 1px solid var(--rule);
   margin-top: 20px;
 }
 .cw-v6-plate {
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--paper-deep);
+  color: var(--ink);
   padding: 18px 22px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 2px;
   min-width: 140px;
+  border-right: 1px solid var(--rule);
 }
 .cw-v6-plate-main {
   font-family: var(--serif-display);
@@ -181,7 +182,7 @@
   font-size: 10px;
   letter-spacing: 0.28em;
   font-weight: 700;
-  color: color-mix(in srgb, var(--paper) 65%, transparent);
+  color: var(--ink-mute);
   text-transform: uppercase;
   margin-top: 4px;
 }
