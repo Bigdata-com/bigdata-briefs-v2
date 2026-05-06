@@ -1,11 +1,11 @@
-id,name,ticker
-619882,JPMorgan Chase & Co.,JPM
-E70531,Exxon Mobil Corp.,XOM
-A6828A,Johnson & Johnson Co.,JNJ
-713810,Walmart Inc.,WMT
-B8EF97,Costco Wholesale Corp.,COST
-55C9B5,Mastercard Inc.,MA
-49BBBC,Micron Technology Inc.,MU
-93D207,Visa Inc.,V
-ECD263,Netflix Inc.,NFLX
-665D7D,AbbVie Inc.,ABBV
+id,name
+E09E2B,NVIDIA Corporation
+D8442A,Apple Inc.
+228D42,Microsoft Corporation
+0157B1,"Amazon.com, Inc."
+4A6F00,Alphabet Inc.
+09DE1F,Broadcom Inc.
+12E454,Meta Platforms Inc
+DD3BB1,"Tesla, Inc."
+168A5D,Berkshire Hathaway Inc.
+F30508,Eli Lilly and Company
