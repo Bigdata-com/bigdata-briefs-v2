@@ -38,14 +38,39 @@ function ScanView({ tweaks }) {
   useEffectS(() => {
     if (mode !== "running" || !scanParams) return;
     const poll = () => {
-      const ids = scanParams.entity_ids.join(",");
-      fetch(`/api/v1/scan/status?entity_ids=${ids}&start_date=${scanParams.start_date}&end_date=${scanParams.end_date}`)
-        .then(r => r.json())
-        .then(data => {
-          setScanResults(data);
-          if (data.completed >= data.total) { clearInterval(pollRef.current); setMode("done"); }
-        })
-        .catch(console.error);
+      if (scanParams.batch_id) {
+        // Update mode: poll the exact batch submission — immune to pre-existing runs
+        fetch(`/api/v1/batch/parallel/${scanParams.batch_id}/status`)
+          .then(r => r.json())
+          .then(data => {
+            const entities = (data.runs || []).map(r => {
+              const company = COMPANIES.find(c => c.id === r.entity_id);
+              const dayStatus = r.status === "not_started" ? "pending" : r.status;
+              return {
+                entityId:   r.entity_id,
+                entityName: company?.name || r.entity_id,
+                days: [{ date: scanParams.end_date, status: dayStatus, error: r.error_message }],
+              };
+            });
+            const completed = (data.succeeded || 0) + (data.failed || 0);
+            setScanResults({ entities, total: data.total, completed });
+            if ((data.running || 0) === 0 && (data.not_started || 0) === 0) {
+              clearInterval(pollRef.current);
+              setMode("done");
+            }
+          })
+          .catch(console.error);
+      } else {
+        // Custom scan mode: poll by date range
+        const ids = scanParams.entity_ids.join(",");
+        fetch(`/api/v1/scan/status?entity_ids=${ids}&start_date=${scanParams.start_date}&end_date=${scanParams.end_date}`)
+          .then(r => r.json())
+          .then(data => {
+            setScanResults(data);
+            if (data.completed >= data.total) { clearInterval(pollRef.current); setMode("done"); }
+          })
+          .catch(console.error);
+      }
     };
     poll();
     pollRef.current = setInterval(poll, 3000);
@@ -71,8 +96,7 @@ function ScanView({ tweaks }) {
         .then(r => r.json())
         .then(data => {
           if (data.detail || data.error) { setRunError(data.detail || data.error); return; }
-          // use endStr for both dates so polling counts only today's cell (1 per entity)
-          setScanParams({ entity_ids: idsForPolling, start_date: endStr, end_date: endStr, total_windows: data.total });
+          setScanParams({ entity_ids: idsForPolling, start_date: endStr, end_date: endStr, total_windows: data.total, batch_id: data.batch_id });
           setScanResults(null);
           setMode("running");
         })
