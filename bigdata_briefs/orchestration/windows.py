@@ -29,11 +29,20 @@ class WindowMode(str, Enum):
         ``last_window_end`` to avoid re-querying already-searched content.
         Equivalent to ``start = max(last_window_end, now - 24h)``.
         Falls back to UTC midnight of today on the very first run.
+
+    daily_update
+        Covers at most the 24 hours preceding ``end``.
+        If a previous run exists whose ``last_window_end`` falls within that
+        24-hour window, starts from there instead (avoiding redundant reprocessing).
+        If no previous run exists, covers the full 24 hours (first-run friendly).
+        Equivalent to ``start = max(last_window_end, end - 24h)``, with
+        ``start = end - 24h`` as the fallback when there is no history.
     """
 
     DAILY = "daily"
     CONTINUOUS = "continuous"
     ROLLING_24H = "rolling_24h"
+    DAILY_UPDATE = "daily_update"
 
 
 class WindowEndNotAfterStartError(ValueError):
@@ -83,12 +92,21 @@ def build_report_dates_for_entity_run(
         else:
             start = _ensure_utc(last_window_end)
 
-    else:  # ROLLING_24H
+    elif window_mode == WindowMode.ROLLING_24H:
         # Cover the last 24 hours, capped at last_window_end to avoid overlap.
         if last_window_end is None:
             start = utc_midnight(end.date())
         else:
             floor = end - timedelta(hours=MAX_LOOKBACK_HOURS)
+            start = max(_ensure_utc(last_window_end), floor)
+
+    else:  # DAILY_UPDATE
+        # At most 24h back from end. Resume from last_window_end if it falls
+        # within that window; otherwise cover the full 24h (first-run friendly).
+        floor = end - timedelta(hours=MAX_LOOKBACK_HOURS)
+        if last_window_end is None:
+            start = floor
+        else:
             start = max(_ensure_utc(last_window_end), floor)
 
     if end <= start:
