@@ -658,6 +658,17 @@ def _generate_and_flush_narrative(
     """
     try:
         from bigdata_briefs.llm_client import LLMClient
+        # Only generate a narrative if this run itself produced at least one active bullet.
+        with Session(eng) as _s:
+            own_active = _s.exec(
+                select(SQLBulletRunLog).where(
+                    SQLBulletRunLog.run_id == run_id,
+                    SQLBulletRunLog.is_active == True,  # noqa: E712
+                ).limit(1)
+            ).first()
+        if not own_active:
+            return
+
         report_date = report_dates.end
         bullets = _collect_todays_active_bullets(eng, entity_id, report_date)
         if not bullets:
