@@ -1,5 +1,5 @@
 // News Scan — merged Scan + Update view.
-// dateMode "resume": resumes each entity from its last run (yesterday→today if none).
+// dateMode "update": runs at most 24h back from last run. "custom": explicit date range.
 // dateMode "custom": user-specified date range.
 
 const { useState: useStateS, useEffect: useEffectS, useRef: useRefS, useMemo: useMemoS } = React;
@@ -11,21 +11,17 @@ function ScanView({ tweaks }) {
   const today   = new Date().toISOString().slice(0, 10);
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
 
-  const [dateMode, setDateMode] = useStateS("resume"); // resume | custom
+  const [dateMode, setDateMode] = useStateS("update"); // update | custom
   const [scope,    setScope]    = useStateS("entity");  // entity | universe | all
   const [entity,   setEntity]   = useStateS(COMPANIES[0]);
   const [universe, setUniverse] = useStateS(UNIVERSES[0] || null);
   const [startDate, setStartDate] = useStateS(weekAgo);
   const [endDate,   setEndDate]   = useStateS(today);
+  const [updateEndDate, setUpdateEndDate] = useStateS(today); // optional end date for update mode
   const [sources, setSources] = useStateS(["news_premium"]);
 
-  // Preview (resume mode only)
-  const [preview,        setPreview]        = useStateS(null);
-  const [previewLoading, setPreviewLoading] = useStateS(false);
-  const [previewError,   setPreviewError]   = useStateS(null);
-
   // Run state
-  const [mode,        setMode]        = useStateS("configure"); // configure | preview | running | done
+  const [mode,        setMode]        = useStateS("configure"); // configure | running | done
   const [scanParams,  setScanParams]  = useStateS(null);
   const [scanResults, setScanResults] = useStateS(null);
   const [runError,    setRunError]    = useStateS(null);
@@ -33,11 +29,9 @@ function ScanView({ tweaks }) {
 
   function resetToConfig() {
     setMode("configure");
-    setPreview(null);
     setScanParams(null);
     setScanResults(null);
     setRunError(null);
-    setPreviewError(null);
   }
 
   // ── Poll ────────────────────────────────────────────────────────
@@ -58,57 +52,47 @@ function ScanView({ tweaks }) {
     return () => clearInterval(pollRef.current);
   }, [mode, scanParams]);
 
-  // ── Resume: load preview ────────────────────────────────────────
-  function loadPreview() {
-    setPreviewError(null);
-    setPreviewLoading(true);
-    let url = `/api/v1/scan/preview?scope=${scope}`;
-    if (scope === "entity"   && entity)   url += `&entity_id=${entity.id}`;
-    if (scope === "universe" && universe) url += `&universe=${universe.id}`;
-    fetch(url)
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) { setPreviewError(data.error); return; }
-        setPreview(data);
-        setMode("preview");
-      })
-      .catch(err => setPreviewError(String(err)))
-      .finally(() => setPreviewLoading(false));
-  }
-
-  // ── Resume: start run ───────────────────────────────────────────
-  function startResume() {
+  // ── Daily update: start run (at most 24h back from updateEndDate) ──
+  function startUpdate() {
     setRunError(null);
-    // Derive entity_ids from preview data (entities that have windows to run)
-    const runnableIds = (preview?.entities || [])
-      .filter(r => r.est_windows > 0)
-      .map(r => r.entity_id);
-    if (!runnableIds.length) { setRunError("No entities to run."); return; }
+    const endStr = updateEndDate || today;
 
-    // Derive date range from preview (earliest resume_date → today)
-    const resumeDates = (preview?.entities || [])
-      .filter(r => r.est_windows > 0 && r.resume_date)
-      .map(r => r.resume_date);
-    const startStr = resumeDates.length ? resumeDates.sort()[0] : today;
-    const endStr   = today;
+    function doStart(idsForPolling) {
+      const body = { window_mode: "daily_update", categories: sources };
+      if (scope === "entity")        body.entity_ids = [entity?.id].filter(Boolean);
+      else if (scope === "universe") body.universe   = universe?.id;
+      // scope === "all": no entity_ids — backend defaults to all DB entities
+      if (updateEndDate !== today) body.force_window_end = updateEndDate + "T23:59:59Z";
 
-    const body = { window_mode: "continuous", categories: sources };
-    if (scope === "entity")        body.entity_ids = [entity?.id].filter(Boolean);
-    else if (scope === "universe") body.universe   = universe?.id;
-    // scope === "all": send no entity_ids — backend defaults to all DB entities
-
-    fetch("/api/v1/batch/run-parallel", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.detail || data.error) { setRunError(data.detail || data.error); return; }
-        setScanParams({ entity_ids: runnableIds, start_date: startStr, end_date: endStr, total_windows: data.total });
-        setScanResults(null);
-        setMode("running");
+      fetch("/api/v1/batch/run-parallel", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       })
-      .catch(err => setRunError(String(err)));
+        .then(r => r.json())
+        .then(data => {
+          if (data.detail || data.error) { setRunError(data.detail || data.error); return; }
+          // use endStr for both dates so polling counts only today's cell (1 per entity)
+          setScanParams({ entity_ids: idsForPolling, start_date: endStr, end_date: endStr, total_windows: data.total });
+          setScanResults(null);
+          setMode("running");
+        })
+        .catch(err => setRunError(String(err)));
+    }
+
+    if (scope === "entity") {
+      doStart([entity?.id].filter(Boolean));
+    } else {
+      // Silently fetch preview to get entity IDs for status polling
+      let url = `/api/v1/scan/preview?scope=${scope}`;
+      if (scope === "universe" && universe) url += `&universe=${universe.id}`;
+      fetch(url)
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) { setRunError(data.error); return; }
+          doStart((data.entities || []).map(r => r.entity_id));
+        })
+        .catch(err => setRunError(String(err)));
+    }
   }
 
   // ── Custom: start scan ──────────────────────────────────────────
@@ -198,31 +182,13 @@ function ScanView({ tweaks }) {
   const scopeLabel = scope === "entity" ? (entity?.name || "—") : scope === "universe" ? (universe?.label || "—") : "All entities";
   const isRunning  = mode === "running" || mode === "done";
 
-  // Preview cost estimate (resume mode)
-  const estimates = (window.RUN_DATA && typeof window.RUN_DATA.composeEstimates === "object") ? window.RUN_DATA.composeEstimates : {};
-  function parseCost(eid) {
-    const est = estimates[eid];
-    if (!est?.costDisplay) return null;
-    const n = parseFloat(String(est.costDisplay).replace(/[^0-9.]/g, ""));
-    return isNaN(n) ? null : n;
-  }
-  const previewCost = useMemoS(() => {
-    if (!preview) return null;
-    let total = 0, covered = 0;
-    for (const row of preview.entities) {
-      if (row.est_windows === 0) continue;
-      const c = parseCost(row.entity_id);
-      if (c !== null) { total += c * row.est_windows; covered++; }
-    }
-    return covered > 0 ? total : null;
-  }, [preview]);
 
   // ── Step numbering ──────────────────────────────────────────────
-  // Sections: 01 Date mode, 02 Scope, 03 Entity/Universe (if applicable),
-  //           04 Date range (custom only), last Sources
+  // update mode: 01 Date mode, 02 Scope, 03 Entity/Universe, last Sources
+  // custom mode: 01 Date mode, 02 Scope, 03 Entity/Universe, 04 Date range, last Sources
   const entityStepNum = "03";
   const dateStepNum   = scope === "all" ? "03" : "04";
-  const srcStepNum    = dateMode === "resume"
+  const srcStepNum    = dateMode === "update"
     ? (scope === "all" ? "03" : "04")
     : (scope === "all" ? "04" : "05");
 
@@ -235,7 +201,7 @@ function ScanView({ tweaks }) {
           <div className="dateline">News Scan</div>
           <h1 className="display scan-config-title">Build and maintain <em>coverage</em>.</h1>
           <p className="scan-config-lede">
-            Resume each company from its last run, or specify a custom date range.
+            Run a 24h update from the last run, or specify a custom date range.
           </p>
         </header>
 
@@ -244,10 +210,10 @@ function ScanView({ tweaks }) {
           <div className="scan-step-num">01</div>
           <h2 className="scan-section-title">Date range</h2>
           <div className="seg seg-mini">
-            <button className={"seg-btn" + (dateMode === "resume" ? " active" : "")}
-                    onClick={() => { setDateMode("resume"); if (scope === "all" || scope === "universe" || scope === "entity") {}; resetToConfig(); }}>
-              <span className="seg-label">Resume</span>
-              <span className="seg-sub">From last run to today</span>
+            <button className={"seg-btn" + (dateMode === "update" ? " active" : "")}
+                    onClick={() => { setDateMode("update"); resetToConfig(); }}>
+              <span className="seg-label">Update</span>
+              <span className="seg-sub">Last 24h from last run</span>
             </button>
             <button className={"seg-btn" + (dateMode === "custom" ? " active" : "")}
                     onClick={() => { setDateMode("custom"); if (scope === "all") setScope("entity"); resetToConfig(); }}>
@@ -255,6 +221,15 @@ function ScanView({ tweaks }) {
               <span className="seg-sub">Pick start and end dates</span>
             </button>
           </div>
+          {dateMode === "update" && (
+            <div className="scan-date-row" style={{ marginTop: 10 }}>
+              <label className="scan-date-field">
+                <span className="t-cap">End date</span>
+                <input type="date" value={updateEndDate} max={today}
+                       onChange={e => { setUpdateEndDate(e.target.value); resetToConfig(); }} />
+              </label>
+            </div>
+          )}
         </section>
 
         {/* 02 — Scope */}
@@ -272,7 +247,7 @@ function ScanView({ tweaks }) {
               <span className="seg-label">Universe</span>
               <span className="seg-sub">All in universe</span>
             </button>
-            {dateMode === "resume" && (
+            {dateMode === "update" && (
               <button className={"seg-btn" + (scope === "all" ? " active" : "")}
                       onClick={() => { setScope("all"); resetToConfig(); }}>
                 <span className="seg-label">All entities</span>
@@ -359,9 +334,9 @@ function ScanView({ tweaks }) {
           </div>
         </section>
 
-        {(previewError || runError) && (
+        {runError && (
           <p style={{ color: "var(--discard)", fontFamily: "var(--sans)", fontSize: 12, marginBottom: 8 }}>
-            {previewError || runError}
+            {runError}
           </p>
         )}
 
@@ -369,9 +344,9 @@ function ScanView({ tweaks }) {
         {dateMode === "custom" && <ScanCostEstimate config={{ scope, entity, universe, startDate, endDate }} />}
 
         {/* Action buttons */}
-        {mode === "configure" && dateMode === "resume" && (
-          <button className="launch-btn launch-btn-scan" onClick={loadPreview} disabled={previewLoading}>
-            {previewLoading ? "Loading preview…" : "▶  Preview"}
+        {mode === "configure" && dateMode === "update" && (
+          <button className="launch-btn launch-btn-scan" onClick={startUpdate}>
+            ▶&nbsp; Start update
           </button>
         )}
         {mode === "configure" && dateMode === "custom" && (
@@ -379,21 +354,9 @@ function ScanView({ tweaks }) {
             ▶&nbsp; Start scan
           </button>
         )}
-        {mode === "preview" && (
-          <>
-            <button className="launch-btn launch-btn-scan" onClick={startResume}
-                    disabled={!preview || preview.runnable_count === 0}>
-              ▶&nbsp; Confirm &amp; start
-            </button>
-            <button className="btn" style={{ marginTop: 8, width: "100%" }}
-                    onClick={() => { setMode("configure"); setPreview(null); }}>
-              ← Change scope
-            </button>
-          </>
-        )}
         {isRunning && (
           <button className="btn" style={{ marginTop: 8, width: "100%" }}
-                  onClick={() => { setMode("configure"); setScanParams(null); setScanResults(null); setPreview(null); }}>
+                  onClick={() => { setMode("configure"); setScanParams(null); setScanResults(null); }}>
             New scan
           </button>
         )}
@@ -404,12 +367,8 @@ function ScanView({ tweaks }) {
 
         {mode === "configure" && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 300, color: "var(--ink-mute)", fontFamily: "var(--sans)", fontSize: 13 }}>
-            <p>Configure on the left and click {dateMode === "resume" ? "Preview" : "Start scan"}.</p>
+            <p>Configure on the left and click {dateMode === "update" ? "Start update" : "Start scan"}.</p>
           </div>
-        )}
-
-        {mode === "preview" && preview && (
-          <UpdatePreviewPanel preview={preview} previewCost={previewCost} />
         )}
 
         {isRunning && (
@@ -471,8 +430,8 @@ function ScanView({ tweaks }) {
               </dl>
             </header>
 
-            {/* Resume → entity list */}
-            {dateMode === "resume" && entities.length > 0 && (
+            {/* Update → entity list */}
+            {dateMode === "update" && entities.length > 0 && (
               <section className="scan-list-section">
                 <div className="ops-section-head">
                   <h2>Entities</h2>
@@ -514,85 +473,6 @@ function ScanView({ tweaks }) {
   );
 }
 
-// ── Preview panel (resume mode) ────────────────────────────────────
-function UpdatePreviewPanel({ preview, previewCost }) {
-  const runnable  = preview.entities.filter(r => r.est_windows > 0);
-  const fallback  = runnable.filter(r => r.fallback);
-  const upToDate  = preview.entities.filter(r => !r.fallback && r.has_history && r.est_windows === 0);
-
-  function fmtDt(iso) {
-    if (!iso) return "—";
-    const d = new Date(iso);
-    return d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric", timeZone: "UTC" })
-      + " " + d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false }) + " UTC";
-  }
-  const fmtCost = v => v == null ? null : (v < 0.01 ? "< $0.01" : `$${v.toFixed(2)}`);
-
-  return (
-    <div className="update-preview">
-      <div className="update-preview-summary">
-        <div className="update-preview-stat">
-          <span className="t-cap">Entities to run</span>
-          <strong className="tnum update-preview-big">{preview.runnable_count}</strong>
-        </div>
-        <div className="update-preview-stat">
-          <span className="t-cap">Est. day-windows</span>
-          <strong className="tnum update-preview-big">{preview.total_est_windows}</strong>
-        </div>
-        {previewCost != null && (
-          <div className="update-preview-stat">
-            <span className="t-cap">Est. cost</span>
-            <strong className="tnum update-preview-big">{fmtCost(previewCost)}</strong>
-          </div>
-        )}
-        {fallback.length > 0 && (
-          <div className="update-preview-stat">
-            <span className="t-cap">First run (yesterday→today)</span>
-            <strong className="tnum update-preview-big update-preview-warn">{fallback.length}</strong>
-          </div>
-        )}
-        {upToDate.length > 0 && (
-          <div className="update-preview-stat">
-            <span className="t-cap">Already up to date</span>
-            <strong className="tnum update-preview-big update-preview-ok">{upToDate.length}</strong>
-          </div>
-        )}
-      </div>
-
-      {runnable.length === 0 && (
-        <p className="update-preview-empty">All entities are already up to date — nothing to run.</p>
-      )}
-
-      {runnable.length > 0 && (
-        <div className="update-preview-table-wrap">
-          <table className="update-preview-table">
-            <thead>
-              <tr>
-                <th>Entity</th>
-                <th>Last run</th>
-                <th>Resume from</th>
-                <th className="tnum" style={{ textAlign: "right" }}>Days</th>
-              </tr>
-            </thead>
-            <tbody>
-              {runnable.map(r => (
-                <tr key={r.entity_id} className={r.fallback ? "update-preview-row-fallback" : ""}>
-                  <td>
-                    <span className="update-ent-name">{r.name}</span>
-                    {r.fallback && <span className="update-preview-first-tag" style={{ marginLeft: 8 }}>first run</span>}
-                  </td>
-                  <td className="update-td-mono">{fmtDt(r.last_run_at)}</td>
-                  <td className="update-td-mono">{fmtDt(r.resume_from)}</td>
-                  <td className="tnum" style={{ textAlign: "right" }}>{r.est_windows}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ── Per-entity live row ────────────────────────────────────────────
 function UpdateEntityRow({ ent }) {
