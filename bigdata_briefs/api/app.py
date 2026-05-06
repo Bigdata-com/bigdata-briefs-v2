@@ -82,9 +82,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Bigdata Briefs Pipeline API",
         description=(
-            "Trigger and monitor incremental entity report pipeline runs.\n\n"
-            "Authentication: set `PIPELINE_API_KEY` in `.env` and pass the value "
-            "as the `X-API-Key` request header. Leave the setting empty to disable auth."
+            "Trigger and monitor incremental entity report pipeline runs."
         ),
         version="2.0.0",
         lifespan=lifespan,
