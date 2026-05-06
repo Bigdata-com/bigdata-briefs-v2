@@ -52,6 +52,8 @@
       const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
       const [view, setView] = useState("home");
       const [showDiscarded, setShowDiscarded] = useState(t.showDiscarded);
+      const [auditEntityId, setAuditEntityId] = useState(null);
+      const [auditDate, setAuditDate] = useState(null);
 
       // Theme + accent + font scale applied to the document root
       useEffect(() => {
@@ -75,11 +77,14 @@
                   showDiscarded={showDiscarded}
                   setShowDiscarded={(v) => { setShowDiscarded(v); setTweak("showDiscarded", v); }}
                   dropcap={t.dropcap}
+                  setView={setView}
+                  setAuditEntityId={setAuditEntityId}
+                  setAuditDate={setAuditDate}
                 />
               )}
               {view === "scan" && <ScanView tweaks={t} />}
               {view === "history" && <ArchiveView tweaks={t} />}
-              {view === "history-details" && <HistoryDetailsView tweaks={t} />}
+              {view === "history-details" && <HistoryDetailsView tweaks={t} initialEntityId={auditEntityId} initialDate={auditDate} />}
               {view === "cost" && <CostView tweaks={t} />}
             </div>
           </div>

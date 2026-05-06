@@ -1,9 +1,9 @@
 // History Details / Forensics — full pipeline view per company
 const { useState: useStateHD, useEffect: useEffectHD } = React;
 
-function HistoryDetailsView({ tweaks }) {
+function HistoryDetailsView({ tweaks, initialEntityId, initialDate }) {
   const companies = window.DATA?.companies || [];
-  const initialId = window.DATA.todaysBrief?.entityId || companies[0]?.id;
+  const initialId = initialEntityId || window.DATA.todaysBrief?.entityId || companies[0]?.id;
 
   const [selectedId, setSelectedId] = useStateHD(initialId);
   const [search, setSearch] = useStateHD("");
@@ -15,10 +15,10 @@ function HistoryDetailsView({ tweaks }) {
   const summaries = window.DATA.companySummaries || {};
 
   useEffectHD(() => {
-    loadForensics(initialId);
+    loadForensics(initialId, initialDate);
   }, []);
 
-  function loadForensics(id) {
+  function loadForensics(id, targetDate) {
     setSelectedId(id);
     setLoading(true);
     setOpenRunId(null);
@@ -27,8 +27,20 @@ function HistoryDetailsView({ tweaks }) {
       .then(r => r.json())
       .then(d => {
         setForensicsData(d);
-        if (d.days && d.days.length > 0 && d.days[0].runs?.length > 0)
-          setOpenRunId(d.days[0].runs[0].runId);
+        if (!d.days || d.days.length === 0) return;
+        // If a target date is provided, open the run for that date; otherwise open the latest
+        const targetDay = targetDate
+          ? d.days.find(day => day.date === targetDate)
+          : d.days[0];
+        const day = targetDay || d.days[0];
+        setOpenRunId(null);
+        // Scroll to the target day after render
+        if (targetDate) {
+          requestAnimationFrame(() => {
+            const el = document.getElementById(`hd-day-${targetDate}`);
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+          });
+        }
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -99,7 +111,7 @@ function HistoryDetailsView({ tweaks }) {
               const r = d.runs[0];
               const isOpen = openRunId === r.runId;
               return (
-                <article key={d.date} className={"hd-day" + (isOpen ? " hd-day-open" : "")}>
+                <article key={d.date} id={`hd-day-${d.date}`} className={"hd-day" + (isOpen ? " hd-day-open" : "")}>
                   <button className="hd-day-head" onClick={() => setOpenRunId(isOpen ? null : r.runId)}>
                     <div className="archive-day-date">
                       <div className="archive-day-num">{dayNum}</div>
@@ -113,6 +125,11 @@ function HistoryDetailsView({ tweaks }) {
                         <span className="hd-count-rej"><strong className="tnum">{r.rejected}</strong> rejected</span>
                         <span className="muted">·</span>
                         <span className="t-mono">run-{r.runId}</span>
+                        {r.windowStart && (
+                          <span className="muted" style={{ fontSize: 11 }}>
+                            {r.windowStart} → {r.windowEnd}
+                          </span>
+                        )}
                       </div>
                       <div className="hd-day-stagebar">
                         <PipelineStageBar published={r.published} rejected={r.rejected} groups={r.rejectionGroups} />
@@ -299,7 +316,6 @@ function RunBody({ r, expandedRejection, setExpandedRejection, expandedPubCitati
                         <span className="hd-rej-text">{item.text}</span>
                         <span className="hd-rej-tag">
                           {item.score != null && <span className="hd-rej-score">score <strong className="tnum">{item.score}</strong></span>}
-                          {item.groundingFlag && <span className="hd-rej-flag">{item.groundingFlag}</span>}
                         </span>
                       </button>
                       {isExp && (
@@ -389,8 +405,7 @@ function ForensicsDiscardDetail({ item }) {
           <ul className="hd-rej-claims" style={{ margin: "8px 0 0", paddingLeft: 18 }}>
             {evals.map((ev, i) => (
               <li key={i} style={{ marginBottom: 8 }}>
-                {ev.decision && <span className="hd-rej-flag">{ev.decision}</span>}
-                {ev.evaluator_name && <span className="muted" style={{ marginLeft: 6, fontSize: 12 }}>{ev.evaluator_name}</span>}
+                {ev.evaluator_name && <span className="muted" style={{ fontSize: 12 }}>{ev.evaluator_name}</span>}
                 {ev.reason && <p className="muted" style={{ margin: "4px 0 0", fontSize: 13 }}>{ev.reason}</p>}
               </li>
             ))}
