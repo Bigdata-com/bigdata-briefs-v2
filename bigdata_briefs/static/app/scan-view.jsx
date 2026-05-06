@@ -340,8 +340,6 @@ function ScanView({ tweaks }) {
             {[
               { id: "news",         label: "General news" },
               { id: "news_premium", label: "Premium news" },
-              { id: "filings",      label: "SEC filings" },
-              { id: "transcripts",  label: "Earnings calls" },
             ].map(s => (
               <label key={s.id} className={"scan-source" + (sources.includes(s.id) ? " active" : "")}>
                 <input type="checkbox" checked={sources.includes(s.id)}
