@@ -196,14 +196,6 @@
 }
 .cw-v6-stamp { display: flex; flex-direction: column; gap: 4px; }
 .cw-v6-stamp-end { text-align: right; }
-.cw-v6-stamp-eyebrow {
-  font-family: var(--sans);
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  font-weight: 700;
-  color: var(--accent);
-}
 .cw-v6-stamp-row {
   display: flex;
   align-items: baseline;

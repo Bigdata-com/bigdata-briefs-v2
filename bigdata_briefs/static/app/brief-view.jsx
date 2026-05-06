@@ -40,7 +40,6 @@ function BriefWindowBand({ start, end }) {
       </div>
       <div className="cw-v6-content">
         <div className="cw-v6-stamp">
-          <div className="cw-v6-stamp-eyebrow">Begins</div>
           <div className="cw-v6-stamp-row">
             <span className="cw-v6-stamp-date">{s.weekday}, {s.monShort} {s.day}</span>
             <span className="cw-v6-stamp-time tnum">{s.time}</span>
@@ -53,7 +52,6 @@ function BriefWindowBand({ start, end }) {
           <span className="cw-v6-spine-arrow">▸</span>
         </div>
         <div className="cw-v6-stamp cw-v6-stamp-end">
-          <div className="cw-v6-stamp-eyebrow">Ends</div>
           <div className="cw-v6-stamp-row">
             <span className="cw-v6-stamp-date">{e.weekday}, {e.monShort} {e.day}</span>
             <span className="cw-v6-stamp-time tnum">{e.time}</span>
