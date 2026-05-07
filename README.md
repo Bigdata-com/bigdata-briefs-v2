@@ -293,7 +293,7 @@ Use `update` for standard day-by-day monitoring. Use `daily` when you want a har
 | `MAX_CONCURRENT_ENTITIES` | Max entities running in parallel | `10` |
 | `DB_STRING` | SQLite connection string | `sqlite:///briefs.db` |
 | `LLM_TIMEOUT_SECONDS` | LLM call timeout | `60` |
-| `NOVELTY_LOOKBACK_DAYS` | Days of history used for novelty checks | `14` |
+| `NOVELTY_LOOKBACK_DAYS` | Days of history used for novelty checks | `30` |
 
 See `.env.example` for the full list with descriptions.
 
