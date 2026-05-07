@@ -112,7 +112,7 @@
 <table class="dt">
   <thead><tr>
     <th>Entity</th><th>Started</th><th>Status</th><th>Windows</th>
-    <th>LLM+emb $</th><th>API search $</th><th>Duration</th><th></th>
+    <th>Compute tokens $</th><th>Grounding tokens $</th><th>Duration</th><th></th>
   </tr></thead>
   <tbody>
   {% for s in scans %}
@@ -175,7 +175,7 @@
     </td>
     <td style="font-size:.78rem;white-space:nowrap">
       {% if r.cost_total is not none %}
-      <span style="color:var(--muted)">LLM</span> ${{ "%.4f"|format(r.cost_llm + r.cost_embedding) }}<br>
+      <span style="color:var(--muted)">Compute</span> ${{ "%.4f"|format(r.cost_llm + r.cost_embedding) }}<br>
       <span style="color:var(--muted)">API</span> ${{ "%.4f"|format(r.cost_chunks) }} <span style="color:var(--muted)">({{ r.chunks_total }})</span><br>
       <span style="font-weight:600">${{ "%.4f"|format(r.cost_total) }}</span><br>
       <a href="/ui/cost-details/{{ r.run_id }}" style="font-size:.72rem;color:var(--accent);text-decoration:underline">breakdown ↗</a>

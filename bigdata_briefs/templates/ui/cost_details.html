@@ -73,7 +73,7 @@
 {# ═══ SUMMARY TILES ═══ #}
 <div class="cost-summary">
   <div class="cost-tile">
-    <div class="label">LLM</div>
+    <div class="label">Compute tokens</div>
     <div class="amount">${{ "%.4f"|format(total_llm_cost) }}</div>
     <div class="sub">{{ llm_models|length }} model{% if llm_models|length != 1 %}s{% endif %}</div>
   </div>
@@ -83,26 +83,26 @@
     <div class="sub">{{ "{:,}".format(embedding_tokens) }} tokens</div>
   </div>
   <div class="cost-tile">
-    <div class="label">API Chunks</div>
+    <div class="label">Grounding tokens</div>
     <div class="amount">${{ "%.4f"|format(chunk_cost) }}</div>
     <div class="sub">{{ "{:,}".format(chunks_total) }} chunks × $0.0015</div>
   </div>
   <div class="cost-tile total">
     <div class="label">Total</div>
     <div class="amount">${{ "%.4f"|format(total_cost) }}</div>
-    <div class="sub">LLM + embed + API</div>
+    <div class="sub">Compute + Grounding</div>
   </div>
 </div>
 
 {# ═══ LLM BY MODEL ═══ #}
-<div class="section-title">LLM — by model</div>
+<div class="section-title">Compute tokens — by model</div>
 <div class="card" style="overflow:hidden">
 {% if llm_models %}
 {% set llm_total = namespace(v=0) %}
 {% for m in llm_models %}{% set llm_total.v = llm_total.v + m.cost_usd %}{% endfor %}
 <table class="dt">
   <thead><tr>
-    <th>Model</th><th class="right">Calls</th><th class="right">Input tkn</th><th class="right">Output tkn</th><th class="right">Total tkn</th><th class="right">Cost</th><th class="right" style="min-width:120px">% of LLM</th>
+    <th>Model</th><th class="right">Calls</th><th class="right">Input tkn</th><th class="right">Output tkn</th><th class="right">Total tkn</th><th class="right">Cost</th><th class="right" style="min-width:120px">% of Compute</th>
   </tr></thead>
   <tbody>
   {% for m in llm_models|sort(attribute="cost_usd", reverse=True) %}
@@ -145,7 +145,7 @@
 <div class="section-title">Breakdown by category</div>
 
 {# ── LLM grouped ── #}
-<div style="margin-bottom:.5rem;font-size:.78rem;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.04em">LLM + Embeddings</div>
+<div style="margin-bottom:.5rem;font-size:.78rem;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.04em">Compute tokens</div>
 {% set llm_group_max = namespace(v=0) %}
 {% for g in step_groups %}{% if g.totals.llm_cost_usd + g.totals.embedding_cost_usd > llm_group_max.v %}{% set llm_group_max.v = g.totals.llm_cost_usd + g.totals.embedding_cost_usd %}{% endif %}{% endfor %}
 
@@ -167,7 +167,7 @@
   <div class="group-card">
   <table class="dt">
     <thead><tr>
-      <th>Step</th><th class="right">Calls</th><th class="right">Input tkn</th><th class="right">Output tkn</th><th class="right">LLM cost</th><th class="right">Embed tkn</th><th class="right">Embed cost</th><th class="right">Total cost</th>
+      <th>Step</th><th class="right">Calls</th><th class="right">Input tkn</th><th class="right">Output tkn</th><th class="right">Compute tokens cost</th><th class="right">Embed tkn</th><th class="right">Embed cost</th><th class="right">Total cost</th>
     </tr></thead>
     <tbody>
     {% for name, s in g.steps|sort(attribute="1.total_cost_usd", reverse=True) %}

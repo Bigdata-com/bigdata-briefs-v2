@@ -224,8 +224,8 @@ function UpdateView({ tweaks }) {
           <h2 className="scan-section-title">Sources</h2>
           <div className="scan-source-grid">
             {[
-              { id: "news",         label: "Web news",   sub: "Default · always recommended" },
-              { id: "news_premium", label: "Premium news",   sub: "Reuters, Bloomberg, FT, WSJ" },
+              { id: "news",         label: "Web News",   sub: "Default · always recommended" },
+              { id: "news_premium", label: "Premium News",   sub: "Reuters, Bloomberg, FT, WSJ" },
               { id: "filings",      label: "SEC filings",    sub: "10-K, 10-Q, 8-K, proxy" },
               { id: "transcripts",  label: "Earnings calls", sub: "Quarterly transcripts" },
             ].map(s => (

@@ -402,7 +402,7 @@ function CostView({ tweaks }) {
 
         <section className="cost-tiles">
           <div className="cost-tile">
-            <div className="t-cap">LLM</div>
+            <div className="t-cap">Compute tokens</div>
             <div className="cost-tile-amt tnum">${C.summary.llm.toFixed(4)}</div>
             <div className="cost-tile-sub">{C.llmModels.length} models · {C.llmModels.reduce((s, m) => s + m.calls, 0)} calls</div>
           </div>
@@ -412,7 +412,7 @@ function CostView({ tweaks }) {
             <div className="cost-tile-sub">{C.summary.embeddingTokens.toLocaleString()} tokens · {C.summary.embeddingModel}</div>
           </div>
           <div className="cost-tile">
-            <div className="t-cap">API chunks</div>
+            <div className="t-cap">Grounding tokens</div>
             <div className="cost-tile-amt tnum">${C.summary.apiChunks.toFixed(4)}</div>
             <div className="cost-tile-sub">{C.summary.chunksTotal} chunks × ${C.summary.chunkRate}</div>
           </div>
@@ -425,7 +425,7 @@ function CostView({ tweaks }) {
 
         <section className="cost-section">
           <div className="ops-section-head">
-            <h2>LLM — by model</h2>
+            <h2>Compute tokens — by model</h2>
             <span className="ops-section-meta">{C.llmModels.length} models · ${llmTotal.toFixed(4)} total</span>
           </div>
           <table className="editorial cost-table">
@@ -437,7 +437,7 @@ function CostView({ tweaks }) {
                 <th className="num">Input tkn</th>
                 <th className="num">Output tkn</th>
                 <th className="num">Cost</th>
-                <th style={{ minWidth: 160 }}>% of LLM</th>
+                <th style={{ minWidth: 160 }}>% of Compute</th>
               </tr>
             </thead>
             <tbody>
@@ -476,9 +476,9 @@ function CostView({ tweaks }) {
                 : <PhaseRow key={row.data.id} p={row.data} phaseMax={phaseMax} />
             )}
             <div className="cost-phase-key">
-              <span><span className="cost-key cost-key-llm" />LLM</span>
+              <span><span className="cost-key cost-key-llm" />Compute tokens</span>
               <span><span className="cost-key cost-key-embed" />Embeddings</span>
-              <span><span className="cost-key cost-key-api" />API chunks</span>
+              <span><span className="cost-key cost-key-api" />Grounding tokens</span>
             </div>
           </div>
         </section>
