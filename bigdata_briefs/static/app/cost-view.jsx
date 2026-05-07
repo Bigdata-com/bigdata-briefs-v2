@@ -402,17 +402,17 @@ function CostView({ tweaks }) {
 
         <section className="cost-tiles">
           <div className="cost-tile">
-            <div className="t-cap">Compute tokens</div>
+            <div className="t-cap">Compute tokens cost</div>
             <div className="cost-tile-amt tnum">${C.summary.llm.toFixed(4)}</div>
             <div className="cost-tile-sub">{C.llmModels.length} models · {C.llmModels.reduce((s, m) => s + m.calls, 0)} calls</div>
           </div>
           <div className="cost-tile">
-            <div className="t-cap">Embeddings</div>
+            <div className="t-cap">Embeddings cost</div>
             <div className="cost-tile-amt tnum">${C.summary.embeddings.toFixed(4)}</div>
             <div className="cost-tile-sub">{C.summary.embeddingTokens.toLocaleString()} tokens · {C.summary.embeddingModel}</div>
           </div>
           <div className="cost-tile">
-            <div className="t-cap">Grounding tokens</div>
+            <div className="t-cap">Grounding tokens cost</div>
             <div className="cost-tile-amt tnum">${C.summary.apiChunks.toFixed(4)}</div>
             <div className="cost-tile-sub">{C.summary.chunksTotal} chunks × ${C.summary.chunkRate}</div>
           </div>

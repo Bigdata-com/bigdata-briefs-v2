@@ -1,18 +1,21 @@
 # Bigdata Briefs v2.0
 
-An AI-powered pipeline that generates financially relevant, novelty-filtered brief reports for a universe of companies. For each entity and reporting window, the service fetches news, extracts key bullet points, filters out previously reported content via embedding-based and search-based novelty checks, and exposes the results through a REST API.
+A LangGraph pipeline that generates structured, novelty-filtered brief reports for a universe of companies. For each entity and date window, the service retrieves news evidence from the Bigdata API, extracts material bullet points, and filters them for relevance and novelty before writing them to the database. Results are exposed through a REST API.
 
 ## Architecture overview
 
 ![Pipeline diagram](assets/bigdata_briefs_overview.png)
 
-The pipeline processes each entity through five sequential phases:
+For each entity, the pipeline moves through six sequential phases:
 
-1. **Search**: exploratory + concept-driven search via Bigdata.com API
-2. **Bullet Generation**: LLM extracts material bullet points per theme
-3. **Novelty Check via Embedding**: discards bullets already covered in prior runs
-4. **Novelty Check via Search**: claim-level verification against recent news evidence
-5. **Post-processing**: redundancy removal, thematic consolidation, report assembly *(in development)*
+1. **Search**: exploratory pass to discover active themes, fiscal quarter resolution, targeted per-theme retrieval
+2. **Bullet Generation**: LLM generates bullets from each theme's evidence, scored for relevance
+3. **Grounding Check**: each bullet is validated against its cited source text
+4. **Novelty Check via Embedding**: embedding-based retrieval of past bullets, LLM coarse decision
+5. **Novelty Check via Search**: claim-level verification against current evidence
+6. **Narrative**: one-sentence editorial summary generated from all active bullets published that day
+
+For a detailed description of each phase, see the [pipeline reference guide](https://docs.bigdata.com/use-cases/bigdata-briefs-pipeline).
 
 ## Prerequisites
 
@@ -42,13 +45,11 @@ docker run -d \
 ```bash
 # Install uv if needed: https://docs.astral.sh/uv/getting-started/installation/
 
-# Install dependencies
 uv sync
 
-# Copy and edit the environment file
 cp .env.example .env
+# Edit .env to set BIGDATA_API_KEY and OPENAI_API_KEY
 
-# Run
 uv run uvicorn bigdata_briefs.api.app:app --host 0.0.0.0 --port 8000
 ```
 
@@ -61,6 +62,8 @@ curl http://localhost:8000/health
 > **Interactive API docs** are available at **`http://localhost:8000/docs`**: open it in your browser to explore and try all endpoints interactively.
 
 ## Available endpoints
+
+For the full API reference with all parameters and examples, see the [pipeline reference guide](https://docs.bigdata.com/use-cases/bigdata-briefs-pipeline).
 
 ### Run the pipeline
 
@@ -88,18 +91,8 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
   }'
 ```
 
-**Response:**
-```json
-{
-  "batch_id": "3f8a1c2d-...",
-  "total": 10,
-  "submitted_at": "2026-04-22T09:00:00"
-}
-```
-
-> `entity_ids` and `universe` are mutually exclusive. Available universes: `dow_30`, `eurostoxx_50`, `top_us_100`, `top_us_500`, `top_eu_100`, `top_eu_500`.  
-> Omit `force_window_start` / `force_window_end` to use the automatic incremental window.  
-> Re-running a window that overlaps an already-completed run for the same entity is blocked automatically.
+> `entity_ids` and `universe` are mutually exclusive. Omit both to run every entity tracked in the database.  
+> Omit `force_window_start` / `force_window_end` to use the automatic incremental window (see [Window modes](#window-modes) below).
 
 #### `POST /api/v1/batch/run`
 
@@ -119,63 +112,98 @@ curl -X POST http://localhost:8000/api/v1/batch/run \
 
 #### `GET /api/v1/batch/parallel/{batch_id}/status`
 
-Returns the real-time status of a batch submitted via `run-parallel`: how many entities have succeeded, failed, are still running, or have not started yet.
+Returns the real-time status of a batch submitted via `run-parallel`.
 
 ```bash
 curl http://localhost:8000/api/v1/batch/parallel/3f8a1c2d-.../status
 ```
 
-**Response:**
-```json
-{
-  "batch_id": "3f8a1c2d-...",
-  "total": 10,
-  "succeeded": 8,
-  "failed": 1,
-  "running": 1,
-  "not_started": 0,
-  "runs": [
-    {
-      "entity_id": "0157B1",
-      "run_id": "...",
-      "status": "succeeded",
-      "started_at": "2026-04-22T09:00:03",
-      "completed_at": "2026-04-22T09:04:51"
-    }
-  ]
-}
+### Daily tracking
+
+For recurring monitoring of a portfolio, two patterns are available: **update** and **scan**.
+
+#### `POST /api/v1/batch/run-parallel` with `window_mode: update`
+
+`update` is the standard pattern for keeping coverage current. Each run covers at most the 24 hours preceding the run time — extended to 72 hours on Mondays (UTC) to bridge the weekend gap. If a previous run exists and its end timestamp falls within that lookback window, the new run starts from there.
+
+This makes `update` self-initializing: the first call for a new entity produces the first brief; subsequent daily calls continue seamlessly from where the last run ended.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
+  -H "Content-Type: application/json" \
+  -d '{
+    "universe": "dow_30",
+    "window_mode": "update",
+    "categories": ["news"]
+  }'
+```
+
+#### `POST /api/v1/scan`
+
+Use `scan` when you need to build or backfill a historical record for a portfolio. It takes an explicit date range, splits it into individual calendar-day windows, and processes them sequentially.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/scan \
+  -H "Content-Type: application/json" \
+  -d '{
+    "universe": "dow_30",
+    "start_date": "2026-04-01T00:00:00",
+    "end_date": "2026-04-30T23:59:59",
+    "source_categories": ["news"]
+  }'
+```
+
+Poll per-entity, per-day progress:
+
+```bash
+curl "http://localhost:8000/api/v1/scan/status?entity_ids=D8442A,0157B1&start_date=2026-04-01&end_date=2026-04-30"
+```
+
+**Recommended workflow for a new portfolio:**
+
+```bash
+# Step 1: build history (optional)
+curl -X POST http://localhost:8000/api/v1/scan \
+  -H "Content-Type: application/json" \
+  -d '{
+    "universe": "dow_30",
+    "start_date": "2026-04-01T00:00:00",
+    "end_date": "2026-04-30T23:59:59",
+    "source_categories": ["news"]
+  }'
+
+# Step 2: daily update (run once per day from here on)
+curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
+  -H "Content-Type: application/json" \
+  -d '{
+    "universe": "dow_30",
+    "window_mode": "update",
+    "categories": ["news"]
+  }'
 ```
 
 ### Retrieve results
 
 #### `POST /api/v1/batch/bullets`
 
-Returns the published bullet points for one or more entities, grouped by run. Pass an empty body to retrieve all entities in the database.
+Returns the published bullet points for one or more entities, grouped by run. Each bullet includes the final text, source citations (headline, chunk text), and novelty metadata (`search_action`, `not_fully_novel`). Pass an empty `entity_ids` list to retrieve all entities in the database.
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/batch/bullets \
   -H "Content-Type: application/json" \
   -d '{"entity_ids": ["0157B1", "D64C6D"]}'
-
-# All entities
-curl -X POST http://localhost:8000/api/v1/batch/bullets \
-  -H "Content-Type: application/json" \
-  -d '{}'
 ```
-
-Each bullet includes the final text, source citations (headline, chunk text), and novelty metadata (`search_action`, `not_fully_novel`).
 
 #### `POST /api/v1/batch/bullets/detail`
 
-Returns **full pipeline detail** for every bullet (both published and discarded) for one or more entities. Pass an empty body to retrieve all entities.
+Returns every bullet considered by the pipeline — both published and discarded — for one or more entities. For discarded bullets, includes the stage that eliminated them and the specific reason for that decision:
 
-For each bullet you get:
-- **Published bullets**: relevance score and reasoning that justified publishing
-- **Discarded bullets**: the stage that eliminated them and the reason:
-  - `relevance_score`: scored too low on financial materiality
-  - `grounding`: text not verifiable against cited sources
-  - `novelty_embedding`: already reported in a previous run
-  - `novelty_search`: per-claim verdicts with the evidence chunks that already covered the information
+- `relevance_score`: scored too low on financial materiality
+- `grounding`: text not verifiable against cited sources
+- `novelty_embedding`: already reported in a previous run
+- `novelty_search`: per-claim verdicts with the evidence chunks that already covered the information
+
+Accepts optional `from_date` and `to_date` filters (ISO 8601).
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/batch/bullets/detail \
@@ -187,104 +215,81 @@ curl -X POST http://localhost:8000/api/v1/batch/bullets/detail \
 
 #### `GET /api/v1/report/html`
 
-Generates a self-contained HTML page that can be opened directly in the browser. Published bullets are shown in **green** (fully novel) or **amber** (partially novel, rewritten to surface the new element). Discarded bullets are grouped under a collapsible **Discard** section showing the reason, stage, and (for novelty search discards) the prior evidence that already covered each claim.
+Generates a self-contained HTML page. Published bullets are shown in **green** (fully novel) or **amber** (partially novel, rewritten to surface the new element). Discarded bullets are grouped under a collapsible section showing the reason, stage, and (for novelty search discards) the prior evidence that already covered each claim.
 
 ```
-# All entities (open directly in browser)
-http://localhost:8000/api/v1/report/html
-
-# Single entity
 http://localhost:8000/api/v1/report/html?entity_id=0157B1
-
-# With API key
-http://localhost:8000/api/v1/report/html?entity_id=0157B1&api_key=<your-secret-key>
-```
-
-Download via curl:
-```bash
-curl "http://localhost:8000/api/v1/report/html?entity_id=0157B1" -o report.html
 ```
 
 ### Administration
 
 #### `POST /api/v1/admin/reset-db`
 
-**Drops and recreates all database tables.** Use with caution: all run history, embeddings, and saved bullets are permanently deleted.
+**Drops and recreates all database tables.** All run history, embeddings, and saved bullets are permanently deleted.
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/admin/reset-db
 ```
 
-Useful when starting a fresh evaluation or clearing test data before a new run.
-
 #### `POST /api/v1/admin/clear-stale-runs`
 
-Resets rows that are stuck in `running` status (e.g. after a service crash). Rows older than the configured threshold are marked as `failed` so they no longer block re-runs for the same entity.
+Resets rows stuck in `running` status after a service crash. Rows older than the configured threshold are marked as `failed`.
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/admin/clear-stale-runs
 ```
 
-## Understanding run windows
+## Window modes
 
-Every run covers a time window `[start, end)`. You can either specify it explicitly with `force_window_start` / `force_window_end`, or let the pipeline compute it automatically via `window_mode`.
+Every run covers a time window `[start, end)`. You can specify it explicitly with `force_window_start` / `force_window_end`, or let the pipeline compute it automatically via `window_mode`.
 
-**Explicit window**: use `force_window_start` and `force_window_end` to target a specific period. One day at a time is recommended: a single-day window gives the model a focused, bounded set of news to analyze, producing sharper bullets and more reliable novelty comparisons. Wider windows are possible but for entities with a high volume of news they can generate briefs where temporal references are ambiguous or inconsistent.
+### `update` (recommended for daily monitoring)
 
-**Automatic window**: omit the dates and let `window_mode` decide:
+Covers at most the 24 hours preceding the run time, extended to 72 hours on Mondays to bridge the weekend gap. If a previous run exists and its end timestamp falls within that lookback window, starts from there instead.
 
 ### `daily` (default)
 
 Covers `[UTC midnight of today → now]`.
 
 - If the pipeline already ran **today**, it resumes from exactly where that run ended.
-- If the last run was **yesterday or earlier**, it always resets to midnight of today: prior days never influence today's window start.
+- If the last run was **yesterday or earlier**, it always resets to midnight of today.
 
 ### `continuous`
 
 Covers `[end of last run → now]`.
 
 - If the last run was yesterday at 18:00, today's run covers from 18:00 yesterday to now: no gap, no reset.
-- If no previous run exists, falls back to `[UTC midnight of today → now]`, same as `daily`.
+- If no previous run exists, falls back to `[UTC midnight of today → now]`.
 
-| | `daily` | `continuous` |
-|---|---|---|
-| No previous run | `[today midnight → now]` | `[today midnight → now]` |
-| Last run was today at 09:00 | `[09:00 → now]` | `[09:00 → now]` |
-| Last run was yesterday at 18:00 | `[today midnight → now]` | `[yesterday 18:00 → now]` |
-| Last run was 3 days ago | `[today midnight → now]` | `[3 days ago end → now]` |
+| | `update` | `daily` | `continuous` |
+|---|---|---|---|
+| No previous run | `[now − 24h → now]` | `[today midnight → now]` | `[today midnight → now]` |
+| Last run was today at 09:00 | `[09:00 → now]` | `[09:00 → now]` | `[09:00 → now]` |
+| Last run was yesterday at 18:00 | `[yesterday 18:00 → now]` | `[today midnight → now]` | `[yesterday 18:00 → now]` |
+| Last run was 3 days ago | `[now − 24h → now]` | `[today midnight → now]` | `[3 days ago end → now]` |
 
-Use `daily` for standard day-by-day monitoring. Use `continuous` when you need to guarantee no gaps across runs regardless of when they were last triggered.
+Use `update` for standard day-by-day monitoring. Use `daily` when you want a hard reset to midnight of today regardless of prior runs. Use `continuous` when you need a gap-free timeline across runs regardless of when they last triggered.
 
-```bash
-curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
-  -H "Content-Type: application/json" \
-  -d '{"universe": "dow_30", "window_mode": "continuous"}'
-```
-
-> **Overlap protection**: if the requested window (forced or automatic) overlaps any already-completed run for the same entity, that entity's run is rejected immediately with an error and marked as `failed` in the batch status. No API calls or LLM calls are made. Use a non-overlapping date range or reset the entity via `POST /api/v1/admin/reset-db` to clear its history.
+> **Overlap protection**: if the requested window overlaps any already-completed run for the same entity, that entity's run is rejected immediately and marked as `failed`. No API or LLM calls are made.
 
 ## Pre-defined universes
-
-Six entity universes are bundled with the service:
 
 | Universe | Entities | Description |
 |---|---|---|
 | `dow_30` | 30 | Dow Jones Industrial Average components |
 | `eurostoxx_50` | 50 | Euro Stoxx 50 components |
+| `top_us_10` | 10 | Ten largest US listings by market cap |
 | `top_us_100` | 100 | Top 100 US companies by market cap |
 | `top_us_500` | 500 | Top 500 US companies by market cap |
 | `top_eu_100` | 100 | Top 100 European companies by market cap |
 | `top_eu_500` | 500 | Top 500 European companies by market cap |
 
-Pass `"universe": "top_us_100"` (or any name above) to `run-parallel` or `run` instead of an explicit `entity_ids` list.
-
 ## Configuration reference
 
 | Environment variable | Description | Default |
 |---|---|---|
-| `BIGDATA_API_KEY` | Bigdata.com API key **(required)** |: |
-| `OPENAI_API_KEY` | OpenAI API key **(required)** |: |
+| `BIGDATA_API_KEY` | Bigdata.com API key **(required)** | — |
+| `OPENAI_API_KEY` | OpenAI API key **(required)** | — |
 | `MAX_CONCURRENT_ENTITIES` | Max entities running in parallel | `10` |
 | `DB_STRING` | SQLite connection string | `sqlite:///briefs.db` |
 | `LLM_TIMEOUT_SECONDS` | LLM call timeout | `60` |

@@ -73,17 +73,17 @@
 {# ═══ SUMMARY TILES ═══ #}
 <div class="cost-summary">
   <div class="cost-tile">
-    <div class="label">Compute tokens</div>
+    <div class="label">Compute tokens cost</div>
     <div class="amount">${{ "%.4f"|format(total_llm_cost) }}</div>
     <div class="sub">{{ llm_models|length }} model{% if llm_models|length != 1 %}s{% endif %}</div>
   </div>
   <div class="cost-tile">
-    <div class="label">Embeddings</div>
+    <div class="label">Embeddings cost</div>
     <div class="amount">${{ "%.4f"|format(total_emb_cost) }}</div>
     <div class="sub">{{ "{:,}".format(embedding_tokens) }} tokens</div>
   </div>
   <div class="cost-tile">
-    <div class="label">Grounding tokens</div>
+    <div class="label">Grounding tokens cost</div>
     <div class="amount">${{ "%.4f"|format(chunk_cost) }}</div>
     <div class="sub">{{ "{:,}".format(chunks_total) }} chunks × $0.0015</div>
   </div>
