@@ -180,6 +180,8 @@ def _build_entity_dict(entity_id: str, engine) -> dict:
         "citation markers with full headline and text; discarded bullets show the "
         "discard stage and reasoning."
     ),
+    include_in_schema=False,
+    deprecated=True,
 )
 def get_report_html(entity_id: str | None = None) -> HTMLResponse:
     engine = get_engine()
