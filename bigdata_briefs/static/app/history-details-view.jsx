@@ -65,7 +65,7 @@ function HistoryDetailsView({ tweaks, initialEntityId, initialDate }) {
         <ul className="archive-companies">
           {filtered.map(c => {
             const s = summaries[c.id] || {};
-            const runs = (s.pulse7 || []).filter(p => p.saved > 0).length || "—";
+            const runs = s.bulletsSaved != null ? s.bulletsSaved : "—";
             return (
               <li key={c.id}>
                 <button className={"archive-company-btn" + (c.id === selectedId ? " active" : "")}

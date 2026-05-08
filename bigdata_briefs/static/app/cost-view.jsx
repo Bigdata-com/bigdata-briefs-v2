@@ -336,7 +336,7 @@ function CostView({ tweaks }) {
                   key={r.runId}
                   type="button"
                   className={"universe-pick" + (r.runId === selectedRun ? " active" : "")}
-                  onClick={() => onRunChange(r.runId)}
+                  onClick={() => onRunChange(r.runIdFull || r.runId)}
                   disabled={loading}
                 >
                   <span className="universe-pick-label">{r.windowEnd || "—"}</span>

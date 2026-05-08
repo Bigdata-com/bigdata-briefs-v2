@@ -1768,6 +1768,7 @@ def get_cost_runs_for_entity(entity_id: str, limit: int = 200) -> dict:
             if not m:
                 rows.append({
                     "runId": rid8,
+                    "runIdFull": str(r.run_id),
                     "windowStart": ws,
                     "windowEnd": we,
                     "hasMetrics": False,
@@ -1785,6 +1786,7 @@ def get_cost_runs_for_entity(entity_id: str, limit: int = 200) -> dict:
                 dur_s = int((r.process_completed_at_utc - r.process_started_at_utc).total_seconds())
             rows.append({
                 "runId": rid8,
+                "runIdFull": str(r.run_id),
                 "windowStart": ws,
                 "windowEnd": we,
                 "hasMetrics": True,

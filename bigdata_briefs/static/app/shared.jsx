@@ -44,7 +44,6 @@ function Masthead({ view, setView, theme, setTheme }) {
             onClick={() => setTheme(theme === "light" ? "dark" : "light")}>
               {theme === "light" ? "◐ Dark" : "◑ Light"}
             </button>
-            <span style={{ fontFamily: "var(--sans)", fontSize: 12, fontWeight: 600, color: "var(--ink-mute)" }}>analyst@desk</span>
           </div>
         </div>
       </div>
