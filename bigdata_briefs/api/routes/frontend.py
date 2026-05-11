@@ -601,7 +601,11 @@ def _global_brief_calendar_days(session: Session) -> list[str]:
             SQLEntityPipelineRunLog.report_window_end.isnot(None),  # type: ignore[union-attr]
         )
     ).all()
-    days = {dt.date().isoformat() for dt in ends if dt is not None}
+    from datetime import date as _date
+    days = {
+        dt.date().isoformat() for dt in ends
+        if dt is not None and dt.date().weekday() not in (5, 6)  # skip Sat/Sun
+    }
     return sorted(days)
 
 
