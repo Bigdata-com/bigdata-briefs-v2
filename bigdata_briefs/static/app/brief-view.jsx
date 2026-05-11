@@ -446,7 +446,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
             </div>
           </div>
 
-          {(brief.coverageStart || brief.windowStart) && (
+          {!brief.noRunForWindow && (brief.coverageStart || brief.windowStart) && (
             <BriefWindowBand
               start={brief.coverageStart || brief.windowStart}
               end={brief.coverageEnd   || brief.windowEnd}
