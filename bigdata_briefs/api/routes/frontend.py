@@ -954,6 +954,7 @@ def _extras_universe_cards() -> list[dict[str, str | int]]:
     labels: dict[str, tuple[str, str]] = {
         "dow_30": ("DOW 30", "Dow Jones Industrial Average"),
         "eurostoxx_50": ("EuroStoxx 50", "Eurozone blue-chip index"),
+        "gpbh": ("GPBH", "25 private & growth companies"),
         "top_us_10": ("Top US 10", "Ten largest US listings"),
         "top_us_100": ("Top US 100", "Top US listings by market cap"),
         "top_us_500": ("Top US 500", "Broad US large-cap universe"),
