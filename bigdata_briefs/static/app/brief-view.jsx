@@ -25,9 +25,7 @@ function _fmtDur(start, end) {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   if (h < 1) return `${m}m`;
-  if (h < 24) return `${h}h ${String(m).padStart(2, "0")}m`;
-  const days = Math.floor(h / 24);
-  return `${days}d ${h % 24}h`;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
 function BriefWindowBand({ start, end }) {
