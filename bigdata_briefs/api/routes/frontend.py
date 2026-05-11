@@ -1616,8 +1616,8 @@ def get_entity_forensics(entity_id: str) -> dict:
             date = r.report_window_end.date().isoformat() if r.report_window_end else ""
             run_dict = {
                 "runId": str(r.run_id)[:8],
-                "windowStart": r.report_window_start.strftime("%Y-%m-%d %H:%M UTC") if r.report_window_start else None,
-                "windowEnd": r.report_window_end.strftime("%Y-%m-%d %H:%M UTC") if r.report_window_end else None,
+                "windowStart": _iso(r.report_window_start),
+                "windowEnd": _iso(r.report_window_end),
                 "published": len(published),
                 "rejected": rejected_n,
                 "narrative": narrative.narrative_text if narrative else None,

@@ -5,12 +5,9 @@
 /** When false, earnings release labels and earnings-based roster ordering are off. */
 const BRIEF_SHOW_EARNINGS_RELEASE_INFO = false;
 
-const _TZ_OPTIONS = { "UTC": "UTC", "New York": "America/New_York", "CET": "Europe/Paris" };
-function _tzIana(tz) { return _TZ_OPTIONS[tz] || "UTC"; }
-
-function _parseWindowParts(iso, tz) {
+function _parseWindowParts(iso) {
   if (!iso) return { weekday: "—", monShort: "—", day: "—", time: "—" };
-  const zone = _tzIana(tz);
+  const zone = _tzIana();
   const d = new Date(iso);
   return {
     weekday:  d.toLocaleDateString("en-US", { weekday: "short", timeZone: zone }),
@@ -33,14 +30,14 @@ function _fmtDur(start, end) {
   return `${days}d ${h % 24}h`;
 }
 
-function BriefWindowBand({ start, end, tz }) {
-  const s = _parseWindowParts(start, tz);
-  const e = _parseWindowParts(end, tz);
+function BriefWindowBand({ start, end }) {
+  const s = _parseWindowParts(start);
+  const e = _parseWindowParts(end);
   return (
     <div className="cw-v6">
       <div className="cw-v6-plate">
         <div className="cw-v6-plate-main">Coverage</div>
-        <div className="cw-v6-plate-sub">{tz || "UTC"}</div>
+        <div className="cw-v6-plate-sub">{_tzLong()}</div>
       </div>
       <div className="cw-v6-content">
         <div className="cw-v6-stamp">
@@ -66,21 +63,7 @@ function BriefWindowBand({ start, end, tz }) {
   );
 }
 
-function _fmtWindow(start, end, tz) {
-  if (!start) return "—";
-  const zone = _tzIana(tz);
-  const label = tz || "UTC";
-  const fmtDate = iso => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: zone });
-  const fmtTime = iso => new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: zone, hour12: false });
-  const fmt    = iso => `${fmtDate(iso)} ${fmtTime(iso)}`;
-  if (!end) return `${fmt(start)} ${label}`;
-  const sDate = fmtDate(start), eDate = fmtDate(end);
-  return sDate === eDate
-    ? `${fmt(start)} → ${fmtTime(end)} ${label}`
-    : `${fmt(start)} → ${fmt(end)} ${label}`;
-}
-
-function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView, setAuditEntityId, setAuditDate, timezone }) {
+function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView, setAuditEntityId, setAuditDate }) {
   const initialBrief = window.DATA.todaysBrief;
   const initialDates = window.DATA.availableDates || [];
   const initialDate = initialBrief?.windowEnd?.slice(0, 10) || initialDates[initialDates.length - 1] || null;
@@ -263,11 +246,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
             const saved = s.bulletsSaved != null ? s.bulletsSaved : "—";
             const discarded = s.bulletsDiscarded != null ? s.bulletsDiscarded : "—";
             const rawDate = s.lastRunDate || (s.pulse7?.length > 0 ? s.pulse7[s.pulse7.length - 1].date : null);
-            const date = rawDate
-              ? rawDate.includes("T")
-                ? rawDate.replace("T", " ").replace("Z", " UTC")
-                : rawDate
-              : "—";
+            const date = _fmtRunDate(rawDate);
             return (
               <button key={c.id} className="brief-pick-row brief-pick-row-item"
                       onClick={() => loadEntity(c.id, null)} disabled={loading}>
@@ -473,7 +452,6 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
             <BriefWindowBand
               start={brief.coverageStart || brief.windowStart}
               end={brief.coverageEnd   || brief.windowEnd}
-              tz={timezone}
             />
           )}
         </header>
@@ -528,7 +506,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
             </div>
             <div>
               <div className="t-cap">Window</div>
-              <div className="soft">{_fmtWindow(brief?.windowStart, brief?.windowEnd, timezone)}</div>
+              <div className="soft">{_fmtWindow(brief?.windowStart, brief?.windowEnd)}</div>
             </div>
             <div>
               <div className="t-cap">Coverage</div>

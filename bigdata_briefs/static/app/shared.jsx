@@ -1,6 +1,39 @@
 // Shared components: masthead, navigation, sparkline, theme-dot, citation popover
 const { useState, useEffect, useRef, useMemo } = React;
 
+// ── Global display timezone ───────────────────────────────────────────
+// Change DISPLAY_TZ to adjust all time displays across the app.
+// Supported values: "UTC", "New York", "CET"
+const DISPLAY_TZ = "ET";
+const _TZ_MAP  = { "UTC": "UTC", "ET": "America/New_York", "CET": "Europe/Paris" };
+const _TZ_LONG = { "UTC": "UTC", "ET": "ET New York Time", "CET": "CET Central European Time" };
+function _tzIana(tz) { return _TZ_MAP[tz != null ? tz : DISPLAY_TZ] || "UTC"; }
+function _tzLong(tz) { return _TZ_LONG[tz != null ? tz : DISPLAY_TZ] || tz || DISPLAY_TZ; }
+
+function _fmtRunDate(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false, timeZone: _tzIana(),
+  }).formatToParts(d);
+  const g = t => parts.find(p => p.type === t)?.value || "";
+  return `${g("year")}-${g("month")}-${g("day")} ${g("hour")}:${g("minute")} ${DISPLAY_TZ}`;
+}
+
+function _fmtWindow(start, end) {
+  if (!start) return "—";
+  const zone = _tzIana();
+  const fmtDate = iso => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: zone });
+  const fmtTime = iso => new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: zone, hour12: false });
+  const fmt    = iso => `${fmtDate(iso)} ${fmtTime(iso)}`;
+  if (!end) return `${fmt(start)} ${DISPLAY_TZ}`;
+  const sDate = fmtDate(start), eDate = fmtDate(end);
+  return sDate === eDate
+    ? `${fmt(start)} → ${fmtTime(end)} ${DISPLAY_TZ}`
+    : `${fmt(start)} → ${fmt(end)} ${DISPLAY_TZ}`;
+}
+
 function formatUtcClockHm() {
   return new Date().toLocaleTimeString("en-GB", {
     hour: "2-digit",

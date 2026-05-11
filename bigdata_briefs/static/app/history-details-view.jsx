@@ -185,7 +185,7 @@ function HistoryDetailsView({ tweaks, initialEntityId, initialDate }) {
                             <span className="t-mono">run-{r.runId}</span>
                             {r.windowStart && (
                               <span className="muted" style={{ fontSize: 11 }}>
-                                {r.windowStart} → {r.windowEnd}
+                                {_fmtWindow(r.windowStart, r.windowEnd)}
                               </span>
                             )}
                           </div>
