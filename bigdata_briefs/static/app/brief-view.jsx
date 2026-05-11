@@ -5,14 +5,18 @@
 /** When false, earnings release labels and earnings-based roster ordering are off. */
 const BRIEF_SHOW_EARNINGS_RELEASE_INFO = false;
 
-function _parseWindowParts(iso) {
+const _TZ_OPTIONS = { "UTC": "UTC", "New York": "America/New_York", "CET": "Europe/Paris" };
+function _tzIana(tz) { return _TZ_OPTIONS[tz] || "UTC"; }
+
+function _parseWindowParts(iso, tz) {
   if (!iso) return { weekday: "—", monShort: "—", day: "—", time: "—" };
+  const zone = _tzIana(tz);
   const d = new Date(iso);
   return {
-    weekday:  d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" }),
-    monShort: d.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }),
-    day:      d.getUTCDate(),
-    time:     d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false }),
+    weekday:  d.toLocaleDateString("en-US", { weekday: "short", timeZone: zone }),
+    monShort: d.toLocaleDateString("en-US", { month: "short", timeZone: zone }),
+    day:      parseInt(d.toLocaleDateString("en-US", { day: "numeric", timeZone: zone }), 10),
+    time:     d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: zone, hour12: false }),
   };
 }
 
@@ -29,14 +33,14 @@ function _fmtDur(start, end) {
   return `${days}d ${h % 24}h`;
 }
 
-function BriefWindowBand({ start, end }) {
-  const s = _parseWindowParts(start);
-  const e = _parseWindowParts(end);
+function BriefWindowBand({ start, end, tz }) {
+  const s = _parseWindowParts(start, tz);
+  const e = _parseWindowParts(end, tz);
   return (
     <div className="cw-v6">
       <div className="cw-v6-plate">
         <div className="cw-v6-plate-main">Coverage</div>
-        <div className="cw-v6-plate-sub">UTC</div>
+        <div className="cw-v6-plate-sub">{tz || "UTC"}</div>
       </div>
       <div className="cw-v6-content">
         <div className="cw-v6-stamp">
@@ -62,23 +66,21 @@ function BriefWindowBand({ start, end }) {
   );
 }
 
-function _fmtWindow(start, end) {
+function _fmtWindow(start, end, tz) {
   if (!start) return "—";
-  const fmt = iso => {
-    const d = new Date(iso);
-    const mon = d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-    const t   = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false });
-    return `${mon} ${t}`;
-  };
-  if (!end) return fmt(start) + " UTC";
-  const s = fmt(start), e = fmt(end);
-  // Drop date prefix on the end side when same calendar day
-  const sDate = start.slice(0, 10), eDate = (end || "").slice(0, 10);
-  const eShort = sDate === eDate ? e.replace(/^[A-Z][a-z]+ \d+ /, "") : e;
-  return `${s} → ${eShort} UTC`;
+  const zone = _tzIana(tz);
+  const label = tz || "UTC";
+  const fmtDate = iso => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: zone });
+  const fmtTime = iso => new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: zone, hour12: false });
+  const fmt    = iso => `${fmtDate(iso)} ${fmtTime(iso)}`;
+  if (!end) return `${fmt(start)} ${label}`;
+  const sDate = fmtDate(start), eDate = fmtDate(end);
+  return sDate === eDate
+    ? `${fmt(start)} → ${fmtTime(end)} ${label}`
+    : `${fmt(start)} → ${fmt(end)} ${label}`;
 }
 
-function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView, setAuditEntityId, setAuditDate }) {
+function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView, setAuditEntityId, setAuditDate, timezone }) {
   const initialBrief = window.DATA.todaysBrief;
   const initialDates = window.DATA.availableDates || [];
   const initialDate = initialBrief?.windowEnd?.slice(0, 10) || initialDates[initialDates.length - 1] || null;
@@ -471,6 +473,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
             <BriefWindowBand
               start={brief.coverageStart || brief.windowStart}
               end={brief.coverageEnd   || brief.windowEnd}
+              tz={timezone}
             />
           )}
         </header>
@@ -525,9 +528,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
             </div>
             <div>
               <div className="t-cap">Window</div>
-              <div className="soft">
-                {brief?.windowStart ? brief.windowStart.slice(0, 10) : "—"} → {brief?.windowEnd ? brief.windowEnd.slice(0, 16).replace("T", " ") + " UTC" : "—"}
-              </div>
+              <div className="soft">{_fmtWindow(brief?.windowStart, brief?.windowEnd, timezone)}</div>
             </div>
             <div>
               <div className="t-cap">Coverage</div>

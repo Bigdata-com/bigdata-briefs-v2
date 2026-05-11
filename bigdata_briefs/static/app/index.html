@@ -45,7 +45,8 @@
       "showDiscarded": true,
       "dropcap": true,
       "accent": "#B23B1F",
-      "view": "brief"
+      "view": "brief",
+      "timezone": "UTC"
     }/*EDITMODE-END*/;
 
     function App() {
@@ -80,6 +81,7 @@
                   setView={setView}
                   setAuditEntityId={setAuditEntityId}
                   setAuditDate={setAuditDate}
+                  timezone={t.timezone}
                 />
               )}
               {view === "scan" && <ScanView tweaks={t} />}
@@ -107,6 +109,10 @@
             <TweakColor label="Masthead accent" value={t.accent}
                         onChange={(v) => setTweak("accent", v)} />
 
+            <TweakSection label="Brief" />
+            <TweakSelect label="Time zone" value={t.timezone}
+                        options={["UTC", "New York", "CET"]}
+                        onChange={(v) => setTweak("timezone", v)} />
             <TweakSection label="View" />
             <TweakSelect label="Section" value={view}
                         options={["brief", "scan", "update", "history", "history-details", "cost"]}
