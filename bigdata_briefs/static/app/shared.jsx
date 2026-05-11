@@ -6,7 +6,7 @@ const { useState, useEffect, useRef, useMemo } = React;
 // Supported values: "UTC", "New York", "CET"
 const DISPLAY_TZ = "ET";
 const _TZ_MAP  = { "UTC": "UTC", "ET": "America/New_York", "CET": "Europe/Paris" };
-const _TZ_LONG = { "UTC": "UTC", "ET": "ET New York Time", "CET": "CET Central European Time" };
+const _TZ_LONG = { "UTC": "UTC", "ET": "ET / New York Time", "CET": "CET / Central European Time" };
 function _tzIana(tz) { return _TZ_MAP[tz != null ? tz : DISPLAY_TZ] || "UTC"; }
 function _tzLong(tz) { return _TZ_LONG[tz != null ? tz : DISPLAY_TZ] || tz || DISPLAY_TZ; }
 
