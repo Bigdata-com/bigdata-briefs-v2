@@ -127,6 +127,9 @@ def build_scan_windows(
             )
             if next_boundary <= cursor:
                 next_boundary += timedelta(days=1)
+            # Skip Saturday (5) and Sunday (6): extend through the weekend to Monday
+            while next_boundary.weekday() in (5, 6):
+                next_boundary += timedelta(days=1)
             window_end = min(next_boundary, end)
             next_cursor = window_end
         windows.append((cursor, window_end))
@@ -462,10 +465,16 @@ def _start_one_scan(
     summary="Start a historical day-by-day scan for one entity or an entire universe",
     description=(
         "Provide either `entity_id` (single entity) or `universe` (all entities in a "
-        "named universe). Runs the pipeline once per calendar day from `start_date` to "
+        "named universe). Runs the pipeline once per window from `start_date` to "
         "`end_date` (default: today). Resumes from the last completed window automatically.\n\n"
         "Single entity → returns a `ScanResponse` with one `scan_id`.\n"
-        "Universe → returns a `UniverseScanResponse` with one `scan_id` per entity."
+        "Universe → returns a `UniverseScanResponse` with one `scan_id` per entity.\n\n"
+        "**Window timing** — by default each window spans one UTC calendar day (midnight to midnight). "
+        "Set `boundary_time` (`HH:MM` UTC) to shift the daily split point: `12:30` gives market-open "
+        "to market-open windows (08:30 ET; `13:30` UTC in winter EST). "
+        "Friday windows automatically extend through the weekend to Monday — five windows per week, no gaps. `start_time` (optional) sets the clock on `start_date` only; "
+        "`end_time` (optional) sets the clock on `end_date` only. Set all three to the same value for "
+        "a fully aligned range with no partial windows at the edges."
     ),
 )
 def start_scan(

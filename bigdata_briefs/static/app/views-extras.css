@@ -180,7 +180,8 @@
   gap: 8px;
 }
 .scan-date-field { display: flex; flex-direction: column; gap: 4px; }
-.scan-date-field input[type="date"] {
+.scan-date-field input[type="date"],
+.scan-date-field input[type="time"] {
   font-family: var(--mono);
   font-size: 13px;
   padding: 8px 10px;

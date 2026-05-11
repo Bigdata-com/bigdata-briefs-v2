@@ -140,16 +140,28 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
 
 #### `POST /api/v1/scan`
 
-Use `scan` when you need to build or backfill a historical record for a portfolio. It takes an explicit date range, splits it into individual calendar-day windows, and processes them sequentially.
+Use `scan` when you need to build or backfill a historical record for a portfolio. It takes an explicit date range, splits it into windows, and processes them sequentially.
+
+By default each window spans one UTC calendar day (midnight to midnight). Set `boundary_time` (`HH:MM` UTC) to shift the daily split point — `12:30` gives market-open to market-open windows (08:30 ET; `13:30` UTC in winter EST). When `boundary_time` is set, Friday windows automatically extend through the weekend to Monday, so each week produces exactly five windows with no weekend gaps. `start_time` (optional) sets the clock on `start_date` only; `end_time` (optional) sets the clock on `end_date` only. Set all three to the same value for a fully aligned range.
 
 ```bash
+# Midnight-to-midnight (default)
 curl -X POST http://localhost:8000/api/v1/scan \
   -H "Content-Type: application/json" \
   -d '{
     "universe": "dow_30",
-    "start_date": "2026-04-01T00:00:00",
-    "end_date": "2026-04-30T23:59:59",
-    "source_categories": ["news"]
+    "start_date": "2026-04-01",
+    "end_date": "2026-04-30"
+  }'
+
+# Market-open to market-open (09:30 ET = 13:30 UTC)
+curl -X POST http://localhost:8000/api/v1/scan \
+  -H "Content-Type: application/json" \
+  -d '{
+    "universe": "dow_30",
+    "start_date": "2026-04-01",
+    "end_date": "2026-04-30",
+    "boundary_time": "12:30"
   }'
 ```
 

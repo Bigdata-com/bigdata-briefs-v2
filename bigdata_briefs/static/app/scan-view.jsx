@@ -18,7 +18,7 @@ function ScanView({ tweaks }) {
   const [startDate, setStartDate] = useStateS(weekAgo);
   const [endDate,   setEndDate]   = useStateS(today);
   const [startTime,    setStartTime]    = useStateS("00:00");
-  const [endTime,      setEndTime]      = useStateS("00:00");
+  const [endTime,      setEndTime]      = useStateS("23:59");
   const [boundaryTime, setBoundaryTime] = useStateS("00:00");
   const [updateEndDate, setUpdateEndDate] = useStateS(today); // optional end date for update mode
   const [sources, setSources] = useStateS(["news_premium"]);
@@ -131,7 +131,7 @@ function ScanView({ tweaks }) {
       start_date: startDate, end_date: endDate,
       source_categories: sources,
       ...(startTime    !== "00:00" && { start_time:    startTime }),
-      ...(endTime      !== "00:00" && { end_time:      endTime }),
+      ...(endTime      !== "23:59" && { end_time:      endTime }),
       ...(boundaryTime !== "00:00" && { boundary_time: boundaryTime }),
     };
     if (scope === "entity")   body.entity_id = entity.id;
@@ -338,26 +338,6 @@ function ScanView({ tweaks }) {
                        onChange={e => setEndDate(e.target.value)} />
               </label>
             </div>
-            <div className="scan-date-row" style={{ marginTop: 10 }}>
-              <label className="scan-date-field">
-                <span className="t-cap">Start time (UTC)</span>
-                <input type="time" value={startTime}
-                       onChange={e => setStartTime(e.target.value)} />
-              </label>
-              <label className="scan-date-field">
-                <span className="t-cap">End time (UTC)</span>
-                <input type="time" value={endTime}
-                       onChange={e => setEndTime(e.target.value)} />
-              </label>
-              <label className="scan-date-field">
-                <span className="t-cap">Day boundary (UTC)</span>
-                <input type="time" value={boundaryTime}
-                       onChange={e => setBoundaryTime(e.target.value)} />
-              </label>
-            </div>
-            <p className="scan-hint" style={{ marginTop: 6 }}>
-              Day boundary splits each 24h window — e.g. 13:30 for market open (09:30 ET).
-            </p>
           </section>
         )}
 
