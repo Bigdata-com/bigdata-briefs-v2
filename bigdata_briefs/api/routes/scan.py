@@ -13,7 +13,7 @@ from __future__ import annotations
 import csv
 import json
 import uuid
-from datetime import date as date_cls, datetime, timedelta, timezone
+from datetime import date as date_cls, datetime, time as time_cls, timedelta, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -98,27 +98,39 @@ def _latest_process_completed_at_utc(engine, entity_id: str) -> datetime | None:
 def build_scan_windows(
     start: datetime,
     end: datetime,
+    boundary_time: time_cls | None = None,
 ) -> list[tuple[datetime, datetime]]:
     """Return a list of (window_start, window_end) covering start→end day by day.
 
-    Each window spans one UTC calendar day:
+    When ``boundary_time`` is None (default) each window spans one UTC calendar day:
       - window_start: start of the day (or ``start`` for the first day)
       - window_end:   23:59:59 of the day, clipped by ``end``
 
-    Pass ``end = datetime.now(timezone.utc)`` for a live scan: the last window will
-    naturally stop at ``now`` rather than end-of-day.
+    When ``boundary_time`` is set (e.g. time(13, 30) for 09:30 ET) each window runs
+    from one occurrence of that time to the next, e.g. May 7 13:30 → May 8 13:30.
     """
     windows: list[tuple[datetime, datetime]] = []
-    cursor = _ensure_utc_scan(start)  # keep sub-second precision for resume points
+    cursor = _ensure_utc_scan(start)
     end = _ensure_utc_scan(end)
 
     while cursor < end:
-        day_end = cursor.replace(hour=23, minute=59, second=59, microsecond=0)
-        window_end = min(day_end, end)
+        if boundary_time is None:
+            day_end = cursor.replace(hour=23, minute=59, second=59, microsecond=0)
+            window_end = min(day_end, end)
+            next_cursor = (cursor + timedelta(days=1)).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+        else:
+            next_boundary = cursor.replace(
+                hour=boundary_time.hour, minute=boundary_time.minute,
+                second=0, microsecond=0,
+            )
+            if next_boundary <= cursor:
+                next_boundary += timedelta(days=1)
+            window_end = min(next_boundary, end)
+            next_cursor = window_end
         windows.append((cursor, window_end))
-        cursor = (cursor + timedelta(days=1)).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        cursor = next_cursor
 
     return windows
 
@@ -339,6 +351,9 @@ class ScanRequest(BaseModel):
     universe: str | None = None    # scan all entities in this universe
     start_date: str                # YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS
     end_date: str | None = None    # YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS; defaults to now
+    start_time: str | None = None  # HH:MM UTC — overrides the time on start_date
+    end_time: str | None = None    # HH:MM UTC — overrides the time on end_date
+    boundary_time: str | None = None  # HH:MM UTC — daily split point (default: 00:00 midnight)
     source_categories: list[str] | None = None  # override pipeline categories (news, news_premium, filings, transcripts)
 
 
@@ -354,6 +369,16 @@ class UniverseScanResponse(BaseModel):
     scans: list[ScanResponse]
     total_entities: int
     universe: str
+
+
+def _parse_hhmm(value: str | None, field: str) -> time_cls | None:
+    if not value:
+        return None
+    try:
+        h, m = value.strip().split(":")
+        return time_cls(int(h), int(m), 0)
+    except (ValueError, AttributeError):
+        raise HTTPException(status_code=422, detail=f"{field} must be HH:MM (e.g. '13:30')")
 
 
 def _parse_dates(start_date: str, end_date: str | None) -> tuple[datetime, datetime]:
@@ -395,10 +420,11 @@ def _start_one_scan(
     connection_sem,
     http_client,
     source_categories: list[str] | None = None,
+    boundary_time: time_cls | None = None,
 ) -> ScanResponse | None:
     """Create and submit one scan. Returns None if already up to date."""
     effective_start = resolve_scan_start(engine, entity_id, requested_start, end)
-    windows = build_scan_windows(effective_start, end)
+    windows = build_scan_windows(effective_start, end, boundary_time=boundary_time)
     if not windows:
         return None
 
@@ -457,6 +483,17 @@ def start_scan(
     engine = get_engine()
     requested_start, end = _parse_dates(body.start_date, body.end_date)
 
+    start_t    = _parse_hhmm(body.start_time, "start_time")
+    end_t      = _parse_hhmm(body.end_time, "end_time")
+    boundary_t = _parse_hhmm(body.boundary_time, "boundary_time")
+
+    if start_t:
+        requested_start = requested_start.replace(
+            hour=start_t.hour, minute=start_t.minute, second=0, microsecond=0
+        )
+    if end_t:
+        end = end.replace(hour=end_t.hour, minute=end_t.minute, second=0, microsecond=0)
+
     if body.universe:
         entity_ids = _UNIVERSES.get(body.universe)
         if entity_ids is None:
@@ -466,12 +503,12 @@ def start_scan(
             )
         scans: list[ScanResponse] = []
         for eid in entity_ids:
-            resp = _start_one_scan(eid, requested_start, end, engine, executor, rate_limiter, connection_sem, http_client, source_categories=body.source_categories)
+            resp = _start_one_scan(eid, requested_start, end, engine, executor, rate_limiter, connection_sem, http_client, source_categories=body.source_categories, boundary_time=boundary_t)
             if resp:
                 scans.append(resp)
         return UniverseScanResponse(scans=scans, total_entities=len(entity_ids), universe=body.universe)
 
-    resp = _start_one_scan(body.entity_id, requested_start, end, engine, executor, rate_limiter, connection_sem, http_client, source_categories=body.source_categories)
+    resp = _start_one_scan(body.entity_id, requested_start, end, engine, executor, rate_limiter, connection_sem, http_client, source_categories=body.source_categories, boundary_time=boundary_t)
     if resp is None:
         raise HTTPException(status_code=422, detail="No windows to process — already up to date.")
     return resp
