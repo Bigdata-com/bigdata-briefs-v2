@@ -130,9 +130,8 @@ function LandingEditorial() {
                 Once a day, the analyst opens{" "}
                 <span className="num">{MANUAL_DEFAULTS.numSources} news sources</span> one by one,
                 spending about <span className="num">{MANUAL_DEFAULTS.secondsScanPerSource} seconds</span> per source
-                scanning headlines across the entire coverage universe. That is{" "}
-                <span className="num">{fmtMinShort(manual.scan.totalMin)}</span> before a single
-                article is read for any company.
+                scanning headlines across the entire coverage universe, which alone takes{" "}
+                <span className="num">{fmtMinShort(manual.scan.totalMin)}</span>.
               </p>
               <p>
                 Then, for each of the <span className="num">{numCompanies}</span> companies, the analyst

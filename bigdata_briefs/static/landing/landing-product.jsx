@@ -371,9 +371,8 @@ function LandingProduct() {
           <p>
             Once a day, the analyst opens <span className="num">{MANUAL_DEFAULTS.numSources} sources</span> one
             by one, about <span className="num">{MANUAL_DEFAULTS.secondsScanPerSource}s per source</span>,
-            scanning headlines across the full universe. That is{" "}
-            <span className="num">{fmtMinShort(manual.scan.totalMin)}</span> before a single
-            article is read for any company.
+            scanning headlines across the full universe, which alone takes{" "}
+            <span className="num">{fmtMinShort(manual.scan.totalMin)}</span>.
           </p>
           <p>
             Then, for each of the <span className="num">{numCompanies}</span> companies, the analyst
