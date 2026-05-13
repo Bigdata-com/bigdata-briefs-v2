@@ -575,12 +575,17 @@ function ScanCostEstimate({ config }) {
         <span className="t-cap">
           {days > 1 ? `Estimated cost for ${days} days` : "Est. cost"}
         </span>
-        <span className="scan-estimate-val tnum">{fmt(estimate.totalCost)}</span>
+        <span className="scan-estimate-val tnum">
+          {days > 1 ? fmt(estimate.totalCost) : `${fmt(estimate.costPerDay)}/day`}
+        </span>
       </div>
-      <div className="scan-estimate-foot">
-        {fmt(estimate.costPerDay)}/day
-        {estimate.nEntities > 1 && ` · ${estimate.nEntities} entities`}
-      </div>
+      {(days > 1 || estimate.nEntities > 1) && (
+        <div className="scan-estimate-foot">
+          {days > 1 && `${fmt(estimate.costPerDay)}/day`}
+          {days > 1 && estimate.nEntities > 1 && " · "}
+          {estimate.nEntities > 1 && `${estimate.nEntities} entities`}
+        </div>
+      )}
     </div>
   );
 }
