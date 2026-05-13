@@ -1,4 +1,4 @@
-app = 'bigdata-briefs-service-demo'
+app = 'bigdata-briefs-v2'
 primary_region = 'cdg'
 
 [build]
