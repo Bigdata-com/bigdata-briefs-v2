@@ -948,6 +948,7 @@ def get_data() -> dict:
         },
         "themePalette": _THEME_PALETTE,
         "noveltyDays": settings.NOVELTY_LOOKBACK_DAYS,
+        "uiScanEnabled": settings.UI_SCAN_ENABLED,
     }
 
 

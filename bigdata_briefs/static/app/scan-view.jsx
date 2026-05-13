@@ -8,6 +8,7 @@ function ScanView({ tweaks }) {
   const COMPANIES = (window.DATA?.allScanEntities || window.DATA?.companies || [])
     .slice().sort((a, b) => a.name.localeCompare(b.name));
   const UNIVERSES = window.EXTRAS.universes || [];
+  const scanEnabled = window.DATA?.uiScanEnabled === true;
   const today   = new Date().toISOString().slice(0, 10);
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
 
@@ -376,12 +377,14 @@ function ScanView({ tweaks }) {
 
         {/* Action buttons */}
         {mode === "configure" && dateMode === "update" && (
-          <button className="launch-btn launch-btn-scan" onClick={startUpdate}>
+          <button className="launch-btn launch-btn-scan" onClick={startUpdate}
+                  disabled={!scanEnabled} title={!scanEnabled ? "Scan disabled — set UI_SCAN_ENABLED=1 to enable" : undefined}>
             ▶&nbsp; Start update
           </button>
         )}
         {mode === "configure" && dateMode === "custom" && (
-          <button className="launch-btn launch-btn-scan" onClick={startCustomScan}>
+          <button className="launch-btn launch-btn-scan" onClick={startCustomScan}
+                  disabled={!scanEnabled} title={!scanEnabled ? "Scan disabled — set UI_SCAN_ENABLED=1 to enable" : undefined}>
             ▶&nbsp; Start scan
           </button>
         )}

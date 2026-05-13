@@ -130,6 +130,10 @@ class Settings(BaseSettings):
     # Set as JSON string in environment: ENTITY_LISTS='{"sp500": ["D8442A", ...], "tech": [...]}'
     ENTITY_LISTS: dict[str, list[str]] = {}
 
+    # UI scan controls — set UI_SCAN_ENABLED=1 in env to allow triggering runs from the browser.
+    # Default False: the app is read-only (safe for shared / Fly.io deployments).
+    UI_SCAN_ENABLED: bool = False
+
     @classmethod
     def load_from_env(cls) -> "Settings":
         return cls()
