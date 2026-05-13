@@ -138,6 +138,9 @@ class Settings(BaseSettings):
     # When empty (default) auth is skipped, safe for local dev.
     PIPELINE_API_KEY: str = ""
 
+    # Set ENABLE_DOCS=1 to expose /docs, /redoc and /openapi.json. Off by default.
+    ENABLE_DOCS: bool = False
+
     @classmethod
     def load_from_env(cls) -> "Settings":
         return cls()
