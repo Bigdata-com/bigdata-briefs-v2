@@ -372,8 +372,12 @@ function ScanView({ tweaks }) {
           </p>
         )}
 
-        {/* Cost estimate — custom mode */}
-        {dateMode === "custom" && <ScanCostEstimate config={{ scope, entity, universe, startDate, endDate }} />}
+        {/* Cost estimate */}
+        <ScanCostEstimate config={{
+          scope, entity, universe,
+          startDate: dateMode === "custom" ? startDate : updateEndDate,
+          endDate:   dateMode === "custom" ? endDate   : updateEndDate,
+        }} />
 
         {/* Action buttons */}
         {mode === "configure" && dateMode === "update" && (
