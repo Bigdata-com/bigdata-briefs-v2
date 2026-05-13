@@ -248,7 +248,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
             return (
               <button key={c.id} className="brief-pick-row brief-pick-row-item"
                       onClick={() => loadEntity(c.id, null)} disabled={loading}>
-                <span className="brief-pick-col-ticker">{c.ticker}</span>
+                <span className="brief-pick-col-ticker">{_tk(c.ticker)}</span>
                 <span className="brief-pick-col-name">{c.name}</span>
                 <span className="brief-pick-col-date">{date}</span>
                 <span className="brief-pick-col-bullets">{saved}</span>
@@ -319,7 +319,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
                     style={{ cursor: loading ? "wait" : "pointer" }}
                   >
                     <div className="frontpage-row1">
-                      <span className="ticker">{c.ticker}</span>
+                      <span className="ticker">{_tk(c.ticker)}</span>
                       <span className="saved-count tnum">{todaysSaved}</span>
                     </div>
                     {BRIEF_SHOW_EARNINGS_RELEASE_INFO && summary.earningsOnDate && (
@@ -405,7 +405,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
           </div>
           <h1 className="brief-headline t-display">
             <span className="brief-eyebrow">{brief?.entityName}</span>
-            What's new on <em>{brief?.ticker}</em> this morning.
+            What's new on <em>{_tk(brief?.ticker)}</em> this morning.
           </h1>
           {loading
             ? <p className="brief-standfirst" style={{ color: "var(--ink-faint)", fontStyle: "italic" }}>Loading…</p>
@@ -521,7 +521,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
           <div className="entity-card surface">
             <div className="entity-card-name t-h3">{brief.entityName}</div>
             <div className="entity-card-meta">
-              <span className="entity-card-ticker">{brief.ticker}</span>
+              <span className="entity-card-ticker">{_tk(brief.ticker)}</span>
               {brief.exchange && <span className="entity-card-exchange">· {brief.exchange}</span>}
             </div>
             <hr className="rule" style={{ margin: "12px 0" }} />

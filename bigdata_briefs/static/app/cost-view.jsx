@@ -367,7 +367,7 @@ function CostView({ tweaks }) {
                       onClick={() => loadBreakdown(r.runId)}
                       disabled={loading}>
                 <div className="cost-run-row1">
-                  <span className="t-mono cost-run-ticker">{r.ticker}</span>
+                  <span className="t-mono cost-run-ticker">{_tk(r.ticker)}</span>
                   <span className="t-mono cost-run-cost tnum">${r.cost.toFixed(4)}</span>
                 </div>
                 <div className="cost-run-name">{r.entity}</div>
@@ -387,7 +387,7 @@ function CostView({ tweaks }) {
         <header className="cost-header">
           <a href="#" className="back-link">← Activity log</a>
           <div className="dateline">Cost forensics · run {C.runId}</div>
-          <h1 className="display cost-title">{C.entityName} <em>·</em> {C.ticker}</h1>
+          <h1 className="display cost-title">{C.entityName} <em>·</em> {_tk(C.ticker)}</h1>
           <div className="cost-meta">
             <span className="t-mono">{C.entityId}</span>
             <span className="muted">·</span>

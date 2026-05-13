@@ -72,7 +72,7 @@ function HistoryDetailsView({ tweaks, initialEntityId, initialDate }) {
                         onClick={() => loadForensics(c.id)} disabled={loading}>
                   <span className="ac-runs">{runs}</span>
                   <span className="ac-name">{c.name}</span>
-                  <span className="ac-meta">{c.ticker} · {c.sector?.split(" ")[0] || ""}</span>
+                  <span className="ac-meta">{_tk(c.ticker)} · {c.sector?.split(" ")[0] || ""}</span>
                 </button>
               </li>
             );
@@ -82,7 +82,7 @@ function HistoryDetailsView({ tweaks, initialEntityId, initialDate }) {
 
       <div className="archive-main">
         <header className="archive-header">
-          <div className="t-cap">{ticker} · AUDIT</div>
+          <div className="t-cap">{_tk(ticker)} · AUDIT</div>
           <h1 className="archive-title display">
             {loading ? <span style={{ color: "var(--ink-faint)", fontStyle: "italic" }}>Loading…</span> : entityName}
           </h1>

@@ -88,7 +88,7 @@ function ArchiveView({ tweaks }) {
                 >
                   <span className="ac-runs">{runs !== "—" ? `${runs} ${runs === 1 ? "day" : "days"}` : "—"}</span>
                   <span className="ac-name">{c.name}</span>
-                  <span className="ac-meta">{c.ticker} · {c.sector?.split(" ")[0] || ""}</span>
+                  <span className="ac-meta">{_tk(c.ticker)} · {c.sector?.split(" ")[0] || ""}</span>
                 </button>
               </li>
             );
@@ -98,7 +98,7 @@ function ArchiveView({ tweaks }) {
 
       <div className="archive-main">
         <header className="archive-header">
-          <div className="t-cap">{historyData.ticker} · {companies.find(c => c.id === historyData.entityId)?.industry || ""}</div>
+          <div className="t-cap">{_tk(historyData.ticker)} · {companies.find(c => c.id === historyData.entityId)?.industry || ""}</div>
           <h1 className="archive-title display">
             {loading ? <span style={{ color: "var(--ink-faint)", fontStyle: "italic" }}>Loading…</span> : historyData.entityName}
           </h1>

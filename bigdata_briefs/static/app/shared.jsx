@@ -10,6 +10,8 @@ const _TZ_LONG = { "UTC": "UTC", "ET": "ET / New York Time", "CET": "CET / Centr
 function _tzIana(tz) { return _TZ_MAP[tz != null ? tz : DISPLAY_TZ] || "UTC"; }
 function _tzLong(tz) { return _TZ_LONG[tz != null ? tz : DISPLAY_TZ] || tz || DISPLAY_TZ; }
 
+function _tk(ticker) { return ticker || "PRIVATE"; }
+
 function _fmtRunDate(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
