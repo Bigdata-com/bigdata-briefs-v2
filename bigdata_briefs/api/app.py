@@ -86,6 +86,9 @@ def create_app() -> FastAPI:
         ),
         version="2.0.0",
         lifespan=lifespan,
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
     )
 
     app.add_middleware(
@@ -125,7 +128,7 @@ def create_app() -> FastAPI:
 
     @app.get("/", include_in_schema=False)
     async def root() -> RedirectResponse:
-        return RedirectResponse(url="/ui/run")
+        return RedirectResponse(url="/app/desk")
 
     @app.get("/health", include_in_schema=False)
     async def health() -> JSONResponse:
