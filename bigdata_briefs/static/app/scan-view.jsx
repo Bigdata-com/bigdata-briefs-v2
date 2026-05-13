@@ -377,15 +377,13 @@ function ScanView({ tweaks }) {
 
         {/* Action buttons */}
         {mode === "configure" && dateMode === "update" && (
-          <button className="launch-btn launch-btn-scan" onClick={startUpdate}
-                  disabled={!scanEnabled} title={!scanEnabled ? "Scan disabled — set UI_SCAN_ENABLED=1 to enable" : undefined}>
-            ▶&nbsp; Start update
+          <button className="launch-btn launch-btn-scan" onClick={startUpdate} disabled={!scanEnabled}>
+            ▶&nbsp; Start update{!scanEnabled && " (disabled)"}
           </button>
         )}
         {mode === "configure" && dateMode === "custom" && (
-          <button className="launch-btn launch-btn-scan" onClick={startCustomScan}
-                  disabled={!scanEnabled} title={!scanEnabled ? "Scan disabled — set UI_SCAN_ENABLED=1 to enable" : undefined}>
-            ▶&nbsp; Start scan
+          <button className="launch-btn launch-btn-scan" onClick={startCustomScan} disabled={!scanEnabled}>
+            ▶&nbsp; Start scan{!scanEnabled && " (disabled)"}
           </button>
         )}
         {isRunning && (
