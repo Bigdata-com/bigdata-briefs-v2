@@ -569,8 +569,6 @@ function ScanCostEstimate({ config }) {
 
   if (!estimate) return null;
   const fmt = v => v < 0.01 ? "< $0.01" : `$${v.toFixed(2)}`;
-  const partial = estimate.coveredEntities < estimate.nEntities
-    ? ` · ${estimate.coveredEntities}/${estimate.nEntities} entities with data` : "";
   return (
     <div className="scan-estimate">
       <div className="scan-estimate-row">
@@ -579,7 +577,7 @@ function ScanCostEstimate({ config }) {
       </div>
       <div className="scan-estimate-foot">
         {fmt(estimate.costPerDay)}/day · {days} day{days !== 1 ? "s" : ""}
-        {estimate.nEntities > 1 && ` · ${estimate.nEntities} entities`}{partial}
+        {estimate.nEntities > 1 && ` · ${estimate.nEntities} entities`}
       </div>
     </div>
   );
