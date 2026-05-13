@@ -134,6 +134,10 @@ class Settings(BaseSettings):
     # Default False: the app is read-only (safe for shared / Fly.io deployments).
     UI_SCAN_ENABLED: bool = False
 
+    # REST API key — set PIPELINE_API_KEY in env/secrets to protect write endpoints.
+    # When empty (default) auth is skipped, safe for local dev.
+    PIPELINE_API_KEY: str = ""
+
     @classmethod
     def load_from_env(cls) -> "Settings":
         return cls()
