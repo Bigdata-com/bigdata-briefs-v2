@@ -572,11 +572,13 @@ function ScanCostEstimate({ config }) {
   return (
     <div className="scan-estimate">
       <div className="scan-estimate-row">
-        <span className="t-cap">Est. cost</span>
+        <span className="t-cap">
+          {days > 1 ? `Estimated cost for ${days} days` : "Est. cost"}
+        </span>
         <span className="scan-estimate-val tnum">{fmt(estimate.totalCost)}</span>
       </div>
       <div className="scan-estimate-foot">
-        {fmt(estimate.costPerDay)}/day · {days} day{days !== 1 ? "s" : ""}
+        {fmt(estimate.costPerDay)}/day
         {estimate.nEntities > 1 && ` · ${estimate.nEntities} entities`}
       </div>
     </div>
