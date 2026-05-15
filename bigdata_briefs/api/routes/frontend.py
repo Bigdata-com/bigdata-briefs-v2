@@ -1717,8 +1717,12 @@ def get_related_briefs(entity_id: str, date: str) -> dict:
 # ── Portfolio Brief ──────────────────────────────────────────────────────────
 
 @router.get("/portfolio-brief")
-def get_portfolio_brief(date: str | None = None, top_n: int = 10) -> dict:
-    """Generate a portfolio narrative for the top N companies on a given date."""
+def get_portfolio_brief(date: str | None = None, top_n: int = 5) -> dict:
+    """Return cached portfolio narrative (generated after each batch run) for the top N companies.
+
+    Falls back to on-demand generation if no cached brief exists for the requested date.
+    """
+    from bigdata_briefs.orchestration.models import SQLPortfolioBrief
     engine = get_engine()
     with Session(engine) as session:
         # Resolve the target date
@@ -1738,6 +1742,22 @@ def get_portfolio_brief(date: str | None = None, top_n: int = 10) -> dict:
 
         if not target_date:
             return {"narrative": None, "date": None, "companies": [], "generated_at": None}
+
+        # ── Check DB cache first ─────────────────────────────────────────
+        cached = session.exec(
+            select(SQLPortfolioBrief).where(SQLPortfolioBrief.date == target_date)
+        ).first()
+        if cached:
+            try:
+                companies = json.loads(cached.companies_json)
+            except Exception:
+                companies = []
+            return {
+                "narrative": cached.narrative,
+                "date": target_date,
+                "companies": companies,
+                "generated_at": _iso(cached.generated_at),
+            }
 
         try:
             from datetime import date as _date

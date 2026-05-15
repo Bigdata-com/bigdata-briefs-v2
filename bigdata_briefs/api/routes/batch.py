@@ -485,6 +485,27 @@ def batch_run_parallel(
                     total=total,
                     entity_ids=entity_ids,
                 )
+                # After all entities finish, generate the portfolio brief in background
+                import threading as _threading
+                def _gen_portfolio_brief():
+                    try:
+                        from sqlmodel import Session as _Session, select as _select
+                        from sqlalchemy import desc as _desc
+                        from bigdata_briefs.orchestration.models import SQLEntityPipelineRunLog as _RunLog
+                        from bigdata_briefs.orchestration.portfolio_brief import generate_and_store_portfolio_brief
+                        with _Session(engine) as _s:
+                            latest = _s.exec(
+                                _select(_RunLog)
+                                .where(_RunLog.run_id.in_(run_ids))
+                                .where(_RunLog.status.in_(["succeeded", "no_data"]))
+                                .order_by(_desc(_RunLog.report_window_end))
+                            ).first()
+                        if latest and latest.report_window_end:
+                            date_iso = latest.report_window_end.date().isoformat()
+                            generate_and_store_portfolio_brief(engine, date_iso, top_n=5)
+                    except Exception:
+                        logger.exception("Portfolio brief post-batch trigger failed")
+                _threading.Thread(target=_gen_portfolio_brief, daemon=True).start()
 
     for idx, (run_id, entity_id) in enumerate(zip(run_ids, entity_ids)):
         future = executor.submit(

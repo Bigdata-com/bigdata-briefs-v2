@@ -186,6 +186,21 @@ class SQLEntityEarningsCalendar(SQLModel, table=True):
     updated_at: datetime
 
 
+class SQLPortfolioBrief(SQLModel, table=True):
+    """Cached portfolio narrative for the top N companies on a given date.
+
+    Written automatically after every batch/run-parallel completes.
+    One row per date (upserted on each batch completion).
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    date: str = Field(max_length=10, index=True)          # YYYY-MM-DD
+    top_n: int = Field(default=5)                          # actual companies included
+    narrative: str = Field(sa_type=Text)
+    companies_json: str = Field(default="[]", sa_type=Text)  # [{entityId, name, ticker, bulletCount}]
+    generated_at: datetime
+
+
 class SQLEntityPipelineRunLog(SQLModel, table=True):
     """Append-style audit + single-flight lease per entity."""
 
