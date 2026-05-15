@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Text
 from sqlmodel import Field, SQLModel
 
@@ -218,6 +218,15 @@ class SQLRunNarrative(SQLModel, table=True):
     bullets_count: int                              # total active bullets used (across the day)
     citations_included: bool = Field(default=False) # True when ≤ 3 bullets → citations were added
     created_at: datetime
+
+
+class SQLUserPortfolio(SQLModel, table=True):
+    """User portfolio — list of entity IDs the user has added."""
+
+    entity_id: str = Field(primary_key=True, max_length=64)
+    entity_name: str | None = Field(default=None, max_length=256)
+    kg_ticker: str | None = Field(default=None, max_length=32)
+    added_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class SQLRunMetrics(SQLModel, table=True):

@@ -77,9 +77,7 @@ function Masthead({ view, setView, theme, setTheme, headerStyle }) {
       </div>
       <div className="section-nav">
         <div className="section-nav-inner">
-          <a href="#" className={view === "home" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("home");}}>Home</a>
           <a href="#" className={view === "brief" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("brief");}}>The Brief</a>
-          <a href="#" className={view === "scan" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("scan");}}>News Scan</a>
           <a href="#" className={view === "portfolio" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("portfolio");}}>My Portfolio</a>
           <a href="#" className={view === "cost" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("cost");}}>Costs</a>
           <span className="nav-spacer"></span>

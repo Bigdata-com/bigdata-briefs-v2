@@ -223,6 +223,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
       onPick={loadEntity}
       companySearch={companySearch}
       setCompanySearch={setCompanySearch}
+      selectedDate={selectedDate}
     />;
   }
 
@@ -722,9 +723,9 @@ function DiscardedList({ items }) {
 
 window.BriefView = BriefView;
 
-// ── Brief landing (Change 2) ─────────────────────────────────────────
+// ── Brief landing ─────────────────────────────────────────
 // Two-column split: Portfolio Brief narrative on the left, company picker on the right.
-function BriefLanding({ loading, companies, summaries, onPick, companySearch, setCompanySearch }) {
+function BriefLanding({ loading, companies, summaries, onPick, companySearch, setCompanySearch, selectedDate }) {
   // Compute aggregate portfolio metrics across all companies for today's date
   const totalSaved     = companies.reduce((s, c) => s + (summaries[c.id]?.bulletsSaved     || 0), 0);
   const totalDiscarded = companies.reduce((s, c) => s + (summaries[c.id]?.bulletsDiscarded || 0), 0);
@@ -737,33 +738,48 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
   const today = new Date();
   const dateLabel = today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 
-  // Mock calendar feed — next confirmed corporate events, sorted nearest first.
-  const _NEXT_EVENTS_RAW = [
-    { id: "ev1", ticker: "NVDA", offsetDays: 1, time: "16:20", tz: "ET", kind: "Earnings call",        kindKey: "earnings",   detail: "FY26 Q1 results, conference call follows the release." },
-    { id: "ev2", ticker: "AAPL", offsetDays: 2, time: "09:00", tz: "ET", kind: "Shareholder meeting",  kindKey: "agm",        detail: "Annual shareholder meeting · Cupertino HQ + webcast." },
-    { id: "ev3", ticker: "JPM",  offsetDays: 3, time: "14:00", tz: "ET", kind: "Investor day",         kindKey: "investorday",detail: "2026 Investor Day · full-year outlook and capital plan." },
-    { id: "ev4", ticker: "TSLA", offsetDays: 5, time: "17:00", tz: "ET", kind: "Earnings call",        kindKey: "earnings",   detail: "Q1 deliveries follow-up call · energy storage focus." },
-    { id: "ev5", ticker: "MSFT", offsetDays: 7, time: "10:30", tz: "ET", kind: "Product launch",       kindKey: "product",    detail: "Build keynote · Copilot platform updates." },
-    { id: "ev6", ticker: "GS",   offsetDays: 9, time: "08:30", tz: "ET", kind: "Conference",           kindKey: "conf",       detail: "Goldman Sachs Global Financial Services Conference." },
-    { id: "ev7", ticker: "XOM",  offsetDays: 11,time: "11:00", tz: "ET", kind: "Ex-dividend",          kindKey: "div",        detail: "Quarterly dividend, $0.95 per share." },
-  ];
-  function _fmtEventDate(d) {
-    const opts = { weekday: "short", month: "short", day: "numeric" };
-    return d.toLocaleDateString("en-US", opts);
-  }
-  const nextEvents = _NEXT_EVENTS_RAW.map(ev => {
-    const d = new Date(today);
-    d.setDate(d.getDate() + ev.offsetDays);
-    return { ...ev, dateLabel: _fmtEventDate(d) };
-  });
+  // Portfolio brief state
+  const [portfolioBrief, setPortfolioBrief] = React.useState(null);
+  const [briefLoading, setBriefLoading] = React.useState(false);
 
-  // Editorial portfolio narrative — a single paragraph synthesised from the day's most active names.
-  const portfolioNarrative = (
-    <>
-      <span className="dropcap">P</span>
-      ortfolio coverage today is led by <strong style={{ fontWeight: 600 }}>Apple</strong>, where the EU's first DMA non-compliance fine of <em>roughly €500m</em> arrives alongside coordinated sell-side Q3 trims and a normalising Vision Pro inventory — three independent threads that materially shift the near-term setup. In financials, <strong style={{ fontWeight: 600 }}>JPMorgan</strong> drew attention on a refreshed buyback authorisation and softer NII commentary at an investor conference, while <strong style={{ fontWeight: 600 }}>Goldman Sachs</strong> saw its third consecutive day of constructive prime-brokerage flow data. <strong style={{ fontWeight: 600 }}>NVIDIA</strong> remained the cycle's bellwether, with supply-chain checks pointing to a normalising lead-time for the next-gen GPU stack. Outside the megacaps, <strong style={{ fontWeight: 600 }}>Boeing</strong> and <strong style={{ fontWeight: 600 }}>Tesla</strong> each registered one material development; the rest of the portfolio was either quiet or covered only by repeat-rate stories the novelty filter cut.
-    </>
-  );
+  // Upcoming events state
+  const [upcomingEvents, setUpcomingEvents] = React.useState(null);
+  const [eventsLoading, setEventsLoading] = React.useState(false);
+
+  // Fetch portfolio brief
+  React.useEffect(() => {
+    setBriefLoading(true);
+    const params = selectedDate ? `?date=${encodeURIComponent(selectedDate)}&top_n=10` : "?top_n=10";
+    fetch(`/api/frontend/portfolio-brief${params}`)
+      .then(r => r.json())
+      .then(data => setPortfolioBrief(data))
+      .catch(() => setPortfolioBrief(null))
+      .finally(() => setBriefLoading(false));
+  }, [selectedDate]);
+
+  // Fetch upcoming events
+  React.useEffect(() => {
+    setEventsLoading(true);
+    const params = selectedDate ? `?date=${encodeURIComponent(selectedDate)}&limit=8` : "?limit=8";
+    fetch(`/api/frontend/upcoming-events${params}`)
+      .then(r => r.json())
+      .then(data => setUpcomingEvents(data))
+      .catch(() => setUpcomingEvents(null))
+      .finally(() => setEventsLoading(false));
+  }, [selectedDate]);
+
+  function _fmtEventDateTime(iso) {
+    if (!iso) return { date: "—", time: "" };
+    const d = new Date(iso);
+    const zone = _tzIana();
+    const date = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: zone });
+    const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: zone });
+    return { date, time };
+  }
+
+  const narrativeText = portfolioBrief?.narrative;
+  const companiesCount = portfolioBrief?.companies?.length || companies.length;
+  const events = upcomingEvents?.events || [];
 
   return (
     <div className="brief-landing">
@@ -774,31 +790,48 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
         <p className="pb-subtitle">A single editorial synthesis of every material development across your coverage today.</p>
 
         <div className="pb-meta-strip">
-          <span className="pb-meta-cell"><strong>{companies.length}</strong> companies</span>
+          <span className="pb-meta-cell"><strong>{companiesCount}</strong> companies</span>
           <span className="pb-meta-cell"><strong>{totalSaved}</strong> material developments</span>
           <span className="pb-meta-cell"><strong>{totalDiscarded}</strong> filtered out</span>
           <span className="pb-meta-cell"><strong>{movers.length}</strong> active names</span>
         </div>
 
-        <p className="pb-narrative">{portfolioNarrative}</p>
+        <p className="pb-narrative">
+          {briefLoading
+            ? <span style={{ color: "var(--ink-faint)", fontStyle: "italic" }}>Generating portfolio brief…</span>
+            : narrativeText
+              ? <><span className="dropcap">{narrativeText.charAt(0)}</span>{narrativeText.slice(1)}</>
+              : <span style={{ color: "var(--ink-mute)", fontStyle: "italic" }}>No data available for this date.</span>
+          }
+        </p>
 
         <div className="pb-highlight-head">Next closest events</div>
-        <ul className="pb-events-list">
-          {nextEvents.map(ev => (
-            <li key={ev.id} className="pb-event">
-              <div className="pb-event-when">
-                <span className="pb-event-date">{ev.dateLabel}</span>
-                <span className="pb-event-time tnum">{ev.time}</span>
-                <span className="pb-event-tz">{ev.tz}</span>
-              </div>
-              <div className="pb-event-meta">
-                <span className="pb-event-ticker">{ev.ticker}</span>
-                <span className="pb-event-kind" data-kind={ev.kindKey}>{ev.kind}</span>
-              </div>
-              <div className="pb-event-detail">{ev.detail}</div>
-            </li>
-          ))}
-        </ul>
+        {eventsLoading ? (
+          <p style={{ color: "var(--ink-faint)", fontStyle: "italic", fontSize: 13 }}>Loading events…</p>
+        ) : events.length === 0 ? (
+          <p style={{ color: "var(--ink-mute)", fontStyle: "italic", fontSize: 13 }}>No upcoming events found.</p>
+        ) : (
+          <ul className="pb-events-list">
+            {events.map((ev, i) => {
+              const { date: evDate, time: evTime } = _fmtEventDateTime(ev.event_datetime);
+              const ticker = ev.ticker || ev.entity_id;
+              return (
+                <li key={i} className="pb-event">
+                  <div className="pb-event-when">
+                    <span className="pb-event-date">{evDate}</span>
+                    <span className="pb-event-time tnum">{evTime}</span>
+                    <span className="pb-event-tz">{DISPLAY_TZ}</span>
+                  </div>
+                  <div className="pb-event-meta">
+                    <span className="pb-event-ticker">{ticker}</span>
+                    <span className="pb-event-kind" data-kind="earnings">{ev.title || "Earnings"}</span>
+                  </div>
+                  <div className="pb-event-detail">{ev.entity_name}{ev.fiscal_period ? ` · ${ev.fiscal_period}` : ""}{ev.fiscal_year ? ` ${ev.fiscal_year}` : ""}</div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
 
       {/* RIGHT: Company picker */}

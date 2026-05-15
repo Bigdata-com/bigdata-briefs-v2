@@ -41,6 +41,7 @@ from bigdata_briefs.orchestration.models import (
     SQLRunNarrative,
     SQLUIBatchRun,
     SQLUIScanRun,
+    SQLUserPortfolio,
 )
 from bigdata_briefs.pricing import calculate_chunk_cost
 from bigdata_briefs.settings import settings
@@ -952,8 +953,9 @@ def get_data() -> dict:
     }
 
 
-def _extras_universe_cards() -> list[dict[str, str | int]]:
-    """Scan-page universe picker: every CSV-backed universe (same registry as REST ``/universes``)."""
+def _extras_universe_cards(engine=None) -> list[dict[str, str | int]]:
+    """Scan-page universe picker: every CSV-backed universe (same registry as REST ``/universes``)
+    plus a dynamic ``my_portfolio`` entry when an engine is provided."""
     from bigdata_briefs.api.routes.universes import _UNIVERSES
 
     labels: dict[str, tuple[str, str]] = {
@@ -976,6 +978,23 @@ def _extras_universe_cards() -> list[dict[str, str | int]]:
             label = uid.replace("_", " ").title().replace("Us ", "US ").replace("Eu ", "EU ")
             desc = f"{n} entities"
         cards.append({"id": uid, "label": label, "count": n, "description": desc, "entity_ids": ids})
+
+    # Append live my_portfolio entry
+    if engine is not None:
+        try:
+            with Session(engine) as s:
+                rows = s.exec(select(SQLUserPortfolio)).all()
+            portfolio_ids = [r.entity_id for r in rows]
+        except Exception:
+            portfolio_ids = []
+        cards.append({
+            "id": "my_portfolio",
+            "label": "My Portfolio",
+            "count": len(portfolio_ids),
+            "description": "Your personal watchlist",
+            "entity_ids": portfolio_ids,
+        })
+
     return cards
 
 
@@ -1145,7 +1164,7 @@ def get_extras() -> dict:
         "historyDetails": {"days": history_days},
         "cost": cost_dict,
         "activity": {"uiBatches": ui_activity, "apiBatches": api_activity},
-        "universes": _extras_universe_cards(),
+        "universes": _extras_universe_cards(engine),
     }
 
 
@@ -1693,6 +1712,276 @@ def get_related_briefs(entity_id: str, date: str) -> dict:
                 })
         scored.sort(key=lambda x: x["bulletsSaved"], reverse=True)
     return {"related": scored[:25]}
+
+
+# ── Portfolio Brief ──────────────────────────────────────────────────────────
+
+@router.get("/portfolio-brief")
+def get_portfolio_brief(date: str | None = None, top_n: int = 10) -> dict:
+    """Generate a portfolio narrative for the top N companies on a given date."""
+    engine = get_engine()
+    with Session(engine) as session:
+        # Resolve the target date
+        if date:
+            target_date = date.strip()[:10]
+        else:
+            latest = session.exec(
+                select(SQLEntityPipelineRunLog)
+                .where(SQLEntityPipelineRunLog.status.in_(["succeeded", "no_data"]))
+                .order_by(desc(SQLEntityPipelineRunLog.report_window_end))
+            ).first()
+            target_date = (
+                latest.report_window_end.date().isoformat()
+                if latest and latest.report_window_end
+                else None
+            )
+
+        if not target_date:
+            return {"narrative": None, "date": None, "companies": [], "generated_at": None}
+
+        try:
+            from datetime import date as _date
+            td = _date.fromisoformat(target_date)
+        except ValueError:
+            return {"narrative": None, "date": target_date, "companies": [], "generated_at": None}
+
+        day_start = datetime(td.year, td.month, td.day, 0, 0, 0)
+        day_end = datetime(td.year, td.month, td.day, 23, 59, 59)
+
+        # Get all runs for the target date
+        runs = session.exec(
+            select(SQLEntityPipelineRunLog).where(
+                SQLEntityPipelineRunLog.status.in_(["succeeded", "no_data"]),
+                SQLEntityPipelineRunLog.report_window_end >= day_start,
+                SQLEntityPipelineRunLog.report_window_end <= day_end,
+            )
+        ).all()
+
+        # Group bullets by entity, count active ones
+        entity_bullets: dict[str, list[str]] = {}
+        for run in runs:
+            bullets = session.exec(
+                select(SQLBulletRunLog).where(
+                    SQLBulletRunLog.run_id == run.run_id,
+                    SQLBulletRunLog.is_active == True,  # noqa: E712
+                )
+            ).all()
+            if bullets:
+                eid = run.entity_id
+                if eid not in entity_bullets:
+                    entity_bullets[eid] = []
+                entity_bullets[eid].extend(b.text for b in bullets)
+
+        if not entity_bullets:
+            return {"narrative": None, "date": target_date, "companies": [], "generated_at": None}
+
+        # Sort by bullet count, take top_n
+        ranked = sorted(entity_bullets.items(), key=lambda x: len(x[1]), reverse=True)[:top_n]
+
+        # Resolve entity metadata
+        companies_out = []
+        for eid, bullets in ranked:
+            orch = session.get(SQLEntityOrchestrationState, eid)
+            name = (orch.kg_name if orch else None) or eid
+            ticker = _TICKER_MAP.get(eid) or (orch.kg_ticker if orch else "") or ""
+            companies_out.append({
+                "entityId": eid,
+                "name": name,
+                "ticker": ticker,
+                "bulletCount": len(bullets),
+            })
+
+    # Build the LLM prompt
+    company_names = ", ".join(c["name"] for c in companies_out)
+    sections = []
+    for i, (eid, bullets) in enumerate(ranked):
+        name = companies_out[i]["name"]
+        joined = " ".join(f"{b.strip().rstrip('.')}." for b in bullets)
+        sections.append(f"**{name}**: {joined}")
+    briefing_text = "\n\n".join(sections)
+
+    user_msg = (
+        f"Portfolio brief for {target_date}.\n\n"
+        f"Companies covered: {company_names}\n\n"
+        f"Briefing summaries:\n\n{briefing_text}\n\n"
+        f"Write a portfolio summary covering the key themes and developments across these companies today."
+    )
+
+    narrative = None
+    try:
+        from bigdata_briefs.llm_client import LLMClient
+        from pydantic import BaseModel as _BaseModel
+
+        class _PortfolioBriefResponse(_BaseModel):
+            narrative: str
+
+        llm = LLMClient()
+        response = llm.call_with_response_format(
+            system=[{
+                "role": "system",
+                "content": (
+                    "You are a financial analyst writing a concise portfolio brief. "
+                    "Given the briefing sentences for multiple companies on a specific date, "
+                    "write a fluent, concise portfolio summary (3-5 sentences) that synthesises "
+                    "the most important developments across these companies. "
+                    "Do not use bullet points. Write in third person. "
+                    "Do not mention the word 'brief' or 'pipeline'. "
+                    "Focus on material developments, themes, and notable events."
+                ),
+            }],
+            messages=[{"role": "user", "content": user_msg}],
+            model="gpt-4.1",
+            max_tokens=200,
+            text_format=_PortfolioBriefResponse,
+            step_name="portfolio_brief",
+        )
+        if response is not None:
+            narrative = response.narrative
+    except Exception:
+        narrative = None
+
+    return {
+        "narrative": narrative,
+        "date": target_date,
+        "companies": companies_out,
+        "generated_at": _iso(datetime.now(timezone.utc)),
+    }
+
+
+# ── Upcoming Events ──────────────────────────────────────────────────────────
+
+@router.get("/upcoming-events")
+def get_upcoming_events(date: str | None = None, limit: int = 10) -> dict:
+    """Return the next upcoming earnings events after a given date."""
+    engine = get_engine()
+
+    # Resolve the reference date
+    if date:
+        try:
+            from datetime import date as _date
+            ref_date = _date.fromisoformat(date.strip()[:10])
+        except ValueError:
+            ref_date = datetime.now(timezone.utc).date()
+    else:
+        ref_date = datetime.now(timezone.utc).date()
+
+    ref_iso = ref_date.isoformat()
+
+    with Session(engine) as session:
+        # Load all earnings calendar rows
+        calendar_rows = session.exec(select(SQLEntityEarningsCalendar)).all()
+
+        # Build entity metadata map
+        orch_map = {
+            r.entity_id: r
+            for r in session.exec(select(SQLEntityOrchestrationState)).all()
+        }
+
+        events = []
+        for cal in calendar_rows:
+            try:
+                raw_events = json.loads(cal.earnings_events_json or "[]")
+            except Exception:
+                continue
+            for ev in raw_events:
+                dt_str = ev.get("event_datetime")
+                if not dt_str:
+                    continue
+                # Compare as ISO string prefix for filtering (YYYY-MM-DD >= ref_iso)
+                ev_date_str = dt_str[:10] if len(dt_str) >= 10 else ""
+                if not ev_date_str or ev_date_str < ref_iso:
+                    continue
+                orch = orch_map.get(cal.entity_id)
+                name = (orch.kg_name if orch else None) or cal.entity_id
+                ticker = _TICKER_MAP.get(cal.entity_id) or (orch.kg_ticker if orch else "") or ""
+                events.append({
+                    "event_datetime": dt_str,
+                    "entity_id": cal.entity_id,
+                    "entity_name": name,
+                    "ticker": ticker,
+                    "title": ev.get("title") or "",
+                    "fiscal_year": ev.get("fiscal_year"),
+                    "fiscal_period": ev.get("fiscal_period"),
+                    "_sort_key": dt_str,
+                })
+
+        # Sort ascending by event_datetime string (ISO format sorts lexicographically)
+        events.sort(key=lambda x: x["_sort_key"])
+        events = events[:limit]
+        for e in events:
+            del e["_sort_key"]
+
+    return {"events": events, "reference_date": ref_iso}
+
+
+# ── Portfolio CRUD ────────────────────────────────────────────────────────────
+
+class _PortfolioAddBody(_BaseModel):
+    entity_id: str
+    entity_name: str | None = None
+    kg_ticker: str | None = None
+
+
+@router.get("/portfolio")
+def get_portfolio() -> dict:
+    """Return the list of all portfolio companies."""
+    engine = get_engine()
+    with Session(engine) as session:
+        rows = session.exec(select(SQLUserPortfolio).order_by(SQLUserPortfolio.added_at)).all()
+    return {
+        "portfolio": [
+            {
+                "entity_id": r.entity_id,
+                "entity_name": r.entity_name,
+                "kg_ticker": r.kg_ticker,
+                "added_at": _iso(r.added_at),
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.post("/portfolio")
+def add_to_portfolio(body: _PortfolioAddBody) -> dict:
+    """Add an entity to the portfolio. Resolves name/ticker from SQLEntityOrchestrationState."""
+    engine = get_engine()
+    with Session(engine) as session:
+        existing = session.get(SQLUserPortfolio, body.entity_id)
+        if existing:
+            return {"status": "already_exists", "entity_id": body.entity_id}
+
+        orch = session.get(SQLEntityOrchestrationState, body.entity_id)
+        name = (orch.kg_name if orch else None) or body.entity_name or body.entity_id
+        ticker = (
+            _TICKER_MAP.get(body.entity_id)
+            or (orch.kg_ticker if orch else None)
+            or body.kg_ticker
+            or None
+        )
+
+        row = SQLUserPortfolio(
+            entity_id=body.entity_id,
+            entity_name=name,
+            kg_ticker=ticker,
+            added_at=datetime.now(timezone.utc),
+        )
+        session.add(row)
+        session.commit()
+
+    return {"status": "added", "entity_id": body.entity_id, "entity_name": name, "kg_ticker": ticker}
+
+
+@router.delete("/portfolio/{entity_id}")
+def remove_from_portfolio(entity_id: str) -> dict:
+    """Remove an entity from the portfolio."""
+    engine = get_engine()
+    with Session(engine) as session:
+        row = session.get(SQLUserPortfolio, entity_id)
+        if not row:
+            return {"status": "not_found", "entity_id": entity_id}
+        session.delete(row)
+        session.commit()
+    return {"status": "removed", "entity_id": entity_id}
 
 
 # ── Admin ─────────────────────────────────────────────────────────────────────

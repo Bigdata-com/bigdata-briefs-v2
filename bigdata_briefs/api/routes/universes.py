@@ -38,6 +38,21 @@ def _load_universes() -> dict[str, list[str]]:
 _UNIVERSES: dict[str, list[str]] = _load_universes()
 
 
+def _get_my_portfolio_ids() -> list[str]:
+    """Fetch live entity_ids from SQLUserPortfolio at request time."""
+    try:
+        from bigdata_briefs.api.dependencies import get_engine
+        from bigdata_briefs.orchestration.models import SQLUserPortfolio
+        from sqlmodel import Session, select
+
+        engine = get_engine()
+        with Session(engine) as session:
+            rows = session.exec(select(SQLUserPortfolio).order_by(SQLUserPortfolio.added_at)).all()
+        return [r.entity_id for r in rows]
+    except Exception:
+        return []
+
+
 @router.get(
     "/universes",
     response_model=UniverseListResponse,
@@ -45,16 +60,17 @@ _UNIVERSES: dict[str, list[str]] = _load_universes()
     description=(
         "Returns the names of all registered company universes and the number "
         "of entities in each one. Universes are loaded from CSV files in "
-        "``bigdata_briefs/data/universes/``."
+        "``bigdata_briefs/data/universes/``. Also includes a live ``my_portfolio`` universe."
     ),
 )
 def list_universes() -> UniverseListResponse:
-    return UniverseListResponse(
-        universes=[
-            UniverseResponse(name=name, entity_ids=ids, total=len(ids))
-            for name, ids in _UNIVERSES.items()
-        ]
-    )
+    portfolio_ids = _get_my_portfolio_ids()
+    universes = [
+        UniverseResponse(name=name, entity_ids=ids, total=len(ids))
+        for name, ids in _UNIVERSES.items()
+    ]
+    universes.append(UniverseResponse(name="my_portfolio", entity_ids=portfolio_ids, total=len(portfolio_ids)))
+    return UniverseListResponse(universes=universes)
 
 
 @router.get(
@@ -64,10 +80,13 @@ def list_universes() -> UniverseListResponse:
     description="Returns the list of entity IDs belonging to the requested universe.",
 )
 def get_universe(name: str) -> UniverseResponse:
+    if name == "my_portfolio":
+        ids = _get_my_portfolio_ids()
+        return UniverseResponse(name="my_portfolio", entity_ids=ids, total=len(ids))
     ids = _UNIVERSES.get(name)
     if ids is None:
         raise HTTPException(
             status_code=404,
-            detail=f"Universe '{name}' not found. Available: {list(_UNIVERSES)}",
+            detail=f"Universe '{name}' not found. Available: {list(_UNIVERSES) + ['my_portfolio']}",
         )
     return UniverseResponse(name=name, entity_ids=ids, total=len(ids))

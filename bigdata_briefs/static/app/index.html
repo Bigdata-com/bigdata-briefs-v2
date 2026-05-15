@@ -53,7 +53,7 @@
 
     function App() {
       const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
-      const [view, setView] = useState("home");
+      const [view, setView] = useState("brief");
       const [showDiscarded, setShowDiscarded] = useState(t.showDiscarded);
 
       // Theme + accent + font scale applied to the document root
@@ -71,7 +71,6 @@
 
           <div className="page">
             <div className="page-inner">
-              {view === "home" && <HomeView setView={setView} />}
               {view === "brief" && (
                 <BriefView
                   density={t.density}
@@ -81,7 +80,6 @@
                   setView={setView}
                 />
               )}
-              {view === "scan"      && <ScanView tweaks={t} />}
               {view === "history"   && <ArchiveView tweaks={t} />}
               {view === "history-details" && <HistoryDetailsView tweaks={t} />}
               {view === "portfolio" && <PortfolioView tweaks={t} />}
@@ -114,7 +112,7 @@
 
             <TweakSection label="View" />
             <TweakSelect label="Section" value={view}
-                        options={["home", "brief", "scan", "portfolio", "cost", "history", "history-details"]}
+                        options={["brief", "portfolio", "cost", "history", "history-details"]}
                         onChange={(v) => setView(v)} />
           </TweaksPanel>
         </React.Fragment>

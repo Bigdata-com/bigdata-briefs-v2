@@ -1,22 +1,8 @@
-// ── My Portfolio view (Change 3) ──────────────────────────────────────
+// ── My Portfolio view ──────────────────────────────────────────────────
 // Left panel: portfolio composition (add/remove/search + dates + start).
 // Right panel: empty by default; on "Start update" shows a support-contact box.
 
 const { useState: useStateP, useEffect: useEffectP, useRef: useRefP } = React;
-
-const PORTFOLIO_STORAGE_KEY = "bigdata.briefs.portfolio.v1";
-
-function loadPortfolio() {
-  try {
-    const raw = localStorage.getItem(PORTFOLIO_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch {}
-  // Default seed: 5 names
-  return ["AAPL01", "MSFT01", "NVDA01", "JPM001", "TSLA01"];
-}
 
 function PortfolioView({ tweaks }) {
   const ALL = window.DATA?.companies || [];
@@ -25,7 +11,9 @@ function PortfolioView({ tweaks }) {
   const hh = String(now.getHours()).padStart(2, "0");
   const mm = String(now.getMinutes()).padStart(2, "0");
 
-  const [portfolio, setPortfolio] = useStateP(loadPortfolio);
+  // portfolio: array of entity_id strings (loaded from API)
+  const [portfolio, setPortfolio] = useStateP([]);
+  const [portfolioLoaded, setPortfolioLoaded] = useStateP(false);
   const [search, setSearch] = useStateP("");
   const [showResults, setShowResults] = useStateP(false);
   const [updateDate, setUpdateDate] = useStateP(today);
@@ -34,9 +22,17 @@ function PortfolioView({ tweaks }) {
 
   const searchRef = useRefP(null);
 
+  // Load portfolio from API on mount
   useEffectP(() => {
-    try { localStorage.setItem(PORTFOLIO_STORAGE_KEY, JSON.stringify(portfolio)); } catch {}
-  }, [portfolio]);
+    fetch("/api/frontend/portfolio")
+      .then(r => r.json())
+      .then(data => {
+        const ids = (data.portfolio || []).map(p => p.entity_id);
+        setPortfolio(ids);
+        setPortfolioLoaded(true);
+      })
+      .catch(() => setPortfolioLoaded(true));
+  }, []);
 
   // Close search dropdown on outside click
   useEffectP(() => {
@@ -63,12 +59,26 @@ function PortfolioView({ tweaks }) {
 
   function addCompany(id) {
     if (portfolio.includes(id)) return;
-    setPortfolio([...portfolio, id]);
+    fetch("/api/frontend/portfolio", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entity_id: id }),
+    })
+      .then(r => r.json())
+      .then(() => {
+        setPortfolio(prev => [...prev, id]);
+      })
+      .catch(console.error);
     setSearch("");
     setShowResults(false);
   }
   function removeCompany(id) {
-    setPortfolio(portfolio.filter(x => x !== id));
+    fetch(`/api/frontend/portfolio/${encodeURIComponent(id)}`, { method: "DELETE" })
+      .then(r => r.json())
+      .then(() => {
+        setPortfolio(prev => prev.filter(x => x !== id));
+      })
+      .catch(console.error);
   }
   function handleStart() {
     setShowSupport(true);
