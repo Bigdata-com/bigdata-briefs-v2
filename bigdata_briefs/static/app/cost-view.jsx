@@ -385,7 +385,7 @@ function CostView({ tweaks }) {
 
       <main className="cost-main">
         <header className="cost-header">
-          <a href="#" className="back-link">← Activity log</a>
+          <a href="#" className="back-link" style={{ display: "none" }}>← Activity log</a>
           <div className="dateline">Cost forensics · run {C.runId}</div>
           <h1 className="display cost-title">{C.entityName} <em>·</em> {_tk(C.ticker)}</h1>
           <div className="cost-meta">
@@ -412,7 +412,7 @@ function CostView({ tweaks }) {
             <div className="cost-tile-sub">{C.summary.embeddingTokens.toLocaleString()} tokens · {C.summary.embeddingModel}</div>
           </div>
           <div className="cost-tile">
-            <div className="t-cap">Grounding tokens cost</div>
+            <div className="t-cap">Grounding tokens cost<sup className="cost-asterisk">*</sup></div>
             <div className="cost-tile-amt tnum">${C.summary.apiChunks.toFixed(4)}</div>
             <div className="cost-tile-sub">{C.summary.chunksTotal} chunks × ${C.summary.chunkRate}</div>
           </div>
@@ -422,6 +422,13 @@ function CostView({ tweaks }) {
             <div className="cost-tile-sub">${(C.summary.total / Math.max(C.durationSec, 1) * 60).toFixed(4)} per minute of runtime</div>
           </div>
         </section>
+
+        {/* Disclaimer (Change 6) */}
+        <div className="cost-disclaimer" role="note">
+          <div className="cost-disclaimer-body">
+            <strong><sup className="cost-disclaimer-star">*</sup>Note:</strong> The Grounding Token cost does not take into account the data licences.
+          </div>
+        </div>
 
         <section className="cost-section">
           <div className="ops-section-head">

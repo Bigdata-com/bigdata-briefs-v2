@@ -46,7 +46,7 @@ function formatUtcClockHm() {
 }
 
 // ── Masthead ───────────────────────────────────────────────────────
-function Masthead({ view, setView, theme, setTheme }) {
+function Masthead({ view, setView, theme, setTheme, headerStyle }) {
   const [utcClock, setUtcClock] = useState(formatUtcClockHm);
   useEffect(() => {
     const tick = () => setUtcClock(formatUtcClockHm());
@@ -60,20 +60,13 @@ function Masthead({ view, setView, theme, setTheme }) {
 
   return (
     <React.Fragment>
-      <div className="masthead">
+      <div className="masthead" data-style={headerStyle || "paren-lockup"}>
         <div className="masthead-inner">
           <div className="masthead-edition">
             <span className="edition-label">Vol. II · No. 0427</span>
             <span className="edition-date">{fmt}</span>
           </div>
-          <div className="masthead-title masthead-title-with-logo">
-            <img
-              className="masthead-logo"
-              src="/app/desk/bigdata-by-ravenpack-logo-light.svg"
-              alt="Bigdata by RavenPack"
-            />
-            <span className="masthead-title-text">Briefs</span>
-          </div>
+          <MastheadLockup style={headerStyle || "paren-lockup"} />
           <div className="masthead-actions">
             <button className="btn-ghost btn-sm" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "var(--sans)", fontSize: 12, fontWeight: 600, color: "var(--ink-soft)" }}
             onClick={() => setTheme(theme === "light" ? "dark" : "light")}>
@@ -87,7 +80,8 @@ function Masthead({ view, setView, theme, setTheme }) {
           <a href="#" className={view === "home" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("home");}}>Home</a>
           <a href="#" className={view === "brief" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("brief");}}>The Brief</a>
           <a href="#" className={view === "scan" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("scan");}}>News Scan</a>
-          <a href="#" className={["history","history-details","cost"].includes(view) ? "active" : ""} onClick={(e) => {e.preventDefault();setView("history");}}>Reports</a>
+          <a href="#" className={view === "portfolio" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("portfolio");}}>My Portfolio</a>
+          <a href="#" className={view === "cost" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("cost");}}>Costs</a>
           <span className="nav-spacer"></span>
           <span className="live-status">
             <span className="live-dot"></span>
@@ -95,17 +89,58 @@ function Masthead({ view, setView, theme, setTheme }) {
           </span>
         </div>
       </div>
-      {["history","history-details","cost"].includes(view) && (
-        <div className="section-subnav">
-          <div className="section-subnav-inner">
-            <a href="#" className={view === "history" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("history");}}>Archive</a>
-            <a href="#" className={view === "history-details" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("history-details");}}>Audit</a>
-            <a href="#" className={view === "cost" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("cost");}}>Cost</a>
-          </div>
-        </div>
-      )}
+
     </React.Fragment>);
 
+}
+
+// ── Masthead title lockup — three variants ──────────────────────────
+// "paren-lockup" (default) — "The Briefs" big LEFT + "(powered by / [logo])" RIGHT in parens
+// "inline"                 — single line: "The Briefs (powered by [logo])"
+// "stacked"                — title big, "powered by" small below, "[logo]" below that, all centered
+function MastheadLockup({ style }) {
+  const LOGO_SRC = "bigdata-logo-main.svg";
+
+  if (style === "inline") {
+    return (
+      <div className="masthead-title-lockup is-inline" aria-label="The Briefs, powered by Bigdata.com">
+        <h1 className="masthead-title-big">The Briefs</h1>
+        <span className="ml-paren-group">
+          <span className="ml-paren">(</span>
+          <span className="ml-powered-text">powered by</span>
+          <img className="ml-logo" src={LOGO_SRC} alt="Bigdata.com by RavenPack" />
+          <span className="ml-paren">)</span>
+        </span>
+      </div>
+    );
+  }
+
+  if (style === "stacked") {
+    return (
+      <div className="masthead-title-lockup is-stacked" aria-label="The Briefs, powered by Bigdata.com">
+        <h1 className="masthead-title-big">The Briefs</h1>
+        <div className="ml-stacked-sub">
+          <span className="ml-powered-text">powered by</span>
+          <img className="ml-logo" src={LOGO_SRC} alt="Bigdata.com by RavenPack" />
+        </div>
+      </div>
+    );
+  }
+
+  // Default: "paren-lockup" — matches the user's reference sketch
+  return (
+    <div className="masthead-title-lockup is-paren" aria-label="The Briefs, powered by Bigdata.com">
+      <h1 className="masthead-title-big">The Briefs</h1>
+      <div className="ml-paren-block" aria-hidden="false">
+        <span className="ml-paren ml-paren-left">(</span>
+        <div className="ml-paren-inner">
+          <span className="ml-powered-text">powered by</span>
+          <img className="ml-logo" src={LOGO_SRC} alt="Bigdata.com by RavenPack" />
+        </div>
+        <span className="ml-paren ml-paren-right">)</span>
+      </div>
+    </div>
+  );
 }
 
 // ── Theme dot ───────────────────────────────────────────────────────
@@ -217,6 +252,7 @@ function StatusBadge({ status }) {
 }
 
 window.Masthead = Masthead;
+window.MastheadLockup = MastheadLockup;
 window.ThemeDot = ThemeDot;
 window.Sparkline = Sparkline;
 window.MiniBars = MiniBars;

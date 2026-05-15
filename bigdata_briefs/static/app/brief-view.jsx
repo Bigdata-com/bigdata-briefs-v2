@@ -61,12 +61,13 @@ function BriefWindowBand({ start, end }) {
   );
 }
 
-function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView, setAuditEntityId, setAuditDate }) {
+function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView }) {
   const initialBrief = window.DATA.todaysBrief;
   const initialDates = window.DATA.availableDates || [];
   const initialDate = initialBrief?.windowEnd?.slice(0, 10) || initialDates[initialDates.length - 1] || null;
 
   const [currentBrief, setCurrentBrief] = React.useState(null);
+  const [mode, setMode] = React.useState("brief"); // "brief" | "archive" | "audit"
   const [currentPulse, setCurrentPulse] = React.useState(window.DATA.pulse);
   const [availableDates, setAvailableDates] = React.useState(initialDates);
   const [selectedDate, setSelectedDate] = React.useState(initialDate);
@@ -215,50 +216,14 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
 
   const briefOk = brief != null && Array.isArray(brief.bullets);
   if (!briefOk) {
-    return (
-      <div className="brief-pick-wrap">
-        <div className="brief-pick-header">
-          <div className="dateline" style={{ marginBottom: 6 }}>The Brief</div>
-          <p className="brief-pick-sub">
-            {loading ? "Loading…" : "Choose a company to read its brief."}
-          </p>
-          <input
-            className="archive-search"
-            type="text"
-            placeholder="Search company or ticker…"
-            value={companySearch}
-            onChange={e => setCompanySearch(e.target.value)}
-            style={{ marginTop: 12 }}
-          />
-        </div>
-        <div className="brief-pick-list">
-          <div className="brief-pick-row brief-pick-row-head">
-            <span className="brief-pick-col-ticker">Ticker</span>
-            <span className="brief-pick-col-name">Company</span>
-            <span className="brief-pick-col-date">Last run</span>
-            <span className="brief-pick-col-bullets">Published</span>
-            <span className="brief-pick-col-discarded">Discarded</span>
-          </div>
-          {companiesForFrontPage.filter(_filterCompany).map(c => {
-            const s = companySummaries[c.id] || {};
-            const saved = s.bulletsSaved != null ? s.bulletsSaved : "—";
-            const discarded = s.bulletsDiscarded != null ? s.bulletsDiscarded : "—";
-            const rawDate = s.lastRunDate || (s.pulse7?.length > 0 ? s.pulse7[s.pulse7.length - 1].date : null);
-            const date = _fmtRunDate(rawDate);
-            return (
-              <button key={c.id} className="brief-pick-row brief-pick-row-item"
-                      onClick={() => loadEntity(c.id, null)} disabled={loading}>
-                <span className="brief-pick-col-ticker">{_tk(c.ticker)}</span>
-                <span className="brief-pick-col-name">{c.name}</span>
-                <span className="brief-pick-col-date">{date}</span>
-                <span className="brief-pick-col-bullets">{saved}</span>
-                <span className="brief-pick-col-discarded">{discarded}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
+    return <BriefLanding
+      loading={loading}
+      companies={companiesForFrontPage.filter(_filterCompany)}
+      summaries={companySummaries}
+      onPick={loadEntity}
+      companySearch={companySearch}
+      setCompanySearch={setCompanySearch}
+    />;
   }
 
   const allBullets = brief.bullets;
@@ -363,46 +328,69 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
 
       {/* ── Main column ── */}
       <main className="brief-main">
+        {/* Top row: date + prev/next on the left — mode tabs on the right */}
+        <div className="brief-mode-bar">
+          <div className="brief-mode-bar-left">
+            {(mode === "brief" || mode === "audit") ? (
+              <>
+                <div className="dateline" style={{ marginBottom: 0 }}>
+                  {selectedDate
+                    ? (() => {
+                        const [y, m, d] = selectedDate.split("-").map(Number);
+                        const dt = new Date(Date.UTC(y, m - 1, d));
+                        return dt.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+                      })()
+                    : "—"}
+                </div>
+                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                  <button
+                    onClick={() => navigateDate(-1)}
+                    disabled={!canPrev || loading}
+                    style={{
+                      fontFamily: "var(--mono)", fontSize: 12, padding: "3px 8px",
+                      border: "1px solid var(--rule)", background: "var(--paper)",
+                      color: canPrev ? "var(--ink)" : "var(--ink-faint)",
+                      cursor: canPrev ? "pointer" : "default",
+                      opacity: canPrev ? 1 : 0.4,
+                    }}
+                    title="Previous day"
+                  >← prev</button>
+                  <button
+                    onClick={() => navigateDate(1)}
+                    disabled={!canNext || loading}
+                    style={{
+                      fontFamily: "var(--mono)", fontSize: 12, padding: "3px 8px",
+                      border: "1px solid var(--rule)", background: "var(--paper)",
+                      color: canNext ? "var(--ink)" : "var(--ink-faint)",
+                      cursor: canNext ? "pointer" : "default",
+                      opacity: canNext ? 1 : 0.4,
+                    }}
+                    title="Next day"
+                  >next →</button>
+                  {loading && <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-faint)" }}>loading…</span>}
+                </div>
+              </>
+            ) : null}
+          </div>
+          <div className="brief-mode-tabs" role="tablist">
+            <button className={"brief-mode-tab" + (mode === "brief" ? " active" : "")}
+                    onClick={() => setMode("brief")}>The Brief</button>
+            <button className={"brief-mode-tab" + (mode === "audit" ? " active" : "")}
+                    onClick={() => setMode("audit")}>Audit</button>
+            <button className={"brief-mode-tab" + (mode === "archive" ? " active" : "")}
+                    onClick={() => setMode("archive")}>Archive</button>
+          </div>
+        </div>
+
+        {mode === "archive" && (
+          <BriefEntityArchive entityId={brief.entityId} entityName={brief.entityName} ticker={brief.ticker} onOpenDate={(d) => { setMode("brief"); loadEntity(brief.entityId, d); }} />
+        )}
+        {mode === "audit" && (
+          <BriefEntityAudit brief={brief} />
+        )}
+        {mode === "brief" && (<>
         {/* Hero */}
         <header className="brief-hero">
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
-            <div className="dateline" style={{ marginBottom: 0 }}>
-              {selectedDate
-                ? (() => {
-                    const [y, m, d] = selectedDate.split("-").map(Number);
-                    const dt = new Date(Date.UTC(y, m - 1, d));
-                    return dt.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
-                  })()
-                : "—"}
-            </div>
-            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-              <button
-                onClick={() => navigateDate(-1)}
-                disabled={!canPrev || loading}
-                style={{
-                  fontFamily: "var(--mono)", fontSize: 12, padding: "3px 8px",
-                  border: "1px solid var(--rule)", background: "var(--paper)",
-                  color: canPrev ? "var(--ink)" : "var(--ink-faint)",
-                  cursor: canPrev ? "pointer" : "default",
-                  opacity: canPrev ? 1 : 0.4,
-                }}
-                title="Previous day"
-              >← prev</button>
-              <button
-                onClick={() => navigateDate(1)}
-                disabled={!canNext || loading}
-                style={{
-                  fontFamily: "var(--mono)", fontSize: 12, padding: "3px 8px",
-                  border: "1px solid var(--rule)", background: "var(--paper)",
-                  color: canNext ? "var(--ink)" : "var(--ink-faint)",
-                  cursor: canNext ? "pointer" : "default",
-                  opacity: canNext ? 1 : 0.4,
-                }}
-                title="Next day"
-              >next →</button>
-              {loading && <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-faint)" }}>loading…</span>}
-            </div>
-          </div>
           <h1 className="brief-headline t-display">
             <span className="brief-eyebrow">{brief?.entityName}</span>
             What's new on <em>{_tk(brief?.ticker)}</em> this morning.
@@ -512,6 +500,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
             </div>
           </div>
         </footer>
+        </>)}
       </main>
 
       {/* ── Right rail: meta ── */}
@@ -603,20 +592,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
           })()}
         </div>
 
-        {setView && setAuditEntityId && (
-          <div className="rail-section">
-            <button
-              className="audit-link-btn"
-              onClick={() => {
-                setAuditEntityId(brief.entityId);
-                if (setAuditDate) setAuditDate(selectedDate);
-                setView("history-details");
-              }}
-            >
-              View Audit →
-            </button>
-          </div>
-        )}
+        {/* Audit link removed — Audit is now an inline tab at top of brief */}
 
         {relatedBriefs.length > 0 && (
           <div className="rail-section">
@@ -745,3 +721,324 @@ function DiscardedList({ items }) {
 }
 
 window.BriefView = BriefView;
+
+// ── Brief landing (Change 2) ─────────────────────────────────────────
+// Two-column split: Portfolio Brief narrative on the left, company picker on the right.
+function BriefLanding({ loading, companies, summaries, onPick, companySearch, setCompanySearch }) {
+  // Compute aggregate portfolio metrics across all companies for today's date
+  const totalSaved     = companies.reduce((s, c) => s + (summaries[c.id]?.bulletsSaved     || 0), 0);
+  const totalDiscarded = companies.reduce((s, c) => s + (summaries[c.id]?.bulletsDiscarded || 0), 0);
+  const movers = [...companies]
+    .map(c => ({ ...c, saved: summaries[c.id]?.bulletsSaved || 0, discarded: summaries[c.id]?.bulletsDiscarded || 0 }))
+    .filter(c => c.saved > 0)
+    .sort((a, b) => b.saved - a.saved)
+    .slice(0, 5);
+
+  const today = new Date();
+  const dateLabel = today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+
+  // Mock calendar feed — next confirmed corporate events, sorted nearest first.
+  const _NEXT_EVENTS_RAW = [
+    { id: "ev1", ticker: "NVDA", offsetDays: 1, time: "16:20", tz: "ET", kind: "Earnings call",        kindKey: "earnings",   detail: "FY26 Q1 results, conference call follows the release." },
+    { id: "ev2", ticker: "AAPL", offsetDays: 2, time: "09:00", tz: "ET", kind: "Shareholder meeting",  kindKey: "agm",        detail: "Annual shareholder meeting · Cupertino HQ + webcast." },
+    { id: "ev3", ticker: "JPM",  offsetDays: 3, time: "14:00", tz: "ET", kind: "Investor day",         kindKey: "investorday",detail: "2026 Investor Day · full-year outlook and capital plan." },
+    { id: "ev4", ticker: "TSLA", offsetDays: 5, time: "17:00", tz: "ET", kind: "Earnings call",        kindKey: "earnings",   detail: "Q1 deliveries follow-up call · energy storage focus." },
+    { id: "ev5", ticker: "MSFT", offsetDays: 7, time: "10:30", tz: "ET", kind: "Product launch",       kindKey: "product",    detail: "Build keynote · Copilot platform updates." },
+    { id: "ev6", ticker: "GS",   offsetDays: 9, time: "08:30", tz: "ET", kind: "Conference",           kindKey: "conf",       detail: "Goldman Sachs Global Financial Services Conference." },
+    { id: "ev7", ticker: "XOM",  offsetDays: 11,time: "11:00", tz: "ET", kind: "Ex-dividend",          kindKey: "div",        detail: "Quarterly dividend, $0.95 per share." },
+  ];
+  function _fmtEventDate(d) {
+    const opts = { weekday: "short", month: "short", day: "numeric" };
+    return d.toLocaleDateString("en-US", opts);
+  }
+  const nextEvents = _NEXT_EVENTS_RAW.map(ev => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + ev.offsetDays);
+    return { ...ev, dateLabel: _fmtEventDate(d) };
+  });
+
+  // Editorial portfolio narrative — a single paragraph synthesised from the day's most active names.
+  const portfolioNarrative = (
+    <>
+      <span className="dropcap">P</span>
+      ortfolio coverage today is led by <strong style={{ fontWeight: 600 }}>Apple</strong>, where the EU's first DMA non-compliance fine of <em>roughly €500m</em> arrives alongside coordinated sell-side Q3 trims and a normalising Vision Pro inventory — three independent threads that materially shift the near-term setup. In financials, <strong style={{ fontWeight: 600 }}>JPMorgan</strong> drew attention on a refreshed buyback authorisation and softer NII commentary at an investor conference, while <strong style={{ fontWeight: 600 }}>Goldman Sachs</strong> saw its third consecutive day of constructive prime-brokerage flow data. <strong style={{ fontWeight: 600 }}>NVIDIA</strong> remained the cycle's bellwether, with supply-chain checks pointing to a normalising lead-time for the next-gen GPU stack. Outside the megacaps, <strong style={{ fontWeight: 600 }}>Boeing</strong> and <strong style={{ fontWeight: 600 }}>Tesla</strong> each registered one material development; the rest of the portfolio was either quiet or covered only by repeat-rate stories the novelty filter cut.
+    </>
+  );
+
+  return (
+    <div className="brief-landing">
+      {/* LEFT: Portfolio Brief */}
+      <section className="portfolio-brief">
+        <div className="pb-eyebrow">Portfolio Brief · {dateLabel}</div>
+        <h1 className="pb-title">The day, told as one story.</h1>
+        <p className="pb-subtitle">A single editorial synthesis of every material development across your coverage today.</p>
+
+        <div className="pb-meta-strip">
+          <span className="pb-meta-cell"><strong>{companies.length}</strong> companies</span>
+          <span className="pb-meta-cell"><strong>{totalSaved}</strong> material developments</span>
+          <span className="pb-meta-cell"><strong>{totalDiscarded}</strong> filtered out</span>
+          <span className="pb-meta-cell"><strong>{movers.length}</strong> active names</span>
+        </div>
+
+        <p className="pb-narrative">{portfolioNarrative}</p>
+
+        <div className="pb-highlight-head">Next closest events</div>
+        <ul className="pb-events-list">
+          {nextEvents.map(ev => (
+            <li key={ev.id} className="pb-event">
+              <div className="pb-event-when">
+                <span className="pb-event-date">{ev.dateLabel}</span>
+                <span className="pb-event-time tnum">{ev.time}</span>
+                <span className="pb-event-tz">{ev.tz}</span>
+              </div>
+              <div className="pb-event-meta">
+                <span className="pb-event-ticker">{ev.ticker}</span>
+                <span className="pb-event-kind" data-kind={ev.kindKey}>{ev.kind}</span>
+              </div>
+              <div className="pb-event-detail">{ev.detail}</div>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* RIGHT: Company picker */}
+      <div className="brief-pick-wrap">
+        <div className="brief-pick-header">
+          <div className="dateline" style={{ marginBottom: 6 }}>The Brief</div>
+          <p className="brief-pick-sub">
+            {loading ? "Loading…" : "Choose a company to read its brief."}
+          </p>
+          <input
+            className="archive-search"
+            type="text"
+            placeholder="Search company or ticker…"
+            value={companySearch}
+            onChange={e => setCompanySearch(e.target.value)}
+            style={{ marginTop: 12 }}
+          />
+        </div>
+        <div className="brief-pick-list">
+          <div className="brief-pick-row brief-pick-row-head">
+            <span className="brief-pick-col-ticker">Ticker</span>
+            <span className="brief-pick-col-name">Company</span>
+            <span className="brief-pick-col-date">Last run</span>
+            <span className="brief-pick-col-bullets">Published</span>
+            <span className="brief-pick-col-discarded">Discarded</span>
+          </div>
+          {companies.map(c => {
+            const s = summaries[c.id] || {};
+            const saved = s.bulletsSaved != null ? s.bulletsSaved : "—";
+            const discarded = s.bulletsDiscarded != null ? s.bulletsDiscarded : "—";
+            const rawDate = s.lastRunDate || (s.pulse7?.length > 0 ? s.pulse7[s.pulse7.length - 1].date : null);
+            const date = _fmtRunDate(rawDate);
+            return (
+              <button key={c.id} className="brief-pick-row brief-pick-row-item"
+                      onClick={() => onPick(c.id, null)} disabled={loading}>
+                <span className="brief-pick-col-ticker">{_tk(c.ticker)}</span>
+                <span className="brief-pick-col-name">{c.name}</span>
+                <span className="brief-pick-col-date">{date}</span>
+                <span className="brief-pick-col-bullets">{saved}</span>
+                <span className="brief-pick-col-discarded">{discarded}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Inline Archive for the selected entity (Change 4) ───────────────
+function BriefEntityArchive({ entityId, entityName, ticker, onOpenDate }) {
+  const [data, setData] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [expandedRunId, setExpandedRunId] = React.useState(null);
+
+  React.useEffect(() => {
+    setLoading(true);
+    fetch(`/api/frontend/entity/${entityId}/history`)
+      .then(r => r.json())
+      .then(d => setData(d))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [entityId]);
+
+  if (loading || !data) {
+    return <p style={{ padding: "40px 8px", color: "var(--ink-mute)", fontStyle: "italic", fontFamily: "var(--serif)" }}>Loading archive…</p>;
+  }
+
+  const history = data.history || [];
+
+  return (
+    <div className="archive-inline" style={{ padding: "12px 4px 40px" }}>
+      <header style={{ marginBottom: 20 }}>
+        <div className="dateline" style={{ marginBottom: 6 }}>{_tk(ticker)} · Archive</div>
+        <h2 className="t-display" style={{ fontSize: 32, margin: "0 0 6px", letterSpacing: "-0.018em" }}>
+          Every brief filed for {entityName}.
+        </h2>
+        <p style={{ fontFamily: "var(--serif)", fontStyle: "italic", color: "var(--ink-mute)", margin: 0, fontSize: 14 }}>
+          {history.length} runs · {history.reduce((s, h) => s + h.saved, 0)} bullets saved · {history.reduce((s, h) => s + h.discarded, 0)} discarded
+        </p>
+      </header>
+
+      <div>
+        {history.map(entry => {
+          const d = new Date(entry.date + "T00:00:00Z");
+          const day = d.getUTCDate();
+          const month3 = d.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
+          const wd = d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
+          return (
+            <article key={entry.runId} className="archive-day">
+              <div className="archive-day-date">
+                <div className="archive-day-num">{String(day).padStart(2, "0")}</div>
+                <div className="archive-day-month">{month3}</div>
+                <div className="archive-day-weekday">{wd}</div>
+              </div>
+              <div className="archive-day-content">
+                <div className="archive-run">
+                  <h3 className="archive-headline" style={{ cursor: "pointer" }} onClick={() => onOpenDate(entry.date)}>
+                    {entry.narrative || entry.bullets?.[0]?.text || "No material developments"}
+                  </h3>
+                  <div className="archive-meta">
+                    <span style={{ fontFamily: "var(--mono)", textTransform: "none", letterSpacing: 0 }}>run-{entry.runId}</span>
+                    <span>·</span>
+                    <span>{entry.saved} saved</span>
+                    <span>·</span>
+                    <span>{entry.discarded} discarded</span>
+                  </div>
+                  {entry.bullets?.length > 0 && (
+                    <button className="archive-expand-btn"
+                            onClick={() => setExpandedRunId(expandedRunId === entry.runId ? null : entry.runId)}>
+                      {expandedRunId === entry.runId ? "▴ hide bullets" : `▾ ${entry.bullets.length} bullet${entry.bullets.length !== 1 ? "s" : ""}`}
+                    </button>
+                  )}
+                  {expandedRunId === entry.runId && entry.bullets?.length > 0 && (
+                    <ol className="archive-bullets-list">
+                      {entry.bullets.map((b, i) => (
+                        <li key={i} className="archive-bullet-item">
+                          {b.theme && <span className="archive-bullet-theme"><ThemeDot theme={b.theme} />&nbsp;{b.theme}</span>}
+                          <p className="archive-bullet-text">{b.text}</p>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </div>
+              </div>
+            </article>
+          );
+        })}
+        {history.length === 0 && (
+          <p style={{ color: "var(--ink-mute)", fontStyle: "italic", marginTop: 32 }}>No briefs found for this entity.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Inline Audit (forensic) for the selected entity (Change 4) ──────
+function BriefEntityAudit({ brief }) {
+  const themes = brief.themes || [];
+  const bullets = brief.bullets || [];
+  const discarded = brief.discarded || [];
+  const stageLabels = {
+    relevance_score: "Relevance score",
+    grounding: "Grounding",
+    novelty_embedding: "Novelty (embedding)",
+    novelty_search: "Novelty (search)",
+  };
+  const stageColor = {
+    relevance_score: "var(--discard)",
+    grounding: "var(--discard)",
+    novelty_embedding: "var(--rewrite)",
+    novelty_search: "var(--rewrite)",
+  };
+
+  // Funnel data: how many bullets each stage cut
+  const cutCounts = {};
+  discarded.forEach(d => { cutCounts[d.stage] = (cutCounts[d.stage] || 0) + 1; });
+  const generated = bullets.length + discarded.length;
+
+  return (
+    <div className="audit-inline" style={{ padding: "12px 4px 40px" }}>
+      <header style={{ marginBottom: 20 }}>
+        <div className="dateline" style={{ marginBottom: 6 }}>{_tk(brief.ticker)} · Audit</div>
+        <h2 className="t-display" style={{ fontSize: 32, margin: "0 0 6px", letterSpacing: "-0.018em" }}>
+          Every bullet, kept or cut.
+        </h2>
+        <p style={{ fontFamily: "var(--serif)", fontStyle: "italic", color: "var(--ink-mute)", margin: 0, fontSize: 14 }}>
+          The pipeline's full reasoning for run {brief.runId}.
+        </p>
+      </header>
+
+      <div className="audit-funnel" style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, marginBottom: 32, padding: "14px 0", borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)" }}>
+        <FunnelCell label="Generated" value={generated} color="var(--ink-soft)" />
+        <FunnelCell label="Relevance cut" value={cutCounts.relevance_score || 0} color="var(--discard)" />
+        <FunnelCell label="Grounding cut" value={cutCounts.grounding || 0} color="var(--discard)" />
+        <FunnelCell label="Novelty (emb)" value={cutCounts.novelty_embedding || 0} color="var(--rewrite)" />
+        <FunnelCell label="Novelty (search)" value={cutCounts.novelty_search || 0} color="var(--rewrite)" />
+        <FunnelCell label="Published" value={bullets.length} color="var(--novel)" />
+      </div>
+
+      <div className="t-cap" style={{ marginBottom: 14 }}>Published — kept</div>
+      <ol className="audit-pub-list" style={{ listStyle: "none", padding: 0, margin: "0 0 32px" }}>
+        {bullets.map((b, i) => (
+          <li key={b.id} style={{ padding: "14px 0", borderTop: "1px solid var(--rule-soft)" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 6 }}>
+              <span className="tnum" style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-faint)" }}>{String(i + 1).padStart(2, "0")}</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "var(--sans)", fontSize: 11, color: "var(--ink-mute)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                <ThemeDot theme={b.theme} />{b.theme}
+              </span>
+              {b.novelty === "rewritten" && (
+                <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--rewrite)", textTransform: "uppercase", letterSpacing: "0.08em" }}>· Rewritten</span>
+              )}
+            </div>
+            <p style={{ fontFamily: "var(--serif)", fontSize: 15.5, lineHeight: 1.55, margin: "0 0 6px", color: "var(--ink)" }}>
+              {b.text}
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontFamily: "var(--sans)", fontSize: 11, color: "var(--ink-mute)" }}>
+              {b.citations.map((c, j) => (
+                <span key={c.id}>
+                  <span className="tnum">[{j + 1}]</span> {c.source} · {c.headline}
+                </span>
+              ))}
+            </div>
+            {b.novelty === "rewritten" && b.rewriteReason && (
+              <p style={{ marginTop: 8, fontFamily: "var(--sans)", fontSize: 12, color: "var(--rewrite)", fontStyle: "italic" }}>
+                Editor's note · {b.rewriteReason}
+              </p>
+            )}
+          </li>
+        ))}
+      </ol>
+
+      <div className="t-cap" style={{ marginBottom: 14 }}>Discarded — pipeline's editor's cut</div>
+      <div className="discarded-list">
+        {Object.entries(discarded.reduce((acc, item) => { (acc[item.stage] = acc[item.stage] || []).push(item); return acc; }, {})).map(([stage, list]) => (
+          <div key={stage} className="discarded-group" style={{ marginBottom: 18 }}>
+            <div className="discarded-group-head" style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+              <span className="t-cap" style={{ color: stageColor[stage] }}>{stageLabels[stage] || stage}</span>
+              <span className="muted t-cap" style={{ fontSize: 10 }}>{list.length} item{list.length > 1 ? "s" : ""}</span>
+            </div>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+              {list.map(item => (
+                <li key={item.id} style={{ padding: "8px 0", borderTop: "1px solid var(--rule-soft)", fontFamily: "var(--serif)", fontSize: 14, color: "var(--ink-soft)" }}>
+                  <span>{item.text}</span>
+                  <span className="muted" style={{ marginLeft: 8, fontStyle: "italic", color: "var(--ink-mute)" }}>— {item.reason}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FunnelCell({ label, value, color }) {
+  return (
+    <div style={{ textAlign: "center", borderLeft: "1px solid var(--rule-soft)", padding: "0 4px" }}>
+      <div className="tnum" style={{ fontFamily: "var(--serif-display)", fontWeight: 700, fontSize: 28, color, lineHeight: 1.05 }}>{value}</div>
+      <div className="t-cap" style={{ marginTop: 4, fontSize: 9.5 }}>{label}</div>
+    </div>
+  );
+}

@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="views.css" />
   <link rel="stylesheet" href="views-extras.css" />
   <link rel="stylesheet" href="run.css" />
+  <link rel="stylesheet" href="extras.css" />
 
   <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
@@ -29,6 +30,7 @@
   <script type="text/babel" src="run-view.jsx"></script>
   <script type="text/babel" src="scan-view.jsx"></script>
   <script type="text/babel" src="history-details-view.jsx"></script>
+  <script type="text/babel" src="portfolio-view.jsx"></script>
   <script type="text/babel" src="cost-view.jsx"></script>
   <script type="text/babel" src="admin-view.jsx"></script>
 </head>
@@ -45,15 +47,14 @@
       "showDiscarded": true,
       "dropcap": true,
       "accent": "#B23B1F",
-      "view": "brief"
+      "view": "brief",
+      "headerStyle": "paren-lockup"
     }/*EDITMODE-END*/;
 
     function App() {
       const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
       const [view, setView] = useState("home");
       const [showDiscarded, setShowDiscarded] = useState(t.showDiscarded);
-      const [auditEntityId, setAuditEntityId] = useState(null);
-      const [auditDate, setAuditDate] = useState(null);
 
       // Theme + accent + font scale applied to the document root
       useEffect(() => {
@@ -66,7 +67,7 @@
 
       return (
         <React.Fragment>
-          <Masthead view={view} setView={setView} theme={t.dark ? "dark" : "light"} setTheme={(v) => setTweak("dark", v === "dark")} />
+          <Masthead view={view} setView={setView} theme={t.dark ? "dark" : "light"} setTheme={(v) => setTweak("dark", v === "dark")} headerStyle={t.headerStyle} />
 
           <div className="page">
             <div className="page-inner">
@@ -78,14 +79,13 @@
                   setShowDiscarded={(v) => { setShowDiscarded(v); setTweak("showDiscarded", v); }}
                   dropcap={t.dropcap}
                   setView={setView}
-                  setAuditEntityId={setAuditEntityId}
-                  setAuditDate={setAuditDate}
                 />
               )}
-              {view === "scan" && <ScanView tweaks={t} />}
-              {view === "history" && <ArchiveView tweaks={t} />}
-              {view === "history-details" && <HistoryDetailsView tweaks={t} initialEntityId={auditEntityId} initialDate={auditDate} />}
-              {view === "cost" && <CostView tweaks={t} />}
+              {view === "scan"      && <ScanView tweaks={t} />}
+              {view === "history"   && <ArchiveView tweaks={t} />}
+              {view === "history-details" && <HistoryDetailsView tweaks={t} />}
+              {view === "portfolio" && <PortfolioView tweaks={t} />}
+              {view === "cost"      && <CostView tweaks={t} />}
             </div>
           </div>
 
@@ -107,9 +107,14 @@
             <TweakColor label="Masthead accent" value={t.accent}
                         onChange={(v) => setTweak("accent", v)} />
 
+            <TweakSection label="Masthead layout" />
+            <TweakRadio label="Style" value={t.headerStyle}
+                        options={["paren-lockup", "inline", "stacked"]}
+                        onChange={(v) => setTweak("headerStyle", v)} />
+
             <TweakSection label="View" />
             <TweakSelect label="Section" value={view}
-                        options={["brief", "scan", "update", "history", "history-details", "cost"]}
+                        options={["home", "brief", "scan", "portfolio", "cost", "history", "history-details"]}
                         onChange={(v) => setView(v)} />
           </TweaksPanel>
         </React.Fragment>
