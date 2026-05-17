@@ -126,9 +126,8 @@ function PortfolioView({ tweaks }) {
               ) : (
                 searchResults.map(c => (
                   <button key={c.id} className="portfolio-search-result" onClick={() => addCompany(c.id)}>
-                    <span className="portfolio-search-result-ticker">{c.ticker}</span>
+                    <span className="portfolio-search-result-ticker">{_tk(c.ticker)}</span>
                     <span className="portfolio-search-result-name">{c.name}</span>
-                    <span className="portfolio-search-result-add">+ add</span>
                   </button>
                 ))
               )}
