@@ -13,7 +13,7 @@ function _parseWindowParts(iso) {
     weekday:  d.toLocaleDateString("en-US", { weekday: "short", timeZone: zone }),
     monShort: d.toLocaleDateString("en-US", { month: "short", timeZone: zone }),
     day:      parseInt(d.toLocaleDateString("en-US", { day: "numeric", timeZone: zone }), 10),
-    time:     d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: zone, hour12: false }),
+    time:     d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: zone, hour12: true }),
   };
 }
 

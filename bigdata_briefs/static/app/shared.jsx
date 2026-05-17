@@ -37,7 +37,7 @@ function _fmtRunDate(iso) {
   const d = new Date(iso);
   const parts = new Intl.DateTimeFormat("en-US", {
     year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", hour12: false, timeZone: _tzIana(),
+    hour: "numeric", minute: "2-digit", hour12: true, timeZone: _tzIana(),
   }).formatToParts(d);
   const g = t => parts.find(p => p.type === t)?.value || "";
   return `${g("year")}-${g("month")}-${g("day")} ${g("hour")}:${g("minute")} ${DISPLAY_TZ}`;
@@ -47,7 +47,7 @@ function _fmtWindow(start, end) {
   if (!start) return "—";
   const zone = _tzIana();
   const fmtDate = iso => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: zone });
-  const fmtTime = iso => new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: zone, hour12: false });
+  const fmtTime = iso => new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: zone, hour12: true });
   const fmt    = iso => `${fmtDate(iso)} ${fmtTime(iso)}`;
   if (!end) return `${fmt(start)} ${DISPLAY_TZ}`;
   const sDate = fmtDate(start), eDate = fmtDate(end);
