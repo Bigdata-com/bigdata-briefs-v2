@@ -672,7 +672,7 @@ function BulletItem({ bullet, index, isFirst, active, onActivate, themeColor }) 
             ));
           })()}
           <button className="bullet-action" onClick={onActivate}>
-            {active ? "− hide sources" : "+ all sources"}
+            {active ? "Hide" : "View"}
           </button>
         </div>
         {active && (

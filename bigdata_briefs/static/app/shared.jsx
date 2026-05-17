@@ -113,16 +113,16 @@ function Masthead({ view, setView, theme, setTheme, headerStyle }) {
 }
 
 // ── Masthead title lockup — three variants ──────────────────────────
-// "paren-lockup" (default) — "The Briefs" big LEFT + "(powered by / [logo])" RIGHT in parens
-// "inline"                 — single line: "The Briefs (powered by [logo])"
+// "paren-lockup" (default) — "The Brief" big LEFT + "(powered by / [logo])" RIGHT in parens
+// "inline"                 — single line: "The Brief (powered by [logo])"
 // "stacked"                — title big, "powered by" small below, "[logo]" below that, all centered
 function MastheadLockup({ style }) {
   const LOGO_SRC = "bigdata-logo-main.svg";
 
   if (style === "inline") {
     return (
-      <div className="masthead-title-lockup is-inline" aria-label="The Briefs, powered by Bigdata.com">
-        <h1 className="masthead-title-big">The Briefs</h1>
+      <div className="masthead-title-lockup is-inline" aria-label="The Brief, powered by Bigdata.com">
+        <h1 className="masthead-title-big">The Brief</h1>
         <span className="ml-paren-group">
           <span className="ml-paren">(</span>
           <span className="ml-powered-text">powered by</span>
@@ -135,8 +135,8 @@ function MastheadLockup({ style }) {
 
   if (style === "stacked") {
     return (
-      <div className="masthead-title-lockup is-stacked" aria-label="The Briefs, powered by Bigdata.com">
-        <h1 className="masthead-title-big">The Briefs</h1>
+      <div className="masthead-title-lockup is-stacked" aria-label="The Brief, powered by Bigdata.com">
+        <h1 className="masthead-title-big">The Brief</h1>
         <div className="ml-stacked-sub">
           <span className="ml-powered-text">powered by</span>
           <img className="ml-logo" src={LOGO_SRC} alt="Bigdata.com by RavenPack" />
@@ -147,8 +147,8 @@ function MastheadLockup({ style }) {
 
   // Default: "paren-lockup" — matches the user's reference sketch
   return (
-    <div className="masthead-title-lockup is-paren" aria-label="The Briefs, powered by Bigdata.com">
-      <h1 className="masthead-title-big">The Briefs</h1>
+    <div className="masthead-title-lockup is-paren" aria-label="The Brief, powered by Bigdata.com">
+      <h1 className="masthead-title-big">The Brief</h1>
       <div className="ml-paren-block" aria-hidden="false">
         <span className="ml-paren ml-paren-left">(</span>
         <div className="ml-paren-inner">
