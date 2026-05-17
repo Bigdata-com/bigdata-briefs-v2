@@ -652,12 +652,22 @@ function BulletItem({ bullet, index, isFirst, active, onActivate, themeColor }) 
           </div>
         )}
         <div className="bullet-citations-row">
-          {bullet.citations.map((c, i) => (
-            <span key={c.id} className="bullet-source-chip">
-              <span className="t-mono cite-num">{i + 1}</span>
-              <span className="cite-source">{c.source}</span>
-            </span>
-          ))}
+          {(() => {
+            // Group chips by source name, combine citation numbers
+            const grouped = [];
+            const seen = new Map();
+            bullet.citations.forEach((c, i) => {
+              const src = c.source || "—";
+              if (!seen.has(src)) { seen.set(src, { source: src, nums: [] }); grouped.push(seen.get(src)); }
+              seen.get(src).nums.push(i + 1);
+            });
+            return grouped.map((g, gi) => (
+              <span key={gi} className="bullet-source-chip">
+                <span className="t-mono cite-num">{g.nums.join(",")}</span>
+                <span className="cite-source">{g.source}</span>
+              </span>
+            ));
+          })()}
           <button className="bullet-action" onClick={onActivate}>
             {active ? "− hide sources" : "+ all sources"}
           </button>
