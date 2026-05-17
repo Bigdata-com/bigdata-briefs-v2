@@ -676,7 +676,7 @@ function BulletItem({ bullet, index, isFirst, active, onActivate, themeColor }) 
                       ? <p className="source-block-excerpt">"{hg.excerpts[0]}"</p>
                       : hg.excerpts.map((ex, xi) => (
                           <div key={xi} style={{ marginTop: 6 }}>
-                            <div className="t-cap" style={{ fontSize: 10, marginBottom: 2 }}>Text {xi + 1}:</div>
+                            <div style={{ fontFamily: "var(--sans)", fontSize: 11, color: "var(--ink-mute)", marginBottom: 2 }}>Text {xi + 1}:</div>
                             <p className="source-block-excerpt">"{ex}"</p>
                           </div>
                         ))

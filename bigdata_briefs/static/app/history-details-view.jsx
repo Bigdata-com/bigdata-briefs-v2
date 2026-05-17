@@ -278,7 +278,7 @@ function RunBody({ r, expandedRejection, setExpandedRejection, expandedPubCitati
                                             ? hg.excerpts[0]
                                             : hg.excerpts.map((ex, xi) => (
                                                 <div key={xi} style={{ marginBottom: 8 }}>
-                                                  <div className="t-cap" style={{ fontSize: 10, marginBottom: 2 }}>Text {xi + 1}:</div>
+                                                  <div style={{ fontFamily: "var(--sans)", fontSize: 11, color: "var(--ink-mute)", marginBottom: 2 }}>Text {xi + 1}:</div>
                                                   {ex}
                                                 </div>
                                               ))
