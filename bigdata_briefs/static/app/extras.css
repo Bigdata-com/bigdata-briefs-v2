@@ -84,7 +84,7 @@
   padding: 2px 0;
 }
 .is-paren .ml-powered-text { font-size: 16px; line-height: 1; text-align: center; }
-.is-paren .ml-logo { height: 42px; align-self: center; }
+.is-paren .ml-logo { height: 34px; align-self: center; }
 
 /* ── Variant B: inline ── */
 .masthead-title-lockup.is-inline {
