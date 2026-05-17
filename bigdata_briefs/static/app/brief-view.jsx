@@ -746,16 +746,15 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
   const [upcomingEvents, setUpcomingEvents] = React.useState(null);
   const [eventsLoading, setEventsLoading] = React.useState(false);
 
-  // Fetch portfolio brief
+  // Fetch portfolio brief — always uses most recent date (no date param)
   React.useEffect(() => {
     setBriefLoading(true);
-    const params = selectedDate ? `?date=${encodeURIComponent(selectedDate)}&top_n=10` : "?top_n=10";
-    fetch(`/api/frontend/portfolio-brief${params}`)
+    fetch("/api/frontend/portfolio-brief?top_n=5")
       .then(r => r.json())
       .then(data => setPortfolioBrief(data))
       .catch(() => setPortfolioBrief(null))
       .finally(() => setBriefLoading(false));
-  }, [selectedDate]);
+  }, []);
 
   // Fetch upcoming events
   React.useEffect(() => {
@@ -798,10 +797,10 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
 
         <p className="pb-narrative">
           {briefLoading
-            ? <span style={{ color: "var(--ink-faint)", fontStyle: "italic" }}>Generating portfolio brief…</span>
+            ? null
             : narrativeText
               ? <><span className="dropcap">{narrativeText.charAt(0)}</span>{narrativeText.slice(1)}</>
-              : <span style={{ color: "var(--ink-mute)", fontStyle: "italic" }}>No data available for this date.</span>
+              : <span style={{ color: "var(--ink-mute)", fontStyle: "italic" }}>No portfolio brief available yet — will be generated after the next run.</span>
           }
         </p>
 
