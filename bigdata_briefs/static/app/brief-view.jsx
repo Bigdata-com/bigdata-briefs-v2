@@ -1029,10 +1029,14 @@ function BriefEntityAudit({ entityId, selectedDate }) {
     <div style={{ padding: 40, color: "var(--ink-mute)", fontStyle: "italic", fontFamily: "var(--sans)", fontSize: 13 }}>Loading audit…</div>
   );
 
-  const days = forensicsData?.days || [];
+  const allDays = forensicsData?.days || [];
+  // Show only the day matching the selected date
+  const days = selectedDate
+    ? allDays.filter(d => d.date === selectedDate)
+    : allDays.slice(0, 1);
 
   if (!days.length) return (
-    <div style={{ padding: 40, color: "var(--ink-mute)", fontStyle: "italic", fontFamily: "var(--sans)", fontSize: 13 }}>No audit data available.</div>
+    <div style={{ padding: 40, color: "var(--ink-mute)", fontStyle: "italic", fontFamily: "var(--sans)", fontSize: 13 }}>No audit data for this date.</div>
   );
 
   return (
