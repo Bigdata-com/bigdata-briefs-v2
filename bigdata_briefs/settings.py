@@ -141,6 +141,10 @@ class Settings(BaseSettings):
     # Set ENABLE_DOCS=1 to expose /docs, /redoc and /openapi.json. Off by default.
     ENABLE_DOCS: bool = False
 
+    # Path to the sentiment_tool repository (used for portfolio brief ranking).
+    # Defaults to vendor/sentiment_tool inside the project directory.
+    SENTIMENT_TOOL_PATH: str = str(PROJECT_DIRECTORY / "vendor" / "sentiment_tool")
+
     @classmethod
     def load_from_env(cls) -> "Settings":
         return cls()
