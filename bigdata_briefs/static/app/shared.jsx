@@ -148,7 +148,7 @@ function MastheadLockup({ style, theme }) {
   if (style === "stacked") {
     return (
       <div className="masthead-title-lockup is-stacked" aria-label="The Brief, powered by Bigdata.com">
-        <h1 className="masthead-title-big">The Brief</h1>
+        <h1 className="masthead-title-big">The Brief&nbsp;&nbsp;&nbsp;</h1>
         <div className="ml-stacked-sub">
           <span className="ml-powered-text">powered by</span>
           <img className="ml-logo" src={LOGO_SRC} alt="Bigdata.com by RavenPack" />
@@ -157,17 +157,15 @@ function MastheadLockup({ style, theme }) {
     );
   }
 
-  // Default: "paren-lockup" — matches the user's reference sketch
+  // Default: "paren-lockup"
   return (
     <div className="masthead-title-lockup is-paren" aria-label="The Brief, powered by Bigdata.com">
       <h1 className="masthead-title-big">The Brief</h1>
       <div className="ml-paren-block" aria-hidden="false">
-        <span className="ml-paren ml-paren-left">(</span>
         <div className="ml-paren-inner">
           <span className="ml-powered-text">powered by</span>
           <img className="ml-logo" src={LOGO_SRC} alt="Bigdata.com by RavenPack" />
         </div>
-        <span className="ml-paren ml-paren-right">)</span>
       </div>
     </div>
   );
