@@ -805,13 +805,7 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
           {briefLoading
             ? null
             : narrativeText
-              ? narrativeText.split(/(?<=\.)\s+/).filter(Boolean).map((sentence, i) => (
-                  <p key={i} style={{ margin: "0 0 0.75em" }}>
-                    {i === 0
-                      ? <><span className="dropcap">{sentence.charAt(0)}</span>{sentence.slice(1)}</>
-                      : sentence}
-                  </p>
-                ))
+              ? <><span className="dropcap">{narrativeText.charAt(0)}</span>{narrativeText.slice(1)}</>
               : <span style={{ color: "var(--ink-mute)", fontStyle: "italic" }}>No portfolio brief available yet — will be generated after the next run.</span>
           }
         </p>
