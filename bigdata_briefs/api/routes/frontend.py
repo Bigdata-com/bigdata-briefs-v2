@@ -37,6 +37,7 @@ from bigdata_briefs.orchestration.models import (
     SQLEntityEarningsCalendar,
     SQLEntityOrchestrationState,
     SQLEntityPipelineRunLog,
+    SQLEntitySignalHistory,
     SQLRunMetrics,
     SQLRunNarrative,
     SQLUIBatchRun,
@@ -1289,7 +1290,68 @@ def get_companies_summaries(date: str | None = None) -> dict:
                 summ["earningsOnDate"] = False
                 summ["earningsSessionTitle"] = None
 
+        # Signal deltas: last 2 rows from SQLEntitySignalHistory per entity
+        for entity_id, summ in summaries.items():
+            sig_rows = session.exec(
+                select(SQLEntitySignalHistory)
+                .where(SQLEntitySignalHistory.entity_id == entity_id)
+                .order_by(desc(SQLEntitySignalHistory.date))
+                .limit(2)
+            ).all()
+
+            delta_chunks_pct = None
+            delta_sent_pct = None
+            if len(sig_rows) == 2:
+                today_row = sig_rows[0]
+                yesterday_row = sig_rows[1]
+                if (
+                    today_row.chunks_ewm_short is not None
+                    and yesterday_row.chunks_ewm_short is not None
+                ):
+                    denom = max(abs(yesterday_row.chunks_ewm_short), 0.01)
+                    delta_chunks_pct = (today_row.chunks_ewm_short - yesterday_row.chunks_ewm_short) / denom * 100
+                if (
+                    today_row.sent_ewm_short is not None
+                    and yesterday_row.sent_ewm_short is not None
+                ):
+                    denom = max(abs(yesterday_row.sent_ewm_short), 0.01)
+                    delta_sent_pct = (today_row.sent_ewm_short - yesterday_row.sent_ewm_short) / denom * 100
+            summ["deltaChunksPct"] = delta_chunks_pct
+            summ["deltaSentPct"] = delta_sent_pct
+
     return {"summaries": summaries, "date": target_date}
+
+
+@router.get("/entity/{entity_id}/signals")
+def get_entity_signals(entity_id: str, days: int = 30) -> dict:
+    """Return last `days` signal history rows for the given entity, ordered by date ascending.
+
+    Response: {entity_id, signals: [{date, chunks_zscore_mo, sent_zscore_mo, chunks_ewm_short, sent_ewm_short}]}
+    """
+    engine = get_engine()
+    with Session(engine) as session:
+        rows = session.exec(
+            select(SQLEntitySignalHistory)
+            .where(SQLEntitySignalHistory.entity_id == entity_id)
+            .order_by(desc(SQLEntitySignalHistory.date))
+            .limit(days)
+        ).all()
+
+    # Return in ascending date order for charting
+    rows_sorted = sorted(rows, key=lambda r: r.date)
+    return {
+        "entity_id": entity_id,
+        "signals": [
+            {
+                "date": r.date,
+                "chunks_zscore_mo": r.chunks_zscore_mo,
+                "sent_zscore_mo": r.sent_zscore_mo,
+                "chunks_ewm_short": r.chunks_ewm_short,
+                "sent_ewm_short": r.sent_ewm_short,
+            }
+            for r in rows_sorted
+        ],
+    }
 
 
 @router.get("/entity/{entity_id}/brief")

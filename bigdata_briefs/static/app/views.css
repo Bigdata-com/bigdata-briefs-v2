@@ -1250,7 +1250,7 @@
 }
 .brief-pick-row {
   display: grid;
-  grid-template-columns: 80px 1fr 180px 72px 72px;
+  grid-template-columns: 80px 1fr 180px 72px 72px 72px 72px;
   align-items: center;
   gap: 0 16px;
   padding: 10px 0;
@@ -1276,7 +1276,8 @@
 .brief-pick-row-head .brief-pick-col-name,
 .brief-pick-row-head .brief-pick-col-date,
 .brief-pick-row-head .brief-pick-col-bullets,
-.brief-pick-row-head .brief-pick-col-discarded {
+.brief-pick-row-head .brief-pick-col-discarded,
+.brief-pick-row-head .brief-pick-col-delta {
   font-family: var(--sans);
   font-size: 10px;
   font-weight: 600;
@@ -1307,5 +1308,11 @@
   font-size: 15px;
   font-weight: 600;
   color: var(--ink-soft);
+  text-align: right;
+}
+.brief-pick-col-delta {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
   text-align: right;
 }

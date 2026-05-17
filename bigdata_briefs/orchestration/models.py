@@ -248,6 +248,19 @@ class SQLUserPortfolio(SQLModel, table=True):
     added_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class SQLEntitySignalHistory(SQLModel, table=True):
+    """Daily signal snapshot per entity (computed after each batch run).
+    Composite PK: entity_id + date."""
+
+    entity_id: str = Field(primary_key=True, max_length=64)
+    date: str = Field(primary_key=True, max_length=10)  # YYYY-MM-DD
+    chunks_zscore_mo: float | None = Field(default=None)   # normalized z-score
+    sent_zscore_mo: float | None = Field(default=None)     # normalized z-score
+    chunks_ewm_short: float | None = Field(default=None)   # raw smoothed chunk count
+    sent_ewm_short: float | None = Field(default=None)     # raw smoothed sentiment
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class SQLRunMetrics(SQLModel, table=True):
     """Cost and usage metrics for one pipeline run.
 

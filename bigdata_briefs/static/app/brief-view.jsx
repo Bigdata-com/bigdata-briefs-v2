@@ -77,6 +77,9 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
   const [filterTheme, setFilterTheme] = React.useState(null);
   const [relatedBriefs, setRelatedBriefs] = React.useState([]);
   const [companySearch, setCompanySearch] = React.useState("");
+  const [entitySignals, setEntitySignals] = React.useState(null);
+  const [signalsLoading, setSignalsLoading] = React.useState(false);
+  const [signalMode, setSignalMode] = React.useState("zscore"); // "zscore" | "raw"
 
   const brief = currentBrief;
 
@@ -161,6 +164,22 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
   React.useEffect(() => {
     if (selectedDate) refreshSidebar(selectedDate);
   }, [selectedDate]);
+
+  React.useEffect(() => {
+    const entityId = brief?.entityId;
+    if (!entityId) {
+      setEntitySignals(null);
+      return;
+    }
+    let cancelled = false;
+    setSignalsLoading(true);
+    fetch(`/api/frontend/entity/${encodeURIComponent(entityId)}/signals?days=30`)
+      .then(r => r.json())
+      .then(data => { if (!cancelled) setEntitySignals(data); })
+      .catch(console.error)
+      .finally(() => { if (!cancelled) setSignalsLoading(false); });
+    return () => { cancelled = true; };
+  }, [brief?.entityId]);
 
   function loadEntity(entityId, date) {
     const targetDate =
@@ -593,6 +612,64 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
           })()}
         </div>
 
+        {/* Signal sparklines with Z-score / Raw toggle */}
+        <div className="rail-section">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <div className="t-cap">Signal history</div>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button
+                className={"theme-chip" + (signalMode === "zscore" ? " active" : "")}
+                onClick={() => setSignalMode("zscore")}
+                style={{ fontSize: 10, padding: "2px 7px" }}
+              >Z-score</button>
+              <button
+                className={"theme-chip" + (signalMode === "raw" ? " active" : "")}
+                onClick={() => setSignalMode("raw")}
+                style={{ fontSize: 10, padding: "2px 7px" }}
+              >Raw</button>
+            </div>
+          </div>
+          {signalsLoading ? (
+            <div className="t-meta" style={{ color: "var(--ink-faint)", fontSize: 11 }}>Loading…</div>
+          ) : entitySignals && entitySignals.signals && entitySignals.signals.length > 0 ? (() => {
+            const sigs = entitySignals.signals;
+            const chunksKey = signalMode === "zscore" ? "chunks_zscore_mo" : "chunks_ewm_short";
+            const sentKey   = signalMode === "zscore" ? "sent_zscore_mo"   : "sent_ewm_short";
+            const chunksVals = sigs.map(s => s[chunksKey] ?? 0);
+            const sentVals   = sigs.map(s => s[sentKey]   ?? 0);
+            return (
+              <>
+                <div style={{ marginBottom: 8 }}>
+                  <div className="t-cap" style={{ fontSize: 9.5, marginBottom: 4 }}>Media attention</div>
+                  <Sparkline
+                    data={chunksVals}
+                    height={36}
+                    width={240}
+                    fluid
+                    color="var(--ink)"
+                    fillColor="color-mix(in srgb, var(--ink) 8%, transparent)"
+                    showLast
+                  />
+                </div>
+                <div>
+                  <div className="t-cap" style={{ fontSize: 9.5, marginBottom: 4 }}>Sentiment</div>
+                  <Sparkline
+                    data={sentVals}
+                    height={36}
+                    width={240}
+                    fluid
+                    color="var(--ink)"
+                    fillColor="color-mix(in srgb, var(--ink) 8%, transparent)"
+                    showLast
+                  />
+                </div>
+              </>
+            );
+          })() : (
+            <div className="t-meta" style={{ color: "var(--ink-faint)", fontSize: 11 }}>No signal data available.</div>
+          )}
+        </div>
+
         {/* Audit link removed — Audit is now an inline tab at top of brief */}
 
         {relatedBriefs.length > 0 && (
@@ -907,6 +984,8 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
             <span className="brief-pick-col-date">Last run</span>
             <span className="brief-pick-col-bullets">Published</span>
             <span className="brief-pick-col-discarded">Discarded</span>
+            <span className="brief-pick-col-delta">Media Att. Δ</span>
+            <span className="brief-pick-col-delta">Sentiment Δ</span>
           </div>
           {companies.map(c => {
             const s = summaries[c.id] || {};
@@ -914,6 +993,15 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
             const discarded = s.bulletsDiscarded != null ? s.bulletsDiscarded : "—";
             const rawDate = s.lastRunDate || (s.pulse7?.length > 0 ? s.pulse7[s.pulse7.length - 1].date : null);
             const date = _fmtRunDate(rawDate);
+            const fmtDelta = (v) => {
+              if (v == null) return { label: "—", color: "inherit" };
+              const fixed = v.toFixed(1);
+              const label = v >= 0 ? `+${fixed}%` : `${fixed}%`;
+              const color = v >= 0 ? "var(--novel)" : "var(--discard)";
+              return { label, color };
+            };
+            const chunksDelta = fmtDelta(s.deltaChunksPct);
+            const sentDelta = fmtDelta(s.deltaSentPct);
             return (
               <button key={c.id} className="brief-pick-row brief-pick-row-item"
                       onClick={() => onPick(c.id, null)} disabled={loading}>
@@ -922,6 +1010,8 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
                 <span className="brief-pick-col-date">{date}</span>
                 <span className="brief-pick-col-bullets">{saved}</span>
                 <span className="brief-pick-col-discarded">{discarded}</span>
+                <span className="brief-pick-col-delta tnum" style={{ color: chunksDelta.color }}>{chunksDelta.label}</span>
+                <span className="brief-pick-col-delta tnum" style={{ color: sentDelta.color }}>{sentDelta.label}</span>
               </button>
             );
           })}

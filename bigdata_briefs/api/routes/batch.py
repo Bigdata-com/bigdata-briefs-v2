@@ -511,6 +511,15 @@ def batch_run_parallel(
                         logger.exception("Portfolio brief post-batch trigger failed")
                 _threading.Thread(target=_gen_portfolio_brief, daemon=True).start()
 
+                # Also store signal history for all entities after the batch completes
+                def _store_signals():
+                    try:
+                        from bigdata_briefs.orchestration.sentiment_ranking import compute_and_store_signals
+                        compute_and_store_signals(engine, entity_ids)
+                    except Exception:
+                        logger.exception("Signal history post-batch trigger failed")
+                _threading.Thread(target=_store_signals, daemon=True).start()
+
     for idx, (run_id, entity_id) in enumerate(zip(run_ids, entity_ids)):
         future = executor.submit(
             _run_one_entity_safely,
