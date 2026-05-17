@@ -735,8 +735,14 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
     .sort((a, b) => b.saved - a.saved)
     .slice(0, 5);
 
-  const today = new Date();
-  const dateLabel = today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  const dateLabel = React.useMemo(() => {
+    const iso = portfolioBrief?.date;
+    if (!iso) return null;
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", {
+      weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC",
+    });
+  }, [portfolioBrief?.date]);
 
   // Portfolio brief state
   const [portfolioBrief, setPortfolioBrief] = React.useState(null);
@@ -784,7 +790,7 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
     <div className="brief-landing">
       {/* LEFT: Portfolio Brief */}
       <section className="portfolio-brief">
-        <div className="pb-eyebrow">Portfolio Brief · {dateLabel}</div>
+        <div className="pb-eyebrow">Portfolio Brief{dateLabel ? ` · ${dateLabel}` : ""}</div>
         <h1 className="pb-title">The day, told as one story.</h1>
         <p className="pb-subtitle">A single editorial synthesis of every material development across your coverage today.</p>
 
@@ -799,7 +805,13 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
           {briefLoading
             ? null
             : narrativeText
-              ? <><span className="dropcap">{narrativeText.charAt(0)}</span>{narrativeText.slice(1)}</>
+              ? narrativeText.split(/(?<=\.)\s+/).filter(Boolean).map((sentence, i) => (
+                  <p key={i} style={{ margin: "0 0 0.75em" }}>
+                    {i === 0
+                      ? <><span className="dropcap">{sentence.charAt(0)}</span>{sentence.slice(1)}</>
+                      : sentence}
+                  </p>
+                ))
               : <span style={{ color: "var(--ink-mute)", fontStyle: "italic" }}>No portfolio brief available yet — will be generated after the next run.</span>
           }
         </p>
@@ -822,12 +834,11 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
                     <span className="pb-event-tz">{DISPLAY_TZ}</span>
                   </div>
                   <div className="pb-event-meta">
-                    <span className="pb-event-ticker">{ticker}</span>
+                    <span className="pb-event-detail">{ev.entity_name}{ev.fiscal_period ? ` · ${ev.fiscal_period}` : ""}{ev.fiscal_year ? ` ${ev.fiscal_year}` : ""}</span>
                     <span className="pb-event-kind" data-kind={ev.category === "conference-call" ? "conference" : "earnings"}>
                       {ev.category === "conference-call" ? "Conference" : "Earnings Call"}
                     </span>
                   </div>
-                  <div className="pb-event-detail">{ev.entity_name}{ev.fiscal_period ? ` · ${ev.fiscal_period}` : ""}{ev.fiscal_year ? ` ${ev.fiscal_year}` : ""}</div>
                 </li>
               );
             })}
