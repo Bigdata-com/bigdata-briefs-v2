@@ -66,7 +66,7 @@ function formatUtcClockHm() {
 }
 
 // ── Masthead ───────────────────────────────────────────────────────
-function Masthead({ view, setView, theme, setTheme, headerStyle }) {
+function Masthead({ view, setView, theme, setTheme, headerStyle, setHeaderStyle }) {
   const [utcClock, setUtcClock] = useState(formatUtcClockHm);
   useEffect(() => {
     const tick = () => setUtcClock(formatUtcClockHm());
@@ -87,7 +87,19 @@ function Masthead({ view, setView, theme, setTheme, headerStyle }) {
             <span className="edition-date">{fmt}</span>
           </div>
           <MastheadLockup style={headerStyle || "paren-lockup"} theme={theme} />
-          <div className="masthead-actions">
+          <div className="masthead-actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {setHeaderStyle && (
+              <div style={{ display: "flex", gap: 4 }}>
+                {[["stacked","Stack"],["inline","Inline"],["paren-lockup","Paren"]].map(([val, label]) => (
+                  <button key={val}
+                    className={"theme-chip" + ((headerStyle || "paren-lockup") === val ? " active" : "")}
+                    onClick={() => setHeaderStyle(val)}
+                    style={{ fontSize: 11 }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
             <button className="btn-ghost btn-sm" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "var(--sans)", fontSize: 12, fontWeight: 600, color: "var(--ink-soft)" }}
             onClick={() => setTheme(theme === "light" ? "dark" : "light")}>
               {theme === "light" ? "◐ Dark" : "◑ Light"}

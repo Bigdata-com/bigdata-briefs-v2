@@ -67,7 +67,7 @@
 
       return (
         <React.Fragment>
-          <Masthead view={view} setView={setView} theme={t.dark ? "dark" : "light"} setTheme={(v) => setTweak("dark", v === "dark")} headerStyle={t.headerStyle} />
+          <Masthead view={view} setView={setView} theme={t.dark ? "dark" : "light"} setTheme={(v) => setTweak("dark", v === "dark")} headerStyle={t.headerStyle} setHeaderStyle={(v) => setTweak("headerStyle", v)} />
 
           <div className="page">
             <div className="page-inner">
