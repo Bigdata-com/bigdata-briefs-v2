@@ -655,13 +655,23 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
             return (
               <>
                 <div className="pulse-card surface">
+                  {/* Media attention */}
                   <div className="pulse-label">Media attention</div>
                   <div className="pulse-spark">
                     <Sparkline data={chunksVals} height={40} width={240} fluid
                       color="var(--ink)" fillColor="color-mix(in srgb, var(--ink) 8%, transparent)" showLast />
                   </div>
                   <div className="pulse-axis"><span>{firstDate}</span><span>{lastDate}</span></div>
+                  <div className="pulse-summary" style={{ marginTop: 8 }}>
+                    <div><div className="t-cap" style={{ fontSize: 9.5 }}>Selected</div>
+                      <div className="tnum" style={{ fontSize: 18, fontFamily: "var(--serif-display)", fontWeight: 600 }}>{chunksVals.length ? chunksVals[chunksVals.length - 1].toFixed(2) : "—"}</div></div>
+                    <div><div className="t-cap" style={{ fontSize: 9.5 }}>Avg</div>
+                      <div className="tnum" style={{ fontSize: 18, fontFamily: "var(--serif-display)", fontWeight: 600 }}>{chunksVals.length ? (chunksVals.reduce((a, b) => a + b, 0) / chunksVals.length).toFixed(2) : "—"}</div></div>
+                    <div><div className="t-cap" style={{ fontSize: 9.5 }}>Peak</div>
+                      <div className="tnum" style={{ fontSize: 18, fontFamily: "var(--serif-display)", fontWeight: 600 }}>{chunksVals.length ? Math.max(...chunksVals).toFixed(2) : "—"}</div></div>
+                  </div>
                   <hr className="rule" style={{ margin: "10px 0" }} />
+                  {/* Sentiment */}
                   <div className="pulse-label">Sentiment</div>
                   <div className="pulse-spark">
                     <Sparkline data={sentVals} height={40} width={240} fluid
@@ -669,6 +679,14 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
                       minVal={sentMin} maxVal={sentMax} showZero />
                   </div>
                   <div className="pulse-axis"><span>{firstDate}</span><span>{lastDate}</span></div>
+                  <div className="pulse-summary" style={{ marginTop: 8 }}>
+                    <div><div className="t-cap" style={{ fontSize: 9.5 }}>Selected</div>
+                      <div className="tnum" style={{ fontSize: 18, fontFamily: "var(--serif-display)", fontWeight: 600 }}>{sentVals.length ? sentVals[sentVals.length - 1].toFixed(3) : "—"}</div></div>
+                    <div><div className="t-cap" style={{ fontSize: 9.5 }}>Avg</div>
+                      <div className="tnum" style={{ fontSize: 18, fontFamily: "var(--serif-display)", fontWeight: 600 }}>{sentVals.length ? (sentVals.reduce((a, b) => a + b, 0) / sentVals.length).toFixed(3) : "—"}</div></div>
+                    <div><div className="t-cap" style={{ fontSize: 9.5 }}>Min / Max</div>
+                      <div className="tnum" style={{ fontSize: 14, fontFamily: "var(--serif-display)", fontWeight: 600 }}>{sentVals.length ? `${Math.min(...sentVals).toFixed(2)} / ${Math.max(...sentVals).toFixed(2)}` : "—"}</div></div>
+                  </div>
                 </div>
               </>
             );
