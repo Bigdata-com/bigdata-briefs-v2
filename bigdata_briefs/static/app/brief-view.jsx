@@ -752,11 +752,12 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
   const ranToday = companies.filter(c => summaries[c.id]?.hasRunOnDate === true);
   const totalSaved     = ranToday.reduce((s, c) => s + (summaries[c.id]?.bulletsSaved     || 0), 0);
   const totalDiscarded = ranToday.reduce((s, c) => s + (summaries[c.id]?.bulletsDiscarded || 0), 0);
-  const movers = ranToday
+  const moversAll = ranToday
     .map(c => ({ ...c, saved: summaries[c.id]?.bulletsSaved || 0, discarded: summaries[c.id]?.bulletsDiscarded || 0 }))
     .filter(c => c.saved > 0)
-    .sort((a, b) => b.saved - a.saved)
-    .slice(0, 5);
+    .sort((a, b) => b.saved - a.saved);
+  const movers = moversAll.slice(0, 5); // top 5 for display list
+  const activeCount = moversAll.length; // actual count of active companies
 
   const dateLabel = React.useMemo(() => {
     const iso = portfolioBrief?.date;
@@ -824,7 +825,7 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
           <span className="pb-meta-cell"><strong>{companiesCount}</strong> companies</span>
           <span className="pb-meta-cell"><strong>{totalSaved}</strong> material developments</span>
           <span className="pb-meta-cell"><strong>{totalDiscarded}</strong> filtered out</span>
-          <span className="pb-meta-cell"><strong>{movers.length}</strong> active names</span>
+          <span className="pb-meta-cell"><strong>{activeCount}</strong> active names</span>
         </div>
 
         {portfolioBrief?.narrative && (
