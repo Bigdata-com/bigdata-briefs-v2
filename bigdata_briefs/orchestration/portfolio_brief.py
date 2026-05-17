@@ -6,6 +6,7 @@ import json
 from datetime import date as date_cls, datetime, timezone
 from typing import TYPE_CHECKING
 
+from sqlalchemy import desc
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, select
 
@@ -15,6 +16,42 @@ if TYPE_CHECKING:
     pass
 
 _PORTFOLIO_BRIEF_TOP_N = 5
+
+_METRIC_DB_FIELD = {
+    "media_attention": ("chunks_ewm_short", "chunks_zscore_mo"),
+    "sentiment":       ("sent_ewm_short",   "sent_zscore_mo"),
+}
+
+
+def _rank_from_db(session, entity_ids: list[str], metric: str) -> list[str]:
+    """Rank entities by |Δ zscore| using the last 2 rows in SQLEntitySignalHistory.
+
+    Reads directly from DB — no API calls. Called after compute_and_store_signals()
+    has already populated the table for this batch.
+    """
+    from bigdata_briefs.orchestration.models import SQLEntitySignalHistory
+
+    _, zscore_col = _METRIC_DB_FIELD.get(metric, ("chunks_ewm_short", "chunks_zscore_mo"))
+
+    scores: dict[str, float] = {}
+    for eid in entity_ids:
+        rows = session.exec(
+            select(SQLEntitySignalHistory)
+            .where(SQLEntitySignalHistory.entity_id == eid)
+            .order_by(desc(SQLEntitySignalHistory.date))
+            .limit(2)
+        ).all()
+        if len(rows) < 2:
+            scores[eid] = 0.0
+            continue
+        today_val     = getattr(rows[0], zscore_col, None)
+        yesterday_val = getattr(rows[1], zscore_col, None)
+        if today_val is None or yesterday_val is None:
+            scores[eid] = 0.0
+        else:
+            scores[eid] = abs(float(today_val) - float(yesterday_val))
+
+    return sorted(entity_ids, key=lambda e: scores.get(e, 0.0), reverse=True)
 
 
 def generate_and_store_portfolio_brief(
@@ -72,13 +109,12 @@ def generate_and_store_portfolio_brief(
                 logger.info("Portfolio brief: no active bullets for date", date=date_iso)
                 return
 
-            # ── rank by signal delta ─────────────────────────────────────
+            # ── rank by signal delta from DB (no extra API calls) ────────
             all_entity_ids = list(entity_bullets.keys())
             try:
-                from bigdata_briefs.orchestration.sentiment_ranking import rank_entities_by_signal
-                signal_order = rank_entities_by_signal(all_entity_ids, metric=ranking_metric)
+                signal_order = _rank_from_db(session, all_entity_ids, ranking_metric)
             except Exception as exc:
-                logger.warning("Sentiment ranking failed, falling back to bullet count", error=str(exc))
+                logger.warning("DB signal ranking failed, falling back to bullet count", error=str(exc))
                 signal_order = sorted(all_entity_ids, key=lambda e: len(entity_bullets.get(e, [])), reverse=True)
 
             # ── select top_n with fallback ────────────────────────────────

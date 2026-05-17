@@ -485,19 +485,28 @@ def batch_run_parallel(
                     total=total,
                     entity_ids=entity_ids,
                 )
-                # After all entities finish, generate the portfolio brief in background
+                # After all entities finish: signals first, then portfolio brief from DB
                 import threading as _threading
                 _ranking_metric = body.ranking_metric
-                def _gen_portfolio_brief():
+                _batch_run_ids  = list(run_ids)
+
+                def _post_batch_pipeline():
                     try:
                         from sqlmodel import Session as _Session, select as _select
                         from sqlalchemy import desc as _desc
                         from bigdata_briefs.orchestration.models import SQLEntityPipelineRunLog as _RunLog
+                        from bigdata_briefs.orchestration.sentiment_ranking import compute_and_store_signals
                         from bigdata_briefs.orchestration.portfolio_brief import generate_and_store_portfolio_brief
+
+                        # Step 1 — compute & store signals (one API call per entity)
+                        compute_and_store_signals(engine, entity_ids)
+                        logger.info("Signal history stored", batch_id=str(batch_id))
+
+                        # Step 2 — portfolio brief reads ranking from SQLEntitySignalHistory (no extra API calls)
                         with _Session(engine) as _s:
                             latest = _s.exec(
                                 _select(_RunLog)
-                                .where(_RunLog.run_id.in_(run_ids))
+                                .where(_RunLog.run_id.in_(_batch_run_ids))
                                 .where(_RunLog.status.in_(["succeeded", "no_data"]))
                                 .order_by(_desc(_RunLog.report_window_end))
                             ).first()
@@ -508,17 +517,9 @@ def batch_run_parallel(
                                 ranking_metric=_ranking_metric,
                             )
                     except Exception:
-                        logger.exception("Portfolio brief post-batch trigger failed")
-                _threading.Thread(target=_gen_portfolio_brief, daemon=True).start()
+                        logger.exception("Post-batch pipeline (signals + portfolio brief) failed")
 
-                # Also store signal history for all entities after the batch completes
-                def _store_signals():
-                    try:
-                        from bigdata_briefs.orchestration.sentiment_ranking import compute_and_store_signals
-                        compute_and_store_signals(engine, entity_ids)
-                    except Exception:
-                        logger.exception("Signal history post-batch trigger failed")
-                _threading.Thread(target=_store_signals, daemon=True).start()
+                _threading.Thread(target=_post_batch_pipeline, daemon=True).start()
 
     for idx, (run_id, entity_id) in enumerate(zip(run_ids, entity_ids)):
         future = executor.submit(
