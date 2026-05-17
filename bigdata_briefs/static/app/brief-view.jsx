@@ -803,7 +803,7 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
     const d = new Date(iso);
     const zone = _tzIana();
     const date = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: zone });
-    const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: zone });
+    const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: zone });
     return { date, time };
   }
 
