@@ -387,7 +387,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
           <BriefEntityArchive entityId={brief.entityId} entityName={brief.entityName} ticker={brief.ticker} onOpenDate={(d) => { setMode("brief"); loadEntity(brief.entityId, d); }} />
         )}
         {mode === "audit" && (
-          <BriefEntityAudit brief={brief} />
+          <BriefEntityAudit entityId={brief.entityId} selectedDate={selectedDate} />
         )}
         {mode === "brief" && (<>
         {/* Hero */}
@@ -995,109 +995,148 @@ function BriefEntityArchive({ entityId, entityName, ticker, onOpenDate }) {
 }
 
 // ── Inline Audit (forensic) for the selected entity (Change 4) ──────
-function BriefEntityAudit({ brief }) {
-  const themes = brief.themes || [];
-  const bullets = brief.bullets || [];
-  const discarded = brief.discarded || [];
-  const stageLabels = {
-    relevance_score: "Relevance score",
-    grounding: "Grounding",
-    novelty_embedding: "Novelty (embedding)",
-    novelty_search: "Novelty (search)",
-  };
-  const stageColor = {
-    relevance_score: "var(--discard)",
-    grounding: "var(--discard)",
-    novelty_embedding: "var(--rewrite)",
-    novelty_search: "var(--rewrite)",
-  };
+// ── Inline Audit — renders identical content to HistoryDetailsView (no sidebar) ──
+function BriefEntityAudit({ entityId, selectedDate }) {
+  const [forensicsData, setForensicsData] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [openRunId, setOpenRunId] = React.useState(null);
+  const [expandedRejection, setExpandedRejection] = React.useState(null);
+  const [expandedPubCitation, setExpandedPubCitation] = React.useState(null);
 
-  // Funnel data: how many bullets each stage cut
-  const cutCounts = {};
-  discarded.forEach(d => { cutCounts[d.stage] = (cutCounts[d.stage] || 0) + 1; });
-  const generated = bullets.length + discarded.length;
+  React.useEffect(() => {
+    if (!entityId) return;
+    setLoading(true);
+    fetch(`/api/frontend/entity/${entityId}/forensics`)
+      .then(r => r.json())
+      .then(d => {
+        setForensicsData(d);
+        // Auto-open the run matching selectedDate, else open the first run
+        if (d.days && d.days.length > 0) {
+          const targetDay = selectedDate
+            ? d.days.find(day => day.date === selectedDate)
+            : d.days[0];
+          const day = targetDay || d.days[0];
+          if (day && day.runs && day.runs.length > 0) {
+            setOpenRunId(day.runs[0].runId);
+          }
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [entityId, selectedDate]);
 
-  return (
-    <div className="audit-inline" style={{ padding: "12px 4px 40px" }}>
-      <header style={{ marginBottom: 20 }}>
-        <div className="dateline" style={{ marginBottom: 6 }}>{_tk(brief.ticker)} · Audit</div>
-        <h2 className="t-display" style={{ fontSize: 32, margin: "0 0 6px", letterSpacing: "-0.018em" }}>
-          Every bullet, kept or cut.
-        </h2>
-        <p style={{ fontFamily: "var(--serif)", fontStyle: "italic", color: "var(--ink-mute)", margin: 0, fontSize: 14 }}>
-          The pipeline's full reasoning for run {brief.runId}.
-        </p>
-      </header>
-
-      <div className="audit-funnel" style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, marginBottom: 32, padding: "14px 0", borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)" }}>
-        <FunnelCell label="Generated" value={generated} color="var(--ink-soft)" />
-        <FunnelCell label="Relevance cut" value={cutCounts.relevance_score || 0} color="var(--discard)" />
-        <FunnelCell label="Grounding cut" value={cutCounts.grounding || 0} color="var(--discard)" />
-        <FunnelCell label="Novelty (emb)" value={cutCounts.novelty_embedding || 0} color="var(--rewrite)" />
-        <FunnelCell label="Novelty (search)" value={cutCounts.novelty_search || 0} color="var(--rewrite)" />
-        <FunnelCell label="Published" value={bullets.length} color="var(--novel)" />
-      </div>
-
-      <div className="t-cap" style={{ marginBottom: 14 }}>Published — kept</div>
-      <ol className="audit-pub-list" style={{ listStyle: "none", padding: 0, margin: "0 0 32px" }}>
-        {bullets.map((b, i) => (
-          <li key={b.id} style={{ padding: "14px 0", borderTop: "1px solid var(--rule-soft)" }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 6 }}>
-              <span className="tnum" style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-faint)" }}>{String(i + 1).padStart(2, "0")}</span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "var(--sans)", fontSize: 11, color: "var(--ink-mute)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                <ThemeDot theme={b.theme} />{b.theme}
-              </span>
-              {b.novelty === "rewritten" && (
-                <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--rewrite)", textTransform: "uppercase", letterSpacing: "0.08em" }}>· Rewritten</span>
-              )}
-            </div>
-            <p style={{ fontFamily: "var(--serif)", fontSize: 15.5, lineHeight: 1.55, margin: "0 0 6px", color: "var(--ink)" }}>
-              {b.text}
-            </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontFamily: "var(--sans)", fontSize: 11, color: "var(--ink-mute)" }}>
-              {b.citations.map((c, j) => (
-                <span key={c.id}>
-                  <span className="tnum">[{j + 1}]</span> {c.source} · {c.headline}
-                </span>
-              ))}
-            </div>
-            {b.novelty === "rewritten" && b.rewriteReason && (
-              <p style={{ marginTop: 8, fontFamily: "var(--sans)", fontSize: 12, color: "var(--rewrite)", fontStyle: "italic" }}>
-                Editor's note · {b.rewriteReason}
-              </p>
-            )}
-          </li>
-        ))}
-      </ol>
-
-      <div className="t-cap" style={{ marginBottom: 14 }}>Discarded — pipeline's editor's cut</div>
-      <div className="discarded-list">
-        {Object.entries(discarded.reduce((acc, item) => { (acc[item.stage] = acc[item.stage] || []).push(item); return acc; }, {})).map(([stage, list]) => (
-          <div key={stage} className="discarded-group" style={{ marginBottom: 18 }}>
-            <div className="discarded-group-head" style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span className="t-cap" style={{ color: stageColor[stage] }}>{stageLabels[stage] || stage}</span>
-              <span className="muted t-cap" style={{ fontSize: 10 }}>{list.length} item{list.length > 1 ? "s" : ""}</span>
-            </div>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-              {list.map(item => (
-                <li key={item.id} style={{ padding: "8px 0", borderTop: "1px solid var(--rule-soft)", fontFamily: "var(--serif)", fontSize: 14, color: "var(--ink-soft)" }}>
-                  <span>{item.text}</span>
-                  <span className="muted" style={{ marginLeft: 8, fontStyle: "italic", color: "var(--ink-mute)" }}>— {item.reason}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-    </div>
+  if (loading) return (
+    <div style={{ padding: 40, color: "var(--ink-mute)", fontStyle: "italic", fontFamily: "var(--sans)", fontSize: 13 }}>Loading audit…</div>
   );
-}
 
-function FunnelCell({ label, value, color }) {
+  const days = forensicsData?.days || [];
+
+  if (!days.length) return (
+    <div style={{ padding: 40, color: "var(--ink-mute)", fontStyle: "italic", fontFamily: "var(--sans)", fontSize: 13 }}>No audit data available.</div>
+  );
+
   return (
-    <div style={{ textAlign: "center", borderLeft: "1px solid var(--rule-soft)", padding: "0 4px" }}>
-      <div className="tnum" style={{ fontFamily: "var(--serif-display)", fontWeight: 700, fontSize: 28, color, lineHeight: 1.05 }}>{value}</div>
-      <div className="t-cap" style={{ marginTop: 4, fontSize: 9.5 }}>{label}</div>
+    <div className="hd-day-timeline" style={{ paddingTop: 8 }}>
+      {days.map(d => {
+        const dt = new Date(d.date + "T00:00:00Z");
+        const dayNum  = String(dt.getUTCDate()).padStart(2, "0");
+        const month3  = dt.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
+        const wd      = dt.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
+        const isMulti = d.runs.length > 1;
+
+        if (!isMulti) {
+          const r = d.runs[0];
+          const isOpen = openRunId === r.runId;
+          return (
+            <article key={d.date} id={`hd-day-${d.date}`} className={"hd-day" + (isOpen ? " hd-day-open" : "")}>
+              <button className="hd-day-head" onClick={() => setOpenRunId(isOpen ? null : r.runId)}>
+                <div className="archive-day-date">
+                  <div className="archive-day-num">{dayNum}</div>
+                  <div className="archive-day-month">{month3}</div>
+                  <div className="archive-day-weekday">{wd}</div>
+                </div>
+                <div className="hd-day-info">
+                  <div className="hd-day-counts">
+                    <span className="hd-count-pub"><strong className="tnum">{r.published}</strong> published</span>
+                    <span className="muted">·</span>
+                    <span className="hd-count-rej"><strong className="tnum">{r.rejected}</strong> rejected</span>
+                    <span className="muted">·</span>
+                    <span className="t-mono">run-{r.runId}</span>
+                    {r.windowStart && (
+                      <span className="muted" style={{ fontSize: 11 }}>{_fmtWindow(r.windowStart, r.windowEnd)}</span>
+                    )}
+                  </div>
+                  <div className="hd-day-stagebar">
+                    <PipelineStageBar published={r.published} rejected={r.rejected} groups={r.rejectionGroups} />
+                  </div>
+                </div>
+                <div className="hd-day-arrow">{isOpen ? "▴" : "▾"}</div>
+              </button>
+              {isOpen && (
+                <div className="hd-day-body">
+                  <RunBody r={r} expandedRejection={expandedRejection} setExpandedRejection={setExpandedRejection}
+                           expandedPubCitation={expandedPubCitation} setExpandedPubCitation={setExpandedPubCitation} />
+                </div>
+              )}
+            </article>
+          );
+        }
+
+        const totalPub = d.runs.reduce((s, r) => s + r.published, 0);
+        const totalRej = d.runs.reduce((s, r) => s + r.rejected, 0);
+        return (
+          <article key={d.date} className="hd-day hd-day-multi">
+            <div className="hd-day-multi-header">
+              <div className="archive-day-date">
+                <div className="archive-day-num">{dayNum}</div>
+                <div className="archive-day-month">{month3}</div>
+                <div className="archive-day-weekday">{wd}</div>
+              </div>
+              <div className="hd-day-info">
+                <div className="hd-day-counts">
+                  <span className="muted">{d.runs.length} runs</span>
+                  <span className="muted">·</span>
+                  <span className="hd-count-pub"><strong className="tnum">{totalPub}</strong> published</span>
+                  <span className="muted">·</span>
+                  <span className="hd-count-rej"><strong className="tnum">{totalRej}</strong> rejected</span>
+                </div>
+              </div>
+            </div>
+            {d.runs.map(r => {
+              const isOpen = openRunId === r.runId;
+              return (
+                <React.Fragment key={r.runId}>
+                  <button className={"hd-run-head" + (isOpen ? " hd-run-head-open" : "")}
+                          onClick={() => setOpenRunId(isOpen ? null : r.runId)}>
+                    <div className="hd-day-info">
+                      <div className="hd-day-counts">
+                        <span className="hd-count-pub"><strong className="tnum">{r.published}</strong> published</span>
+                        <span className="muted">·</span>
+                        <span className="hd-count-rej"><strong className="tnum">{r.rejected}</strong> rejected</span>
+                        <span className="muted">·</span>
+                        <span className="t-mono">run-{r.runId}</span>
+                        {r.windowStart && (
+                          <span className="muted" style={{ fontSize: 11 }}>{_fmtWindow(r.windowStart, r.windowEnd)}</span>
+                        )}
+                      </div>
+                      <div className="hd-day-stagebar">
+                        <PipelineStageBar published={r.published} rejected={r.rejected} groups={r.rejectionGroups} />
+                      </div>
+                    </div>
+                    <div className="hd-day-arrow">{isOpen ? "▴" : "▾"}</div>
+                  </button>
+                  {isOpen && (
+                    <div className="hd-run-body">
+                      <RunBody r={r} expandedRejection={expandedRejection} setExpandedRejection={setExpandedRejection}
+                               expandedPubCitation={expandedPubCitation} setExpandedPubCitation={setExpandedPubCitation} />
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </article>
+        );
+      })}
     </div>
   );
 }
