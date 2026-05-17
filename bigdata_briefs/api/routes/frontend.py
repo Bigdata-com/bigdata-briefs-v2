@@ -1752,7 +1752,8 @@ def get_portfolio_brief(date: str | None = None, top_n: int = 5) -> dict:
             companies = []
 
         return {
-            "narrative": cached.narrative,
+            "narrative":   cached.narrative,
+            "narrative_b": cached.narrative_b,
             "date": target_date,
             "companies": companies,
             "generated_at": _iso(cached.generated_at),

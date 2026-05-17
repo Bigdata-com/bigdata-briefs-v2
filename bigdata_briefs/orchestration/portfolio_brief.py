@@ -98,7 +98,7 @@ def generate_and_store_portfolio_brief(
                     "bulletCount": len(texts),
                 })
 
-        # ── build prompt ──────────────────────────────────────────────────
+        # ── build shared prompt context ───────────────────────────────────
         company_names = ", ".join(c["name"] for c in companies_out)
         sections = []
         for i, (eid, texts) in enumerate(ranked):
@@ -108,43 +108,64 @@ def generate_and_store_portfolio_brief(
         briefing_text = "\n\n".join(sections)
 
         user_msg = (
-            f"Portfolio brief for {date_iso}.\n\n"
-            f"Companies covered: {company_names}\n\n"
-            f"Briefing summaries:\n\n{briefing_text}\n\n"
-            "Write a portfolio summary covering the key themes and developments "
-            "across these companies today."
+            f"Date: {date_iso}.\n\n"
+            f"Companies: {company_names}\n\n"
+            f"Developments:\n\n{briefing_text}"
         )
 
-        # ── call LLM ─────────────────────────────────────────────────────
+        # ── two prompts ───────────────────────────────────────────────────
+        _SYS_THEMATIC = (
+            "You are a financial editor writing a concise morning portfolio note. "
+            "Given the day's developments across multiple companies, identify 1-2 dominant "
+            "cross-cutting themes and write 2-3 sentences about those themes, using the "
+            "companies as examples rather than listing them one by one. "
+            "Do not summarise each company sequentially. "
+            "Write in third person. No bullet points. "
+            "Do not use the words 'brief' or 'pipeline'."
+        )
+
+        _SYS_LEAD = (
+            "You are a financial editor writing a concise morning portfolio note. "
+            "Write exactly 2 sentences: the first captures the dominant theme of the day "
+            "in one strong declarative sentence; the second cites 2-3 specific concrete "
+            "developments that support it. "
+            "Do not summarise each company separately or sequentially. "
+            "Write in third person. No bullet points. "
+            "Do not use the words 'brief' or 'pipeline'."
+        )
+
+        # ── call both LLMs in parallel ────────────────────────────────────
+        from concurrent.futures import ThreadPoolExecutor as _TPE
         from bigdata_briefs.llm_client import LLMClient
         from pydantic import BaseModel as _BaseModel
 
-        class _PortfolioBriefResponse(_BaseModel):
+        class _R(_BaseModel):
             narrative: str
 
         llm = LLMClient()
-        response = llm.call_with_response_format(
-            system=[{
-                "role": "system",
-                "content": (
-                    "You are a financial analyst writing a concise portfolio brief. "
-                    "Given the briefing sentences for multiple companies on a specific date, "
-                    "write a fluent, concise portfolio summary (3-5 sentences) that synthesises "
-                    "the most important developments across these companies. "
-                    "Do not use bullet points. Write in third person. "
-                    "Do not mention the word 'brief' or 'pipeline'. "
-                    "Focus on material developments, themes, and notable events."
-                ),
-            }],
-            messages=[{"role": "user", "content": user_msg}],
-            model="gpt-4.1",
-            max_tokens=400,
-            text_format=_PortfolioBriefResponse,
-            step_name="portfolio_brief",
-        )
-        if response is None or not response.narrative:
+
+        def _call(sys_prompt, step):
+            try:
+                r = llm.call_with_response_format(
+                    system=[{"role": "system", "content": sys_prompt}],
+                    messages=[{"role": "user", "content": user_msg}],
+                    model="gpt-4.1",
+                    max_tokens=400,
+                    text_format=_R,
+                    step_name=step,
+                )
+                return r.narrative.strip() if r and r.narrative else None
+            except Exception:
+                return None
+
+        with _TPE(max_workers=2) as ex:
+            fut_a = ex.submit(_call, _SYS_THEMATIC, "portfolio_brief_thematic")
+            fut_b = ex.submit(_call, _SYS_LEAD,     "portfolio_brief_lead")
+            narrative   = fut_a.result()
+            narrative_b = fut_b.result()
+
+        if not narrative:
             return
-        narrative = response.narrative.strip()
 
         # ── persist (upsert: one row per date) ───────────────────────────
         with Session(engine) as session:
@@ -158,6 +179,7 @@ def generate_and_store_portfolio_brief(
                 date=date_iso,
                 top_n=len(ranked),
                 narrative=narrative,
+                narrative_b=narrative_b,
                 companies_json=json.dumps(companies_out),
                 generated_at=datetime.now(timezone.utc),
             ))

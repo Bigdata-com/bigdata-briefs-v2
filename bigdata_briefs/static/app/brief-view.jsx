@@ -747,6 +747,7 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
   // Portfolio brief state
   const [portfolioBrief, setPortfolioBrief] = React.useState(null);
   const [briefLoading, setBriefLoading] = React.useState(false);
+  const [narrativeMode, setNarrativeMode] = React.useState("thematic"); // "thematic" | "lead"
 
   // Upcoming events state
   const [upcomingEvents, setUpcomingEvents] = React.useState(null);
@@ -782,7 +783,9 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
     return { date, time };
   }
 
-  const narrativeText = portfolioBrief?.narrative;
+  const narrativeText = narrativeMode === "lead" && portfolioBrief?.narrative_b
+    ? portfolioBrief.narrative_b
+    : portfolioBrief?.narrative;
   const companiesCount = portfolioBrief?.companies?.length || companies.length;
   const events = upcomingEvents?.events || [];
 
@@ -800,6 +803,23 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
           <span className="pb-meta-cell"><strong>{totalDiscarded}</strong> filtered out</span>
           <span className="pb-meta-cell"><strong>{movers.length}</strong> active names</span>
         </div>
+
+        {portfolioBrief?.narrative && (
+          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+            <button
+              className={"theme-chip" + (narrativeMode === "thematic" ? " active" : "")}
+              onClick={() => setNarrativeMode("thematic")}
+              title="Identifies dominant cross-cutting themes"
+            >Thematic</button>
+            {portfolioBrief?.narrative_b && (
+              <button
+                className={"theme-chip" + (narrativeMode === "lead" ? " active" : "")}
+                onClick={() => setNarrativeMode("lead")}
+                title="One strong theme sentence + concrete examples"
+              >Lead + Support</button>
+            )}
+          </div>
+        )}
 
         <p className="pb-narrative">
           {briefLoading

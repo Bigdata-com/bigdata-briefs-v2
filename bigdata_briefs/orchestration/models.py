@@ -191,13 +191,17 @@ class SQLPortfolioBrief(SQLModel, table=True):
 
     Written automatically after every batch/run-parallel completes.
     One row per date (upserted on each batch completion).
+    Two narrative variants are generated in parallel:
+      - narrative   : thematic synthesis (identifies cross-cutting themes)
+      - narrative_b : lead + support (theme sentence + 2-3 concrete examples)
     """
 
     id: int | None = Field(default=None, primary_key=True)
-    date: str = Field(max_length=10, index=True)          # YYYY-MM-DD
-    top_n: int = Field(default=5)                          # actual companies included
-    narrative: str = Field(sa_type=Text)
-    companies_json: str = Field(default="[]", sa_type=Text)  # [{entityId, name, ticker, bulletCount}]
+    date: str = Field(max_length=10, index=True)           # YYYY-MM-DD
+    top_n: int = Field(default=5)                           # actual companies included
+    narrative: str = Field(sa_type=Text)                    # variant A — thematic
+    narrative_b: str | None = Field(default=None, sa_type=Text)  # variant B — lead+support
+    companies_json: str = Field(default="[]", sa_type=Text)
     generated_at: datetime
 
 
