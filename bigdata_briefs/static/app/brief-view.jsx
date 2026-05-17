@@ -121,14 +121,35 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
     c.name.toLowerCase().includes(_searchLower) ||
     (c.ticker || "").toLowerCase().includes(_searchLower);
 
+  // Multi-level sort: Last run → Published → Discarded → |Med.Att.Δ| → |Sent.Δ|
+  const _sortCompanies = (list) => [...list].sort((a, b) => {
+    const sa = companySummaries[a.id] || {};
+    const sb = companySummaries[b.id] || {};
+    // 1. Most recent last run
+    const da = sa.lastRunDate || "";
+    const db = sb.lastRunDate || "";
+    if (db !== da) return db > da ? 1 : -1;
+    // 2. Published descending
+    const pa = sa.bulletsSaved ?? 0;
+    const pb = sb.bulletsSaved ?? 0;
+    if (pb !== pa) return pb - pa;
+    // 3. Discarded descending
+    const disca = sa.bulletsDiscarded ?? 0;
+    const discb = sb.bulletsDiscarded ?? 0;
+    if (discb !== disca) return discb - disca;
+    // 4. |Media Att. Δ| descending
+    const ma = Math.abs(sa.deltaChunksPct ?? 0);
+    const mb = Math.abs(sb.deltaChunksPct ?? 0);
+    if (mb !== ma) return mb - ma;
+    // 5. |Sentiment Δ| descending
+    const sea = Math.abs(sa.deltaSentPct ?? 0);
+    const seb = Math.abs(sb.deltaSentPct ?? 0);
+    return seb - sea;
+  });
+
   const companiesForFrontPage = React.useMemo(() => {
     if (!brief) {
-      return [...allCompanies].sort((a, b) => {
-        const ba = companySummaries[a.id]?.bulletsSaved ?? -1;
-        const bb = companySummaries[b.id]?.bulletsSaved ?? -1;
-        if (bb !== ba) return bb - ba;
-        return (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
-      });
+      return _sortCompanies(allCompanies);
     }
     const bid = brief.entityId;
     const list = allCompanies.filter(c => {
@@ -139,18 +160,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
       if (s.hasRunOnDate === false) return false;
       return (s.bulletsSaved ?? 0) > 0;
     });
-    list.sort((a, b) => {
-      const sa = companySummaries[a.id] || {};
-      const sb = companySummaries[b.id] || {};
-      const ea = BRIEF_SHOW_EARNINGS_RELEASE_INFO && sa.earningsOnDate ? 1 : 0;
-      const eb = BRIEF_SHOW_EARNINGS_RELEASE_INFO && sb.earningsOnDate ? 1 : 0;
-      if (eb !== ea) return eb - ea;
-      const ba = sa.bulletsSaved ?? 0;
-      const bb = sb.bulletsSaved ?? 0;
-      if (bb !== ba) return bb - ba;
-      return (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
-    });
-    return list;
+    return _sortCompanies(list);
   }, [companySummaries, brief?.entityId, allCompanies]);
 
   function refreshSidebar(date) {
