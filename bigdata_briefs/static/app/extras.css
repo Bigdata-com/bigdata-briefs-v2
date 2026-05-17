@@ -25,33 +25,34 @@
   font-family: var(--serif-display);
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: var(--ink);
+  color: #202020;
   margin: 0;
   line-height: 1;
   white-space: nowrap;
 }
+[data-theme="dark"] .masthead-title-big { color: #fefdf6; }
 
 .ml-powered-text {
   font-family: var(--sans);
   font-weight: 500;
-  color: var(--ink-mute);
+  color: #202020;
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
+[data-theme="dark"] .ml-powered-text { color: #fefdf6; }
 
 .ml-paren {
   font-family: var(--serif);
-  color: var(--ink-mute);
+  color: #202020;
   font-weight: 300;
   line-height: 1;
 }
+[data-theme="dark"] .ml-paren { color: #fefdf6; }
 
 .ml-logo {
   display: inline-block;
   width: auto;
-  filter: invert(1) brightness(0.32);
 }
-[data-theme="dark"] .ml-logo { filter: none; }
 
 /* ── Variant A: paren-lockup (matches the user's reference) ── */
 .masthead-title-lockup.is-paren {
