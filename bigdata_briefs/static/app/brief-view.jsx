@@ -1055,9 +1055,6 @@ function BriefEntityAudit({ entityId, selectedDate }) {
             {r.windowStart && (
               <span className="muted" style={{ fontSize: 11 }}>{_fmtWindow(r.windowStart, r.windowEnd)}</span>
             )}
-            <div style={{ width: "100%", marginTop: 4 }}>
-              <PipelineStageBar published={r.published} rejected={r.rejected} groups={r.rejectionGroups} />
-            </div>
           </div>
         );
 
