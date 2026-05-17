@@ -1040,43 +1040,34 @@ function BriefEntityAudit({ entityId, selectedDate }) {
   );
 
   return (
-    <div className="hd-day-timeline" style={{ paddingTop: 8 }}>
+    <div style={{ paddingTop: 8 }}>
       {days.map(d => {
-        const dt = new Date(d.date + "T00:00:00Z");
-        const dayNum  = String(dt.getUTCDate()).padStart(2, "0");
-        const month3  = dt.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
-        const wd      = dt.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
         const isMulti = d.runs.length > 1;
+
+        // Static header — no collapse, always expanded
+        const RunHeader = ({ r }) => (
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px 12px", padding: "10px 0", borderBottom: "1px solid var(--rule)", marginBottom: 16, fontFamily: "var(--sans)", fontSize: 12 }}>
+            <span className="hd-count-pub"><strong className="tnum">{r.published}</strong> published</span>
+            <span className="muted">·</span>
+            <span className="hd-count-rej"><strong className="tnum">{r.rejected}</strong> rejected</span>
+            <span className="muted">·</span>
+            <span className="t-mono" style={{ color: "var(--ink-mute)" }}>run-{r.runId}</span>
+            {r.windowStart && (
+              <span className="muted" style={{ fontSize: 11 }}>{_fmtWindow(r.windowStart, r.windowEnd)}</span>
+            )}
+            <div style={{ width: "100%", marginTop: 4 }}>
+              <PipelineStageBar published={r.published} rejected={r.rejected} groups={r.rejectionGroups} />
+            </div>
+          </div>
+        );
 
         if (!isMulti) {
           const r = d.runs[0];
-          const isOpen = openRunId === r.runId;
           return (
-            <article key={d.date} id={`hd-day-${d.date}`} className={"hd-day" + (isOpen ? " hd-day-open" : "")}>
-              <button className="hd-day-head" onClick={() => setOpenRunId(isOpen ? null : r.runId)}>
-                <div className="hd-day-info">
-                  <div className="hd-day-counts">
-                    <span className="hd-count-pub"><strong className="tnum">{r.published}</strong> published</span>
-                    <span className="muted">·</span>
-                    <span className="hd-count-rej"><strong className="tnum">{r.rejected}</strong> rejected</span>
-                    <span className="muted">·</span>
-                    <span className="t-mono">run-{r.runId}</span>
-                    {r.windowStart && (
-                      <span className="muted" style={{ fontSize: 11 }}>{_fmtWindow(r.windowStart, r.windowEnd)}</span>
-                    )}
-                  </div>
-                  <div className="hd-day-stagebar">
-                    <PipelineStageBar published={r.published} rejected={r.rejected} groups={r.rejectionGroups} />
-                  </div>
-                </div>
-                <div className="hd-day-arrow">{isOpen ? "▴" : "▾"}</div>
-              </button>
-              {isOpen && (
-                <div className="hd-day-body">
-                  <RunBody r={r} expandedRejection={expandedRejection} setExpandedRejection={setExpandedRejection}
-                           expandedPubCitation={expandedPubCitation} setExpandedPubCitation={setExpandedPubCitation} />
-                </div>
-              )}
+            <article key={d.date}>
+              <RunHeader r={r} />
+              <RunBody r={r} expandedRejection={expandedRejection} setExpandedRejection={setExpandedRejection}
+                       expandedPubCitation={expandedPubCitation} setExpandedPubCitation={setExpandedPubCitation} />
             </article>
           );
         }
@@ -1084,24 +1075,14 @@ function BriefEntityAudit({ entityId, selectedDate }) {
         const totalPub = d.runs.reduce((s, r) => s + r.published, 0);
         const totalRej = d.runs.reduce((s, r) => s + r.rejected, 0);
         return (
-          <article key={d.date} className="hd-day hd-day-multi">
-            <div className="hd-day-multi-header">
-              <div className="hd-day-info">
-                <div className="hd-day-counts">
-                  <span className="muted">{d.runs.length} runs</span>
-                  <span className="muted">·</span>
-                  <span className="hd-count-pub"><strong className="tnum">{totalPub}</strong> published</span>
-                  <span className="muted">·</span>
-                  <span className="hd-count-rej"><strong className="tnum">{totalRej}</strong> rejected</span>
-                </div>
-              </div>
+          <article key={d.date}>
+            <div style={{ fontFamily: "var(--sans)", fontSize: 12, color: "var(--ink-mute)", marginBottom: 12 }}>
+              {d.runs.length} runs · <strong className="tnum">{totalPub}</strong> published · <strong className="tnum">{totalRej}</strong> rejected
             </div>
             {d.runs.map(r => {
-              const isOpen = openRunId === r.runId;
               return (
                 <React.Fragment key={r.runId}>
-                  <button className={"hd-run-head" + (isOpen ? " hd-run-head-open" : "")}
-                          onClick={() => setOpenRunId(isOpen ? null : r.runId)}>
+                  <RunHeader r={r} />
                     <div className="hd-day-info">
                       <div className="hd-day-counts">
                         <span className="hd-count-pub"><strong className="tnum">{r.published}</strong> published</span>
@@ -1110,21 +1091,8 @@ function BriefEntityAudit({ entityId, selectedDate }) {
                         <span className="muted">·</span>
                         <span className="t-mono">run-{r.runId}</span>
                         {r.windowStart && (
-                          <span className="muted" style={{ fontSize: 11 }}>{_fmtWindow(r.windowStart, r.windowEnd)}</span>
-                        )}
-                      </div>
-                      <div className="hd-day-stagebar">
-                        <PipelineStageBar published={r.published} rejected={r.rejected} groups={r.rejectionGroups} />
-                      </div>
-                    </div>
-                    <div className="hd-day-arrow">{isOpen ? "▴" : "▾"}</div>
-                  </button>
-                  {isOpen && (
-                    <div className="hd-run-body">
-                      <RunBody r={r} expandedRejection={expandedRejection} setExpandedRejection={setExpandedRejection}
-                               expandedPubCitation={expandedPubCitation} setExpandedPubCitation={setExpandedPubCitation} />
-                    </div>
-                  )}
+                  <RunBody r={r} expandedRejection={expandedRejection} setExpandedRejection={setExpandedRejection}
+                           expandedPubCitation={expandedPubCitation} setExpandedPubCitation={setExpandedPubCitation} />
                 </React.Fragment>
               );
             })}
