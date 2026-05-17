@@ -138,7 +138,7 @@ def generate_and_store_portfolio_brief(
             }],
             messages=[{"role": "user", "content": user_msg}],
             model="gpt-4.1",
-            max_tokens=200,
+            max_tokens=400,
             text_format=_PortfolioBriefResponse,
             step_name="portfolio_brief",
         )

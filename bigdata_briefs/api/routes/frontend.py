@@ -1851,7 +1851,7 @@ def get_portfolio_brief(date: str | None = None, top_n: int = 5) -> dict:
             }],
             messages=[{"role": "user", "content": user_msg}],
             model="gpt-4.1",
-            max_tokens=200,
+            max_tokens=400,
             text_format=_PortfolioBriefResponse,
             step_name="portfolio_brief",
         )
