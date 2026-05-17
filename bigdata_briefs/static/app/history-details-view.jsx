@@ -221,7 +221,7 @@ function RunBody({ r, expandedRejection, setExpandedRejection, expandedPubCitati
   return (
     <React.Fragment>
       {r.narrative && (
-        <div style={{ padding: "12px 0 16px", borderBottom: "1px solid var(--rule-soft)", marginBottom: 16 }}>
+        <div style={{ padding: "12px 0 16px", marginBottom: 16 }}>
           <span className="t-cap" style={{ color: "var(--accent)", marginBottom: 6, display: "block" }}>Narrative</span>
           <p style={{ fontFamily: "var(--serif)", fontSize: 16, fontStyle: "italic", color: "var(--ink-soft)", margin: 0 }}>{r.narrative}</p>
         </div>
