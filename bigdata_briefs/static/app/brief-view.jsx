@@ -847,7 +847,7 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
                     <span className="pb-event-time tnum">{evTime}</span>
                     <span className="pb-event-tz">{DISPLAY_TZ}</span>
                   </div>
-                  <div className="pb-event-meta">
+                  <div className="pb-event-meta" style={{ flexDirection: "column", alignItems: "flex-start", gap: 3 }}>
                     <span className="pb-event-detail">{ev.entity_name}{ev.fiscal_period ? ` · ${ev.fiscal_period}` : ""}{ev.fiscal_year ? ` ${ev.fiscal_year}` : ""}</span>
                     <span className="pb-event-kind" data-kind={ev.category === "conference-call" ? "conference" : "earnings"}>
                       {ev.category === "conference-call" ? "Conference" : "Earnings Call"}
