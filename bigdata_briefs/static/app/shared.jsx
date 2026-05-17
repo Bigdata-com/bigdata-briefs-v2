@@ -198,11 +198,13 @@ function Sparkline({
   fillColor = null,
   showLast = false,
   fluid = false,
+  minVal = null,
+  maxVal = null,
 }) {
   if (!data || data.length === 0) return null;
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const range = Math.max(max - min, 1);
+  const max = maxVal !== null ? maxVal : Math.max(...data);
+  const min = minVal !== null ? minVal : Math.min(...data);
+  const range = Math.max(max - min, 0.0001);
   const span = Math.max(data.length - 1, 1);
   const step = width / span;
   const points = data.map((v, i) => {

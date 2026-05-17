@@ -671,6 +671,8 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
                     color="var(--ink)"
                     fillColor="color-mix(in srgb, var(--ink) 8%, transparent)"
                     showLast
+                    minVal={Math.min(-0.1, ...sentVals)}
+                    maxVal={Math.max(0.1, ...sentVals)}
                   />
                 </div>
               </>
