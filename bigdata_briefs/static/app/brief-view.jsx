@@ -636,7 +636,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
             const chunksKey = signalMode === "zscore" ? "chunks_zscore_mo" : "chunks_ewm_short";
             const sentKey   = signalMode === "zscore" ? "sent_zscore_mo"   : "sent_ewm_short";
             const chunksVals = sigs.map(s => s[chunksKey] ?? 0);
-            const sentVals   = sigs.map(s => s[sentKey]   ?? 0);
+            const sentVals   = sigs.map(s => Math.min(1, Math.max(-1, s[sentKey] ?? 0)));
             return (
               <>
                 <div style={{ marginBottom: 8 }}>
