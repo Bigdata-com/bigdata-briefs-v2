@@ -83,7 +83,7 @@
   gap: 6px;
   padding: 2px 0;
 }
-.is-paren .ml-powered-text { font-size: 8px; line-height: 1; text-align: center; }
+.is-paren .ml-powered-text { font-size: 12px; line-height: 1; text-align: center; }
 .is-paren .ml-logo { height: 34px; align-self: center; }
 
 /* ── Variant B: inline ── */
