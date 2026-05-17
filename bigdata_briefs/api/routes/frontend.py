@@ -1780,8 +1780,37 @@ def get_upcoming_events(date: str | None = None, limit: int = 10) -> dict:
     ref_iso = ref_date.isoformat()
 
     with Session(engine) as session:
-        # Load all earnings calendar rows
-        calendar_rows = session.exec(select(SQLEntityEarningsCalendar)).all()
+        # Find the most recent date with active bullet points (same logic as portfolio brief)
+        latest_run = session.exec(
+            select(SQLEntityPipelineRunLog)
+            .where(SQLEntityPipelineRunLog.status.in_(["succeeded", "no_data"]))
+            .order_by(desc(SQLEntityPipelineRunLog.report_window_end))
+        ).first()
+        if latest_run and latest_run.report_window_end:
+            latest_day_iso = latest_run.report_window_end.date().isoformat()
+            from datetime import date as _date2
+            ld = _date2.fromisoformat(latest_day_iso)
+            day_start = datetime(ld.year, ld.month, ld.day, 0, 0, 0)
+            day_end   = datetime(ld.year, ld.month, ld.day, 23, 59, 59)
+            # Entity IDs that have runs on that day
+            active_entity_ids = {
+                r.entity_id for r in session.exec(
+                    select(SQLEntityPipelineRunLog).where(
+                        SQLEntityPipelineRunLog.status.in_(["succeeded", "no_data"]),
+                        SQLEntityPipelineRunLog.report_window_end >= day_start,
+                        SQLEntityPipelineRunLog.report_window_end <= day_end,
+                    )
+                ).all()
+            }
+        else:
+            active_entity_ids = None  # no runs at all → fall back to all entities
+
+        # Load earnings calendar rows — only for entities in the latest run day
+        all_cal = session.exec(select(SQLEntityEarningsCalendar)).all()
+        calendar_rows = [
+            c for c in all_cal
+            if active_entity_ids is None or c.entity_id in active_entity_ids
+        ]
 
         # Build entity metadata map
         orch_map = {
