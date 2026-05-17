@@ -1054,11 +1054,6 @@ function BriefEntityAudit({ entityId, selectedDate }) {
           return (
             <article key={d.date} id={`hd-day-${d.date}`} className={"hd-day" + (isOpen ? " hd-day-open" : "")}>
               <button className="hd-day-head" onClick={() => setOpenRunId(isOpen ? null : r.runId)}>
-                <div className="archive-day-date">
-                  <div className="archive-day-num">{dayNum}</div>
-                  <div className="archive-day-month">{month3}</div>
-                  <div className="archive-day-weekday">{wd}</div>
-                </div>
                 <div className="hd-day-info">
                   <div className="hd-day-counts">
                     <span className="hd-count-pub"><strong className="tnum">{r.published}</strong> published</span>
@@ -1091,11 +1086,6 @@ function BriefEntityAudit({ entityId, selectedDate }) {
         return (
           <article key={d.date} className="hd-day hd-day-multi">
             <div className="hd-day-multi-header">
-              <div className="archive-day-date">
-                <div className="archive-day-num">{dayNum}</div>
-                <div className="archive-day-month">{month3}</div>
-                <div className="archive-day-weekday">{wd}</div>
-              </div>
               <div className="hd-day-info">
                 <div className="hd-day-counts">
                   <span className="muted">{d.runs.length} runs</span>
