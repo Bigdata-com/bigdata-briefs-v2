@@ -654,17 +654,18 @@ function BulletItem({ bullet, index, isFirst, active, onActivate, themeColor }) 
         <div className="bullet-citations-row">
           {(() => {
             // Group chips by source name, combine citation numbers
+            // Group by source, count unique excerpts
             const grouped = [];
             const seen = new Map();
-            bullet.citations.forEach((c, i) => {
+            bullet.citations.forEach((c) => {
               const src = c.source || "—";
-              if (!seen.has(src)) { seen.set(src, { source: src, nums: [] }); grouped.push(seen.get(src)); }
-              seen.get(src).nums.push(i + 1);
+              if (!seen.has(src)) { seen.set(src, { source: src, excerpts: new Set() }); grouped.push(seen.get(src)); }
+              const ex = String(c.excerpt != null ? c.excerpt : (c.text != null ? c.text : "")).trim();
+              if (ex) seen.get(src).excerpts.add(ex);
             });
             return grouped.map((g, gi) => (
               <span key={gi} className="bullet-source-chip">
-                <span className="t-mono cite-num">{g.nums.join(",")}</span>
-                <span className="cite-source">{g.source}</span>
+                <span className="cite-source">{g.source}{g.excerpts.size > 1 ? ` (${g.excerpts.size})` : ""}</span>
               </span>
             ));
           })()}
