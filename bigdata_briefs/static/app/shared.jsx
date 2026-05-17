@@ -40,7 +40,7 @@ function _fmtRunDate(iso) {
     hour: "numeric", minute: "2-digit", hour12: true, timeZone: _tzIana(),
   }).formatToParts(d);
   const g = t => parts.find(p => p.type === t)?.value || "";
-  return `${g("year")}-${g("month")}-${g("day")} ${g("hour")}:${g("minute")} ${DISPLAY_TZ}`;
+  return `${g("year")}-${g("month")}-${g("day")} ${g("hour")}:${g("minute")} ${g("dayPeriod")} ${DISPLAY_TZ}`;
 }
 
 function _fmtWindow(start, end) {
