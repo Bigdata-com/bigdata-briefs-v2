@@ -984,8 +984,8 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
             <span className="brief-pick-col-date">Last run</span>
             <span className="brief-pick-col-bullets">Published</span>
             <span className="brief-pick-col-discarded">Discarded</span>
-            <span className="brief-pick-col-delta">Media Att. Δ</span>
-            <span className="brief-pick-col-delta">Sentiment Δ</span>
+            <span className="brief-pick-col-delta">Med. Att. Δ</span>
+            <span className="brief-pick-col-delta">Sent. Δ</span>
           </div>
           {companies.map(c => {
             const s = summaries[c.id] || {};

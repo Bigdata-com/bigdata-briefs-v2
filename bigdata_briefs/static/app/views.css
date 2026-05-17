@@ -1250,7 +1250,7 @@
 }
 .brief-pick-row {
   display: grid;
-  grid-template-columns: 80px 1fr 180px 72px 72px 72px 72px;
+  grid-template-columns: 80px 1fr 180px 60px 60px 70px 70px;
   align-items: center;
   gap: 0 16px;
   padding: 10px 0;
@@ -1284,6 +1284,8 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-mute);
+  white-space: nowrap;
+  text-align: right;
 }
 .brief-pick-col-name {
   font-family: var(--sans);
