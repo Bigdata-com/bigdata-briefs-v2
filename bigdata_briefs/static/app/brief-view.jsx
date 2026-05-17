@@ -1079,23 +1079,13 @@ function BriefEntityAudit({ entityId, selectedDate }) {
             <div style={{ fontFamily: "var(--sans)", fontSize: 12, color: "var(--ink-mute)", marginBottom: 12 }}>
               {d.runs.length} runs · <strong className="tnum">{totalPub}</strong> published · <strong className="tnum">{totalRej}</strong> rejected
             </div>
-            {d.runs.map(r => {
-              return (
-                <React.Fragment key={r.runId}>
-                  <RunHeader r={r} />
-                    <div className="hd-day-info">
-                      <div className="hd-day-counts">
-                        <span className="hd-count-pub"><strong className="tnum">{r.published}</strong> published</span>
-                        <span className="muted">·</span>
-                        <span className="hd-count-rej"><strong className="tnum">{r.rejected}</strong> rejected</span>
-                        <span className="muted">·</span>
-                        <span className="t-mono">run-{r.runId}</span>
-                        {r.windowStart && (
-                  <RunBody r={r} expandedRejection={expandedRejection} setExpandedRejection={setExpandedRejection}
-                           expandedPubCitation={expandedPubCitation} setExpandedPubCitation={setExpandedPubCitation} />
-                </React.Fragment>
-              );
-            })}
+            {d.runs.map(r => (
+              <React.Fragment key={r.runId}>
+                <RunHeader r={r} />
+                <RunBody r={r} expandedRejection={expandedRejection} setExpandedRejection={setExpandedRejection}
+                         expandedPubCitation={expandedPubCitation} setExpandedPubCitation={setExpandedPubCitation} />
+              </React.Fragment>
+            ))}
           </article>
         );
       })}
