@@ -1811,6 +1811,7 @@ def get_upcoming_events(date: str | None = None, limit: int = 10) -> dict:
                     "entity_name": name,
                     "ticker": ticker,
                     "title": ev.get("title") or "",
+                    "category": ev.get("category") or "earnings-call",
                     "fiscal_year": ev.get("fiscal_year"),
                     "fiscal_period": ev.get("fiscal_period"),
                     "_sort_key": dt_str,

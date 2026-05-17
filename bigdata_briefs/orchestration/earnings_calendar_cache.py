@@ -15,9 +15,10 @@ from bigdata_briefs.orchestration.models import SQLEntityEarningsCalendar
 def _normalize_event(ev: dict[str, Any]) -> dict[str, Any]:
     return {
         "event_datetime": ev.get("event_datetime"),
-        "fiscal_year": ev.get("fiscal_year"),
-        "fiscal_period": ev.get("fiscal_period"),
-        "title": ev.get("title"),
+        "fiscal_year":    ev.get("fiscal_year"),
+        "fiscal_period":  ev.get("fiscal_period"),
+        "title":          ev.get("title"),
+        "category":       ev.get("category"),  # "earnings-call" | "conference-call"
     }
 
 
