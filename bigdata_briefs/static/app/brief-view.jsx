@@ -665,7 +665,9 @@ function BulletItem({ bullet, index, isFirst, active, onActivate, themeColor }) 
             });
             return grouped.map((g, gi) => (
               <span key={gi} className="bullet-source-chip">
-                <span className="cite-source">{g.source}{g.excerpts.size > 1 ? ` (${g.excerpts.size})` : ""}</span>
+                <span className="cite-source">
+                  {g.source}{g.excerpts.size > 1 && <span style={{ fontFamily: "var(--sans)", color: "var(--ink-mute)" }}> ({g.excerpts.size})</span>}
+                </span>
               </span>
             ));
           })()}

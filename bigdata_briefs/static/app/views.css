@@ -427,8 +427,9 @@
 .bullet-source-chip {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 3px 8px 3px 4px;
+  padding: 3px 8px;
   background: var(--paper-soft);
   border: 1px solid var(--rule);
   font-family: var(--sans);
