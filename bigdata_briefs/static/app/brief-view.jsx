@@ -183,13 +183,14 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
     }
     let cancelled = false;
     setSignalsLoading(true);
-    fetch(`/api/frontend/entity/${encodeURIComponent(entityId)}/signals?days=30`)
+    const endParam = selectedDate ? `&end_date=${encodeURIComponent(selectedDate)}` : "";
+    fetch(`/api/frontend/entity/${encodeURIComponent(entityId)}/signals?days=30${endParam}`)
       .then(r => r.json())
       .then(data => { if (!cancelled) setEntitySignals(data); })
       .catch(console.error)
       .finally(() => { if (!cancelled) setSignalsLoading(false); });
     return () => { cancelled = true; };
-  }, [brief?.entityId]);
+  }, [brief?.entityId, selectedDate]);
 
   function loadEntity(entityId, date) {
     const targetDate =

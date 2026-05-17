@@ -1323,19 +1323,20 @@ def get_companies_summaries(date: str | None = None) -> dict:
 
 
 @router.get("/entity/{entity_id}/signals")
-def get_entity_signals(entity_id: str, days: int = 30) -> dict:
-    """Return last `days` signal history rows for the given entity, ordered by date ascending.
+def get_entity_signals(entity_id: str, days: int = 30, end_date: str | None = None) -> dict:
+    """Return last `days` signal history rows up to end_date for the given entity, ascending.
 
     Response: {entity_id, signals: [{date, chunks_zscore_mo, sent_zscore_mo, chunks_ewm_short, sent_ewm_short}]}
     """
     engine = get_engine()
     with Session(engine) as session:
-        rows = session.exec(
+        q = (
             select(SQLEntitySignalHistory)
             .where(SQLEntitySignalHistory.entity_id == entity_id)
-            .order_by(desc(SQLEntitySignalHistory.date))
-            .limit(days)
-        ).all()
+        )
+        if end_date:
+            q = q.where(SQLEntitySignalHistory.date <= end_date[:10])
+        rows = session.exec(q.order_by(desc(SQLEntitySignalHistory.date)).limit(days)).all()
 
     # Return in ascending date order for charting
     rows_sorted = sorted(rows, key=lambda r: r.date)
