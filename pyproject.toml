@@ -15,6 +15,7 @@ dependencies = [
     "numpy>=2.2.4",
     "pandas>=2.2.0",
     "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
     "pyyaml>=6.0.2",
     "json-repair>=0.40.0",
     "structlog>=25.4.0",

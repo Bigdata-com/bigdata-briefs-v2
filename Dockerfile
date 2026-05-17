@@ -28,6 +28,7 @@ WORKDIR /code
 
 COPY --chown=bigdata:bigdata pyproject.toml uv.lock README.md LICENSE ./
 COPY --chown=bigdata:bigdata bigdata_briefs ./bigdata_briefs
+COPY --chown=bigdata:bigdata vendor ./vendor
 
 RUN uv sync --no-dev
 
