@@ -200,6 +200,7 @@ function Sparkline({
   fluid = false,
   minVal = null,
   maxVal = null,
+  showZero = false,
 }) {
   if (!data || data.length === 0) return null;
   const max = maxVal !== null ? maxVal : Math.max(...data);
@@ -229,10 +230,18 @@ function Sparkline({
       }
     : { ...common, width, height };
 
+  const zeroY = showZero && min < 0 && max > 0
+    ? height - 2 - (0 - min) / range * (height - 4)
+    : null;
+
   return (
     <svg {...svgProps}>
       {fillColor && (
         <polyline points={`0,${height} ${points} ${width},${height}`} fill={fillColor} stroke="none" />
+      )}
+      {zeroY !== null && (
+        <line x1={0} y1={zeroY} x2={width} y2={zeroY}
+          stroke="var(--rule)" strokeWidth="1" strokeDasharray="3 2" />
       )}
       <polyline points={points} fill="none" stroke={color} strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" />
       {showLast && <circle cx={lastX} cy={lastY} r="2" fill={color} />}

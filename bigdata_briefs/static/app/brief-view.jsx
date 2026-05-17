@@ -647,33 +647,28 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
             const sentKey   = signalMode === "zscore" ? "sent_zscore_mo"   : "sent_ewm_short";
             const chunksVals = sigs.map(s => s[chunksKey] ?? 0);
             const sentVals   = sigs.map(s => Math.min(1, Math.max(-1, s[sentKey] ?? 0)));
+            const firstDate  = sigs[0]?.date?.slice(5) || "";
+            const lastDate   = sigs[sigs.length - 1]?.date?.slice(5) || "";
+            const sentMin = Math.min(-0.1, ...sentVals);
+            const sentMax = Math.max(0.1, ...sentVals);
             return (
               <>
-                <div style={{ marginBottom: 8 }}>
-                  <div className="t-cap" style={{ fontSize: 9.5, marginBottom: 4 }}>Media attention</div>
-                  <Sparkline
-                    data={chunksVals}
-                    height={36}
-                    width={240}
-                    fluid
-                    color="var(--ink)"
-                    fillColor="color-mix(in srgb, var(--ink) 8%, transparent)"
-                    showLast
-                  />
+                <div className="pulse-card surface" style={{ marginBottom: 10 }}>
+                  <div className="pulse-label">Media attention</div>
+                  <div className="pulse-spark">
+                    <Sparkline data={chunksVals} height={48} width={240} fluid
+                      color="var(--ink)" fillColor="color-mix(in srgb, var(--ink) 8%, transparent)" showLast />
+                  </div>
+                  <div className="pulse-axis"><span>{firstDate}</span><span>{lastDate}</span></div>
                 </div>
-                <div>
-                  <div className="t-cap" style={{ fontSize: 9.5, marginBottom: 4 }}>Sentiment</div>
-                  <Sparkline
-                    data={sentVals}
-                    height={36}
-                    width={240}
-                    fluid
-                    color="var(--ink)"
-                    fillColor="color-mix(in srgb, var(--ink) 8%, transparent)"
-                    showLast
-                    minVal={Math.min(-0.1, ...sentVals)}
-                    maxVal={Math.max(0.1, ...sentVals)}
-                  />
+                <div className="pulse-card surface">
+                  <div className="pulse-label">Sentiment</div>
+                  <div className="pulse-spark">
+                    <Sparkline data={sentVals} height={48} width={240} fluid
+                      color="var(--ink)" fillColor="color-mix(in srgb, var(--ink) 8%, transparent)" showLast
+                      minVal={sentMin} maxVal={sentMax} showZero />
+                  </div>
+                  <div className="pulse-axis"><span>{firstDate}</span><span>{lastDate}</span></div>
                 </div>
               </>
             );
