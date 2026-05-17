@@ -21,6 +21,7 @@ def generate_and_store_portfolio_brief(
     engine: Engine,
     date_iso: str,
     top_n: int = _PORTFOLIO_BRIEF_TOP_N,
+    ranking_metric: str = "media_attention",
 ) -> None:
     """Generate a portfolio narrative for the top N companies on date_iso and persist it.
 
@@ -71,14 +72,25 @@ def generate_and_store_portfolio_brief(
                 logger.info("Portfolio brief: no active bullets for date", date=date_iso)
                 return
 
-            # ── rank and clip ────────────────────────────────────────────
-            ranked = [
-                (eid, texts)
-                for eid, texts in sorted(
-                    entity_bullets.items(), key=lambda x: len(x[1]), reverse=True
-                )
-                if len(texts) > 0
-            ][:top_n]
+            # ── rank by signal delta ─────────────────────────────────────
+            all_entity_ids = list(entity_bullets.keys())
+            try:
+                from bigdata_briefs.orchestration.sentiment_ranking import rank_entities_by_signal
+                signal_order = rank_entities_by_signal(all_entity_ids, metric=ranking_metric)
+            except Exception as exc:
+                logger.warning("Sentiment ranking failed, falling back to bullet count", error=str(exc))
+                signal_order = sorted(all_entity_ids, key=lambda e: len(entity_bullets.get(e, [])), reverse=True)
+
+            # ── select top_n with fallback ────────────────────────────────
+            # Prefer companies with active bullets; if < top_n found, fill from the rest
+            with_bullets    = [e for e in signal_order if len(entity_bullets.get(e, [])) > 0]
+            without_bullets = [e for e in signal_order if len(entity_bullets.get(e, [])) == 0]
+
+            selected = with_bullets[:top_n]
+            if len(selected) < top_n:
+                selected += without_bullets[:top_n - len(selected)]
+
+            ranked = [(eid, entity_bullets.get(eid, [])) for eid in selected]
 
             if not ranked:
                 return

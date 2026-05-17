@@ -229,6 +229,15 @@ class BatchRunRequest(BaseModel):
             "When null, the default pipeline config categories are used (news)."
         ),
     )
+    ranking_metric: str = Field(
+        default="media_attention",
+        description=(
+            "Metric used to rank companies for the portfolio brief generated after this batch. "
+            "'media_attention' (default): ranks by |Δ chunks_zscore_mo| (day-over-day change in "
+            "normalised media volume z-score). "
+            "'sentiment': ranks by |Δ sent_zscore_mo| (day-over-day change in sentiment z-score)."
+        ),
+    )
 
 
 class BatchRunResponse(BaseModel):

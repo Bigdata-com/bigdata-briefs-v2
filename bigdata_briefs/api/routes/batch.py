@@ -487,6 +487,7 @@ def batch_run_parallel(
                 )
                 # After all entities finish, generate the portfolio brief in background
                 import threading as _threading
+                _ranking_metric = body.ranking_metric
                 def _gen_portfolio_brief():
                     try:
                         from sqlmodel import Session as _Session, select as _select
@@ -502,7 +503,10 @@ def batch_run_parallel(
                             ).first()
                         if latest and latest.report_window_end:
                             date_iso = latest.report_window_end.date().isoformat()
-                            generate_and_store_portfolio_brief(engine, date_iso, top_n=5)
+                            generate_and_store_portfolio_brief(
+                                engine, date_iso, top_n=5,
+                                ranking_metric=_ranking_metric,
+                            )
                     except Exception:
                         logger.exception("Portfolio brief post-batch trigger failed")
                 _threading.Thread(target=_gen_portfolio_brief, daemon=True).start()
