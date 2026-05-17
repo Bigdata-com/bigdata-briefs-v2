@@ -649,9 +649,8 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
             const sentVals   = sigs.map(s => Math.min(1, Math.max(-1, s[sentKey] ?? 0)));
             const firstDate  = sigs[0]?.date?.slice(5) || "";
             const lastDate   = sigs[sigs.length - 1]?.date?.slice(5) || "";
-            const sentAbsMax = Math.max(0.15, ...sentVals.map(v => Math.abs(v)));
-            const sentMin = -sentAbsMax;
-            const sentMax =  sentAbsMax;
+            const sentMin = signalMode === "raw" ? -1 : -Math.max(0.15, ...sentVals.map(v => Math.abs(v)));
+            const sentMax = signalMode === "raw" ?  1 :  Math.max(0.15, ...sentVals.map(v => Math.abs(v)));
             return (
               <>
                 <div className="pulse-card surface">
