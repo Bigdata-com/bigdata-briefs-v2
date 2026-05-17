@@ -12,6 +12,26 @@ function _tzLong(tz) { return _TZ_LONG[tz != null ? tz : DISPLAY_TZ] || tz || DI
 
 function _tk(ticker) { return ticker || "PRIVATE"; }
 
+// Group citations by source name, then by headline within each source.
+// Returns [{source, date, headlineGroups: [{headline, excerpts: [str]}]}]
+function _groupCitations(citations) {
+  const bySource = new Map();
+  for (const c of citations) {
+    const src = c.source || "";
+    if (!bySource.has(src)) bySource.set(src, { source: src, date: c.date || "", headlines: new Map() });
+    const sg = bySource.get(src);
+    const hl = c.headline || "";
+    if (!sg.headlines.has(hl)) sg.headlines.set(hl, []);
+    const ex = String(c.excerpt != null ? c.excerpt : (c.text != null ? c.text : "")).trim();
+    if (ex) sg.headlines.get(hl).push(ex);
+  }
+  return Array.from(bySource.values()).map(sg => ({
+    source: sg.source,
+    date: sg.date,
+    headlineGroups: Array.from(sg.headlines.entries()).map(([hl, excerpts]) => ({ headline: hl, excerpts })),
+  }));
+}
+
 function _fmtRunDate(iso) {
   if (!iso) return "—";
   const d = new Date(iso);

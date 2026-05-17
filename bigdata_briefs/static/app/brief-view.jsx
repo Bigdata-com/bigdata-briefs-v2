@@ -664,16 +664,25 @@ function BulletItem({ bullet, index, isFirst, active, onActivate, themeColor }) 
         </div>
         {active && (
           <div className="bullet-sources-expanded">
-            {bullet.citations.map((c, i) => (
-              <div key={c.id} className="source-block">
-                <div className="source-block-head">
-                  <span className="cite-num-big tnum">{i + 1}</span>
-                  <div>
-                    <div className="source-block-source">{c.source} · <span className="muted">{c.date}</span></div>
-                    <div className="source-block-headline">{c.headline}</div>
-                  </div>
+            {_groupCitations(bullet.citations).map((sg, si) => (
+              <div key={si} className="source-block">
+                <div className="source-block-source" style={{ fontWeight: 600 }}>
+                  {sg.source}{sg.date ? <span className="muted" style={{ fontWeight: 400 }}> · {sg.date}</span> : null}
                 </div>
-                <p className="source-block-excerpt">"{c.excerpt}"</p>
+                {sg.headlineGroups.map((hg, hi) => (
+                  <div key={hi} style={{ marginTop: 8 }}>
+                    <div className="source-block-headline">{hg.headline}</div>
+                    {hg.excerpts.length === 1
+                      ? <p className="source-block-excerpt">"{hg.excerpts[0]}"</p>
+                      : hg.excerpts.map((ex, xi) => (
+                          <div key={xi} style={{ marginTop: 6 }}>
+                            <div className="t-cap" style={{ fontSize: 10, marginBottom: 2 }}>Text {xi + 1}:</div>
+                            <p className="source-block-excerpt">"{ex}"</p>
+                          </div>
+                        ))
+                    }
+                  </div>
+                ))}
               </div>
             ))}
           </div>

@@ -254,30 +254,44 @@ function RunBody({ r, expandedRejection, setExpandedRejection, expandedPubCitati
                     <div className="hd-pub-evidence">
                       <span className="t-cap">Sources</span>
                       <ul>
-                        {b.citations.map((c, ci) => {
-                          const citeKey = `${r.runId}-${i}-${ci}`;
-                          const rawEx = c.excerpt != null ? c.excerpt : (c.text != null ? c.text : "");
-                          const excerpt = String(rawEx).trim();
-                          const open = expandedPubCitation === citeKey;
-                          return (
-                            <li key={citeKey}>
-                              <div className="hd-pub-cite-line">
-                                <strong>{c.source}</strong>
-                                <span className="muted"> · {c.date} · </span>
-                                <span>{c.headline}</span>
-                              </div>
-                              {excerpt ? (
-                                <>
-                                  <button type="button" className="hd-pub-cite-toggle"
-                                          onClick={() => setExpandedPubCitation(open ? null : citeKey)}>
-                                    {open ? "Hide source text" : "Show source text"}
-                                  </button>
-                                  {open && <div className="hd-pub-cite-excerpt">{excerpt}</div>}
-                                </>
-                              ) : null}
-                            </li>
-                          );
-                        })}
+                        {_groupCitations(b.citations).map((sg, si) => (
+                          <li key={si} style={{ marginBottom: 10 }}>
+                            <div className="hd-pub-cite-line">
+                              <strong>{sg.source}</strong>
+                              {sg.date && <span className="muted"> · {sg.date}</span>}
+                            </div>
+                            {sg.headlineGroups.map((hg, hi) => {
+                              const citeKey = `${r.runId}-${i}-${si}-${hi}`;
+                              const open = expandedPubCitation === citeKey;
+                              return (
+                                <div key={hi} style={{ marginTop: 4 }}>
+                                  <span>{hg.headline}</span>
+                                  {hg.excerpts.length > 0 && (
+                                    <>
+                                      <button type="button" className="hd-pub-cite-toggle"
+                                              onClick={() => setExpandedPubCitation(open ? null : citeKey)}>
+                                        {open ? "Hide source text" : "Show source text"}
+                                      </button>
+                                      {open && (
+                                        <div className="hd-pub-cite-excerpt">
+                                          {hg.excerpts.length === 1
+                                            ? hg.excerpts[0]
+                                            : hg.excerpts.map((ex, xi) => (
+                                                <div key={xi} style={{ marginBottom: 8 }}>
+                                                  <div className="t-cap" style={{ fontSize: 10, marginBottom: 2 }}>Text {xi + 1}:</div>
+                                                  {ex}
+                                                </div>
+                                              ))
+                                          }
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </li>
+                        ))}
                       </ul>
                     </div>
                   )}
