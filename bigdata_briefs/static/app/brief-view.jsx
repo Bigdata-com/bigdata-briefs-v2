@@ -748,10 +748,11 @@ window.BriefView = BriefView;
 // ── Brief landing ─────────────────────────────────────────
 // Two-column split: Portfolio Brief narrative on the left, company picker on the right.
 function BriefLanding({ loading, companies, summaries, onPick, companySearch, setCompanySearch, selectedDate }) {
-  // Compute aggregate portfolio metrics across all companies for today's date
-  const totalSaved     = companies.reduce((s, c) => s + (summaries[c.id]?.bulletsSaved     || 0), 0);
-  const totalDiscarded = companies.reduce((s, c) => s + (summaries[c.id]?.bulletsDiscarded || 0), 0);
-  const movers = [...companies]
+  // Only count companies that actually ran on the selected date
+  const ranToday = companies.filter(c => summaries[c.id]?.hasRunOnDate === true);
+  const totalSaved     = ranToday.reduce((s, c) => s + (summaries[c.id]?.bulletsSaved     || 0), 0);
+  const totalDiscarded = ranToday.reduce((s, c) => s + (summaries[c.id]?.bulletsDiscarded || 0), 0);
+  const movers = ranToday
     .map(c => ({ ...c, saved: summaries[c.id]?.bulletsSaved || 0, discarded: summaries[c.id]?.bulletsDiscarded || 0 }))
     .filter(c => c.saved > 0)
     .sort((a, b) => b.saved - a.saved)
@@ -808,7 +809,7 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
   const narrativeText = narrativeMode === "lead" && portfolioBrief?.narrative_b
     ? portfolioBrief.narrative_b
     : portfolioBrief?.narrative;
-  const companiesCount = portfolioBrief?.companies?.length || companies.length;
+  const companiesCount = ranToday.length;
   const events = upcomingEvents?.events || [];
 
   return (
