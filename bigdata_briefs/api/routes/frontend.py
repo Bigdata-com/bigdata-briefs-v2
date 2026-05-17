@@ -1718,9 +1718,11 @@ def get_related_briefs(entity_id: str, date: str) -> dict:
 
 @router.get("/portfolio-brief")
 def get_portfolio_brief(date: str | None = None, top_n: int = 5) -> dict:
-    """Return cached portfolio narrative (generated after each batch run) for the top N companies.
+    """Return the cached portfolio narrative generated after the most recent batch run.
 
-    Falls back to on-demand generation if no cached brief exists for the requested date.
+    Never generates on-demand — the narrative is produced exclusively by
+    generate_and_store_portfolio_brief() triggered at the end of batch/run-parallel.
+    Returns narrative=null when no cached brief exists yet.
     """
     from bigdata_briefs.orchestration.models import SQLPortfolioBrief
     engine = get_engine()
@@ -1729,143 +1731,32 @@ def get_portfolio_brief(date: str | None = None, top_n: int = 5) -> dict:
         if date:
             target_date = date.strip()[:10]
         else:
-            latest = session.exec(
-                select(SQLEntityPipelineRunLog)
-                .where(SQLEntityPipelineRunLog.status.in_(["succeeded", "no_data"]))
-                .order_by(desc(SQLEntityPipelineRunLog.report_window_end))
+            # Use the most recent date that has a cached portfolio brief
+            latest_brief = session.exec(
+                select(SQLPortfolioBrief).order_by(desc(SQLPortfolioBrief.date))
             ).first()
-            target_date = (
-                latest.report_window_end.date().isoformat()
-                if latest and latest.report_window_end
-                else None
-            )
+            target_date = latest_brief.date if latest_brief else None
 
         if not target_date:
             return {"narrative": None, "date": None, "companies": [], "generated_at": None}
 
-        # ── Check DB cache first ─────────────────────────────────────────
         cached = session.exec(
             select(SQLPortfolioBrief).where(SQLPortfolioBrief.date == target_date)
         ).first()
-        if cached:
-            try:
-                companies = json.loads(cached.companies_json)
-            except Exception:
-                companies = []
-            return {
-                "narrative": cached.narrative,
-                "date": target_date,
-                "companies": companies,
-                "generated_at": _iso(cached.generated_at),
-            }
+        if not cached:
+            return {"narrative": None, "date": target_date, "companies": [], "generated_at": None}
 
         try:
-            from datetime import date as _date
-            td = _date.fromisoformat(target_date)
-        except ValueError:
-            return {"narrative": None, "date": target_date, "companies": [], "generated_at": None}
+            companies = json.loads(cached.companies_json)
+        except Exception:
+            companies = []
 
-        day_start = datetime(td.year, td.month, td.day, 0, 0, 0)
-        day_end = datetime(td.year, td.month, td.day, 23, 59, 59)
-
-        # Get all runs for the target date
-        runs = session.exec(
-            select(SQLEntityPipelineRunLog).where(
-                SQLEntityPipelineRunLog.status.in_(["succeeded", "no_data"]),
-                SQLEntityPipelineRunLog.report_window_end >= day_start,
-                SQLEntityPipelineRunLog.report_window_end <= day_end,
-            )
-        ).all()
-
-        # Group bullets by entity, count active ones
-        entity_bullets: dict[str, list[str]] = {}
-        for run in runs:
-            bullets = session.exec(
-                select(SQLBulletRunLog).where(
-                    SQLBulletRunLog.run_id == run.run_id,
-                    SQLBulletRunLog.is_active == True,  # noqa: E712
-                )
-            ).all()
-            if bullets:
-                eid = run.entity_id
-                if eid not in entity_bullets:
-                    entity_bullets[eid] = []
-                entity_bullets[eid].extend(b.text for b in bullets)
-
-        if not entity_bullets:
-            return {"narrative": None, "date": target_date, "companies": [], "generated_at": None}
-
-        # Sort by bullet count, take top_n
-        ranked = sorted(entity_bullets.items(), key=lambda x: len(x[1]), reverse=True)[:top_n]
-
-        # Resolve entity metadata
-        companies_out = []
-        for eid, bullets in ranked:
-            orch = session.get(SQLEntityOrchestrationState, eid)
-            name = (orch.kg_name if orch else None) or eid
-            ticker = _TICKER_MAP.get(eid) or (orch.kg_ticker if orch else "") or ""
-            companies_out.append({
-                "entityId": eid,
-                "name": name,
-                "ticker": ticker,
-                "bulletCount": len(bullets),
-            })
-
-    # Build the LLM prompt
-    company_names = ", ".join(c["name"] for c in companies_out)
-    sections = []
-    for i, (eid, bullets) in enumerate(ranked):
-        name = companies_out[i]["name"]
-        joined = " ".join(f"{b.strip().rstrip('.')}." for b in bullets)
-        sections.append(f"**{name}**: {joined}")
-    briefing_text = "\n\n".join(sections)
-
-    user_msg = (
-        f"Portfolio brief for {target_date}.\n\n"
-        f"Companies covered: {company_names}\n\n"
-        f"Briefing summaries:\n\n{briefing_text}\n\n"
-        f"Write a portfolio summary covering the key themes and developments across these companies today."
-    )
-
-    narrative = None
-    try:
-        from bigdata_briefs.llm_client import LLMClient
-        from pydantic import BaseModel as _BaseModel
-
-        class _PortfolioBriefResponse(_BaseModel):
-            narrative: str
-
-        llm = LLMClient()
-        response = llm.call_with_response_format(
-            system=[{
-                "role": "system",
-                "content": (
-                    "You are a financial analyst writing a concise portfolio brief. "
-                    "Given the briefing sentences for multiple companies on a specific date, "
-                    "write a fluent, concise portfolio summary (3-5 sentences) that synthesises "
-                    "the most important developments across these companies. "
-                    "Do not use bullet points. Write in third person. "
-                    "Do not mention the word 'brief' or 'pipeline'. "
-                    "Focus on material developments, themes, and notable events."
-                ),
-            }],
-            messages=[{"role": "user", "content": user_msg}],
-            model="gpt-4.1",
-            max_tokens=400,
-            text_format=_PortfolioBriefResponse,
-            step_name="portfolio_brief",
-        )
-        if response is not None:
-            narrative = response.narrative
-    except Exception:
-        narrative = None
-
-    return {
-        "narrative": narrative,
-        "date": target_date,
-        "companies": companies_out,
-        "generated_at": _iso(datetime.now(timezone.utc)),
-    }
+        return {
+            "narrative": cached.narrative,
+            "date": target_date,
+            "companies": companies,
+            "generated_at": _iso(cached.generated_at),
+        }
 
 
 # ── Upcoming Events ──────────────────────────────────────────────────────────
