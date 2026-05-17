@@ -653,18 +653,17 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
             const sentMax = Math.max(0.1, ...sentVals);
             return (
               <>
-                <div className="pulse-card surface" style={{ marginBottom: 10 }}>
+                <div className="pulse-card surface">
                   <div className="pulse-label">Media attention</div>
                   <div className="pulse-spark">
-                    <Sparkline data={chunksVals} height={48} width={240} fluid
+                    <Sparkline data={chunksVals} height={40} width={240} fluid
                       color="var(--ink)" fillColor="color-mix(in srgb, var(--ink) 8%, transparent)" showLast />
                   </div>
                   <div className="pulse-axis"><span>{firstDate}</span><span>{lastDate}</span></div>
-                </div>
-                <div className="pulse-card surface">
+                  <hr className="rule" style={{ margin: "10px 0" }} />
                   <div className="pulse-label">Sentiment</div>
                   <div className="pulse-spark">
-                    <Sparkline data={sentVals} height={48} width={240} fluid
+                    <Sparkline data={sentVals} height={40} width={240} fluid
                       color="var(--ink)" fillColor="color-mix(in srgb, var(--ink) 8%, transparent)" showLast
                       minVal={sentMin} maxVal={sentMax} showZero />
                   </div>
