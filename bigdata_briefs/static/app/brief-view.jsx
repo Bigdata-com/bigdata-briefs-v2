@@ -817,7 +817,7 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
     <div className="brief-landing">
       {/* LEFT: Portfolio Brief */}
       <section className="portfolio-brief">
-        <div className="pb-eyebrow">Portfolio Brief{dateLabel ? ` · ${dateLabel}` : ""}</div>
+        <div className="pb-eyebrow">Portfolio Brief{dateLabel ? ` — ${dateLabel}` : ""}</div>
         <h1 className="pb-title">The day, told as one story.</h1>
         <p className="pb-subtitle">A single editorial synthesis of every material development across your coverage today.</p>
 
