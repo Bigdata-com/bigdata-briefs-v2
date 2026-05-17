@@ -34,7 +34,7 @@ function BriefWindowBand({ start, end }) {
   return (
     <div className="cw-v6">
       <div className="cw-v6-plate">
-        <div className="cw-v6-plate-main">Coverage</div>
+        <div className="cw-v6-plate-main">Timespan</div>
         <div className="cw-v6-plate-sub">{_tzLong()}</div>
       </div>
       <div className="cw-v6-content">
