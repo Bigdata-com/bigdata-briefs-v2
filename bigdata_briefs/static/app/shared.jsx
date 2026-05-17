@@ -234,10 +234,12 @@ function Sparkline({
     ? height - 2 - (0 - min) / range * (height - 4)
     : null;
 
+  const fillBase = zeroY !== null ? zeroY : height;
+
   return (
     <svg {...svgProps}>
       {fillColor && (
-        <polyline points={`0,${height} ${points} ${width},${height}`} fill={fillColor} stroke="none" />
+        <polyline points={`0,${fillBase} ${points} ${width},${fillBase}`} fill={fillColor} stroke="none" />
       )}
       {zeroY !== null && (
         <line x1={0} y1={zeroY} x2={width} y2={zeroY}
