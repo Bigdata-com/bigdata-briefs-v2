@@ -759,6 +759,11 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
   const movers = moversAll.slice(0, 5); // top 5 for display list
   const activeCount = moversAll.length; // actual count of active companies
 
+  // Portfolio brief state
+  const [portfolioBrief, setPortfolioBrief] = React.useState(null);
+  const [briefLoading, setBriefLoading] = React.useState(false);
+  const [narrativeMode, setNarrativeMode] = React.useState("thematic"); // "thematic" | "lead"
+
   const dateLabel = React.useMemo(() => {
     const iso = portfolioBrief?.date;
     if (!iso) return null;
@@ -767,11 +772,6 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
       weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC",
     });
   }, [portfolioBrief?.date]);
-
-  // Portfolio brief state
-  const [portfolioBrief, setPortfolioBrief] = React.useState(null);
-  const [briefLoading, setBriefLoading] = React.useState(false);
-  const [narrativeMode, setNarrativeMode] = React.useState("thematic"); // "thematic" | "lead"
 
   // Upcoming events state
   const [upcomingEvents, setUpcomingEvents] = React.useState(null);
