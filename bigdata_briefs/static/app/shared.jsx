@@ -86,7 +86,7 @@ function Masthead({ view, setView, theme, setTheme, headerStyle }) {
             <span className="edition-label">Vol. II · No. 0427</span>
             <span className="edition-date">{fmt}</span>
           </div>
-          <MastheadLockup style={headerStyle || "paren-lockup"} />
+          <MastheadLockup style={headerStyle || "paren-lockup"} theme={theme} />
           <div className="masthead-actions">
             <button className="btn-ghost btn-sm" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "var(--sans)", fontSize: 12, fontWeight: 600, color: "var(--ink-soft)" }}
             onClick={() => setTheme(theme === "light" ? "dark" : "light")}>
@@ -116,8 +116,8 @@ function Masthead({ view, setView, theme, setTheme, headerStyle }) {
 // "paren-lockup" (default) — "The Brief" big LEFT + "(powered by / [logo])" RIGHT in parens
 // "inline"                 — single line: "The Brief (powered by [logo])"
 // "stacked"                — title big, "powered by" small below, "[logo]" below that, all centered
-function MastheadLockup({ style }) {
-  const LOGO_SRC = "bigdata-logo-main.svg";
+function MastheadLockup({ style, theme }) {
+  const LOGO_SRC = theme === "dark" ? "bigdata-logo-white.png" : "bigdata-logo-black.png";
 
   if (style === "inline") {
     return (
