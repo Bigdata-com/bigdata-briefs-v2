@@ -61,7 +61,7 @@ function BriefWindowBand({ start, end }) {
   );
 }
 
-function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView, view }) {
+function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView, view, briefLayout, setBriefLayout }) {
   const initialBrief = window.DATA.todaysBrief;
   const initialDates = window.DATA.availableDates || [];
   const initialDate = initialBrief?.windowEnd?.slice(0, 10) || initialDates[initialDates.length - 1] || null;
@@ -297,6 +297,8 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
       companySearch={companySearch}
       setCompanySearch={setCompanySearch}
       selectedDate={selectedDate}
+      briefLayout={briefLayout}
+      setBriefLayout={setBriefLayout}
     />;
   }
 
@@ -637,70 +639,84 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
           })()}
         </div>
 
-        {/* Signal sparklines with Z-score / Raw toggle */}
+        {/* Signal history */}
         <div className="rail-section">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <div className="t-cap">Signal history</div>
-            <div style={{ display: "flex", gap: 4 }}>
-              <button
-                className={"theme-chip" + (signalMode === "zscore" ? " active" : "")}
-                onClick={() => setSignalMode("zscore")}
-                style={{ fontSize: 10, padding: "2px 7px" }}
-              >Z-score</button>
-              <button
-                className={"theme-chip" + (signalMode === "raw" ? " active" : "")}
-                onClick={() => setSignalMode("raw")}
-                style={{ fontSize: 10, padding: "2px 7px" }}
-              >Raw</button>
-            </div>
-          </div>
+          <div className="t-cap" style={{ marginBottom: 10 }}>Signal history</div>
           {signalsLoading ? (
             <div className="t-meta" style={{ color: "var(--ink-faint)", fontSize: 11 }}>Loading…</div>
           ) : entitySignals && entitySignals.signals && entitySignals.signals.length > 0 ? (() => {
             const sigs = entitySignals.signals;
-            const chunksKey = signalMode === "zscore" ? "chunks_zscore_mo" : "chunks_ewm_short";
-            const sentKey   = signalMode === "zscore" ? "sent_zscore_mo"   : "sent_ewm_short";
-            const chunksVals = sigs.map(s => s[chunksKey] ?? 0);
-            const sentVals   = sigs.map(s => Math.min(1, Math.max(-1, s[sentKey] ?? 0)));
+            const last = sigs[sigs.length - 1];
+            const chunksVals = sigs.map(s => s.chunks_zscore_mo ?? 0);
+            const sentVals   = sigs.map(s => s.sent_ewm_short ?? 0);
             const firstDate  = sigs[0]?.date?.slice(5) || "";
-            const lastDate   = sigs[sigs.length - 1]?.date?.slice(5) || "";
-            const sentMin = signalMode === "raw" ? -1 : -Math.max(0.15, ...sentVals.map(v => Math.abs(v)));
-            const sentMax = signalMode === "raw" ?  1 :  Math.max(0.15, ...sentVals.map(v => Math.abs(v)));
+            const lastDate   = last?.date?.slice(5) || "";
+            const sentAbsMax = Math.max(0.15, ...sentVals.map(v => Math.abs(v)));
+
+            const _fmtN = (v, dec = 4) => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(dec);
+            const _fmtZ = (v, dec = 1) => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(dec);
+
+            const _interpZ = (v) => {
+              if (v == null) return "";
+              const az = Math.abs(v), z = _fmtZ(v);
+              if (az <= 1.0) return `Normal range (z=${z})`;
+              if (az <= 2.0) return `${v < 0 ? "Below" : "Above"} average (z=${z})`;
+              return `Well ${v < 0 ? "below" : "above"} average (z=${z})`;
+            };
+            const _interpMomSent = (v) => {
+              if (v == null) return "";
+              const f = v.toFixed(1), s = v >= 0 ? "+" : "";
+              if (Math.abs(v) < 0.02) return `─ Stable (${s}${f})`;
+              return v > 0 ? `↑ Rising (${s}${f})` : `↓ Falling (${s}${f})`;
+            };
+            const _interpMomPct = (v) => {
+              if (v == null) return "";
+              const f = v.toFixed(1), s = v >= 0 ? "+" : "";
+              if (Math.abs(v) < 5) return `─ Stable (${s}${f}%)`;
+              return v > 0 ? `↑ Rising (${s}${f}%)` : `↓ Falling (${s}${f}%)`;
+            };
+
+            const MetricRow = ({ label, value, interp, color }) => (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "3px 0", borderBottom: "1px solid var(--rule)", gap: 8 }}>
+                <span style={{ fontFamily: "var(--sans)", fontSize: 10.5, color: "var(--ink-mute)", whiteSpace: "nowrap" }}>{label}</span>
+                <span style={{ display: "flex", gap: 6, alignItems: "baseline", minWidth: 0 }}>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 600, color: color || "var(--ink)", whiteSpace: "nowrap" }}>{value}</span>
+                  {interp && <span style={{ fontFamily: "var(--sans)", fontSize: 9.5, color: "var(--ink-mute)", textAlign: "right" }}>{interp}</span>}
+                </span>
+              </div>
+            );
+
+            const _col = (v) => v == null ? "inherit" : v >= 0 ? "var(--novel)" : "var(--discard)";
+
             return (
-              <>
-                <div className="pulse-card surface">
-                  {/* Media attention */}
-                  <div className="pulse-label">Media attention</div>
-                  <div className="pulse-spark">
-                    <Sparkline data={chunksVals} height={40} width={240} fluid
-                      color="var(--ink)" fillColor="color-mix(in srgb, var(--ink) 8%, transparent)" showLast />
-                  </div>
-                  <div className="pulse-axis"><span>{firstDate}</span><span>{lastDate}</span></div>
-                  <div className="pulse-summary" style={{ marginTop: 8 }}>
-                    <div><div className="t-cap" style={{ fontSize: 9.5 }}>Current</div>
-                      <div className="tnum" style={{ fontSize: 18, fontFamily: "var(--serif-display)", fontWeight: 600 }}>{chunksVals.length ? chunksVals[chunksVals.length - 1].toFixed(2) : "—"}</div></div>
-                    <div><div className="t-cap" style={{ fontSize: 9.5 }}>Avg</div>
-                      <div className="tnum" style={{ fontSize: 18, fontFamily: "var(--serif-display)", fontWeight: 600 }}>{chunksVals.length ? (chunksVals.reduce((a, b) => a + b, 0) / chunksVals.length).toFixed(2) : "—"}</div></div>
-                    <div><div className="t-cap" style={{ fontSize: 9.5 }}>Peak</div>
-                      <div className="tnum" style={{ fontSize: 18, fontFamily: "var(--serif-display)", fontWeight: 600 }}>{chunksVals.length ? Math.max(...chunksVals).toFixed(2) : "—"}</div></div>
-                  </div>
-                  <hr className="rule" style={{ margin: "10px 0" }} />
-                  {/* Sentiment */}
-                  <div className="pulse-label">Sentiment</div>
-                  <div className="pulse-spark">
-                    <Sparkline data={sentVals} height={40} width={240} fluid
-                      color="var(--ink)" fillColor="color-mix(in srgb, var(--ink) 8%, transparent)" showLast
-                      minVal={sentMin} maxVal={sentMax} showZero />
-                  </div>
-                  <div className="pulse-axis"><span>{firstDate}</span><span>{lastDate}</span></div>
-                  <div className="pulse-summary" style={{ marginTop: 8 }}>
-                    <div><div className="t-cap" style={{ fontSize: 9.5 }}>Current</div>
-                      <div className="tnum" style={{ fontSize: 18, fontFamily: "var(--serif-display)", fontWeight: 600 }}>{sentVals.length ? sentVals[sentVals.length - 1].toFixed(3) : "—"}</div></div>
-                    <div><div className="t-cap" style={{ fontSize: 9.5 }}>Avg</div>
-                      <div className="tnum" style={{ fontSize: 18, fontFamily: "var(--serif-display)", fontWeight: 600 }}>{sentVals.length ? (sentVals.reduce((a, b) => a + b, 0) / sentVals.length).toFixed(3) : "—"}</div></div>
-                  </div>
+              <div className="pulse-card surface">
+                {/* Media attention sparkline */}
+                <div className="pulse-label">Media attention</div>
+                <div className="pulse-spark">
+                  <Sparkline data={chunksVals} height={36} width={240} fluid
+                    color="var(--ink)" fillColor="color-mix(in srgb, var(--ink) 8%, transparent)" showLast />
                 </div>
-              </>
+                <div className="pulse-axis" style={{ marginBottom: 8 }}><span>{firstDate}</span><span>{lastDate}</span></div>
+                <MetricRow label="Momentum %" value={last.chunks_momentum_pct != null ? (last.chunks_momentum_pct >= 0 ? "+" : "") + last.chunks_momentum_pct.toFixed(1) + "%" : "—"} interp={_interpMomPct(last.chunks_momentum_pct)} color={_col(last.chunks_momentum_pct)} />
+                <MetricRow label="vs. 1-month (z)" value={_fmtZ(last.chunks_zscore_mo)} interp={_interpZ(last.chunks_zscore_mo)} color={_col(last.chunks_zscore_mo)} />
+                <MetricRow label="vs. 1-quarter (z)" value={_fmtZ(last.chunks_zscore_qt)} interp={_interpZ(last.chunks_zscore_qt)} color={_col(last.chunks_zscore_qt)} />
+
+                <hr className="rule" style={{ margin: "10px 0" }} />
+
+                {/* Sentiment sparkline */}
+                <div className="pulse-label">Sentiment</div>
+                <div className="pulse-spark">
+                  <Sparkline data={sentVals} height={36} width={240} fluid
+                    color="var(--ink)" fillColor="color-mix(in srgb, var(--ink) 8%, transparent)" showLast
+                    minVal={-sentAbsMax} maxVal={sentAbsMax} showZero />
+                </div>
+                <div className="pulse-axis" style={{ marginBottom: 8 }}><span>{firstDate}</span><span>{lastDate}</span></div>
+                <MetricRow label="Current" value={_fmtN(last.sent_ewm_short)} />
+                <MetricRow label="Baseline" value={_fmtN(last.sent_ewm_long)} />
+                <MetricRow label="Momentum" value={_fmtN(last.sent_momentum)} interp={_interpMomSent(last.sent_momentum)} color={_col(last.sent_momentum)} />
+                <MetricRow label="vs. 1-month (z)" value={_fmtZ(last.sent_zscore_mo)} interp={_interpZ(last.sent_zscore_mo)} color={_col(last.sent_zscore_mo)} />
+                <MetricRow label="vs. 1-quarter (z)" value={_fmtZ(last.sent_zscore_qt)} interp={_interpZ(last.sent_zscore_qt)} color={_col(last.sent_zscore_qt)} />
+              </div>
             );
           })() : (
             <div className="t-meta" style={{ color: "var(--ink-faint)", fontSize: 11 }}>No signal data available.</div>
@@ -937,7 +953,7 @@ function ArchiveBulletItem({ bullet, index }) {
 
 // ── Brief landing ─────────────────────────────────────────
 // Two-column split: Portfolio Brief narrative on the left, company picker on the right.
-function BriefLanding({ loading, companies, summaries, onPick, companySearch, setCompanySearch, selectedDate }) {
+function BriefLanding({ loading, companies, summaries, onPick, companySearch, setCompanySearch, selectedDate, briefLayout, setBriefLayout }) {
   // Only count companies that actually ran on the selected date
   const ranToday = companies.filter(c => summaries[c.id]?.hasRunOnDate === true);
   const totalSaved     = ranToday.reduce((s, c) => s + (summaries[c.id]?.bulletsSaved     || 0), 0);
@@ -998,6 +1014,23 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
   }
 
   const [showExtraCols, setShowExtraCols] = React.useState(false);
+  const leftRef = React.useRef(null);
+  const pickListRef = React.useRef(null);
+
+  const _layout = briefLayout || "below";
+
+  // Cap pick-list height to match left panel in both layouts
+  React.useLayoutEffect(() => {
+    const list = pickListRef.current;
+    const left = leftRef.current;
+    if (!list || !left) return;
+    const leftH = left.getBoundingClientRect().height;
+    const header = list.previousElementSibling;
+    const headerH = header ? header.getBoundingClientRect().height : 0;
+    const available = Math.max(leftH - headerH, 220);
+    list.style.maxHeight = available + "px";
+    list.style.overflowY = "auto";
+  }, [_layout, companies.length, portfolioBrief?.date, briefLoading, upcomingEvents]);
 
   const narrativeText = narrativeMode === "lead" && portfolioBrief?.narrative_b
     ? portfolioBrief.narrative_b
@@ -1005,13 +1038,103 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
   const companiesCount = ranToday.length;
   const events = upcomingEvents?.events || [];
 
+  // Group events by day for calendar strip
+  const eventsByDay = React.useMemo(() => {
+    const zone = _tzIana();
+    const days = {};
+    events.forEach(ev => {
+      const d = new Date(ev.event_datetime);
+      const key = d.toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: zone });
+      if (!days[key]) days[key] = { date: d, events: [] };
+      days[key].events.push(ev);
+    });
+    return Object.values(days).sort((a, b) => a.date - b.date);
+  }, [events]);
+
+  const eventsInPanelBlock = (
+    <>
+      <div className="pb-highlight-head">Next closest events</div>
+      {eventsLoading ? (
+        <p style={{ color: "var(--ink-faint)", fontStyle: "italic", fontSize: 13 }}>Loading events…</p>
+      ) : events.length === 0 ? (
+        <p style={{ color: "var(--ink-mute)", fontStyle: "italic", fontSize: 13 }}>No upcoming events found.</p>
+      ) : (
+        <ul className="pb-events-list">
+          {events.map((ev, i) => {
+            const { date: evDate, time: evTime } = _fmtEventDateTime(ev.event_datetime);
+            return (
+              <li key={i} className="pb-event">
+                <div className="pb-event-when">
+                  <span className="pb-event-date">{evDate}</span>
+                  <span className="pb-event-time tnum">{evTime}</span>
+                  <span className="pb-event-tz">{DISPLAY_TZ}</span>
+                </div>
+                <div className="pb-event-meta" style={{ flexDirection: "column", alignItems: "flex-start", gap: 3 }}>
+                  <span className="pb-event-detail">{ev.entity_name}{ev.fiscal_period ? ` · ${ev.fiscal_period}` : ""}{ev.fiscal_year ? ` ${ev.fiscal_year}` : ""}</span>
+                  <span className="pb-event-kind" data-kind={ev.category === "conference-call" ? "conference" : "earnings"}>
+                    {ev.category === "conference-call" ? "Conference" : "Earnings Call"}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </>
+  );
+
+  const eventsBelowBlock = eventsByDay.length > 0 && (
+    <div className="brief-events-strip">
+      <div className="bes-head">Next closest events</div>
+      <div className="bes-track">
+        {eventsByDay.map((day, di) => {
+          const zone = _tzIana();
+          const dow = day.date.toLocaleDateString("en-US", { weekday: "short", timeZone: zone });
+          const num = day.date.toLocaleDateString("en-US", { day: "numeric", timeZone: zone });
+          const mon = day.date.toLocaleDateString("en-US", { month: "short", timeZone: zone });
+          return (
+            <div key={di} className="bes-day">
+              <div className="bes-day-head">
+                <span className="bes-day-dow">{dow}</span>
+                <span className="bes-day-num">{num}</span>
+                <span className="bes-day-mon">{mon}</span>
+              </div>
+              <div className="bes-day-events">
+                {day.events.map((ev, ei) => {
+                  const time = new Date(ev.event_datetime).toLocaleTimeString("en-US", {
+                    hour: "numeric", minute: "2-digit", hour12: true, timeZone: zone,
+                  });
+                  return (
+                    <div key={ei} className="bes-event">
+                      <div className="bes-event-time">{time} <span className="bes-event-tz">{DISPLAY_TZ}</span></div>
+                      <div className="bes-event-body">
+                        <span className="bes-event-name">{ev.entity_name}</span>
+                        <span className="bes-event-kind" data-kind={ev.category === "conference-call" ? "conference" : "earnings"}>
+                          {ev.category === "conference-call" ? "Conference" : "Earnings Call"}
+                        </span>
+                        {(ev.fiscal_period || ev.fiscal_year) && (
+                          <span className="bes-event-quarter">{[ev.fiscal_period, ev.fiscal_year].filter(Boolean).join(" ")}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   return (
+    <div className="brief-landing-page" data-layout={_layout}>
     <div className="brief-landing">
       {/* LEFT: Portfolio Brief */}
-      <section className="portfolio-brief">
+      <section className="portfolio-brief" ref={leftRef}>
         <div className="pb-eyebrow">Portfolio Brief{dateLabel ? ` — ${dateLabel}` : ""}</div>
-        <h1 className="pb-title">The day, told as one story.</h1>
-        <p className="pb-subtitle">A single editorial synthesis of every material development across your coverage today.</p>
+        <h1 className="pb-title">Where the news moved.</h1>
+        <p className="pb-subtitle">The most active names in your portfolio today — short reads, one per company.</p>
 
         <div className="pb-meta-strip">
           <span className="pb-meta-cell"><strong>{companiesCount}</strong> companies</span>
@@ -1038,34 +1161,7 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
           }
         </div>
 
-        <div className="pb-highlight-head">Next closest events</div>
-        {eventsLoading ? (
-          <p style={{ color: "var(--ink-faint)", fontStyle: "italic", fontSize: 13 }}>Loading events…</p>
-        ) : events.length === 0 ? (
-          <p style={{ color: "var(--ink-mute)", fontStyle: "italic", fontSize: 13 }}>No upcoming events found.</p>
-        ) : (
-          <ul className="pb-events-list">
-            {events.map((ev, i) => {
-              const { date: evDate, time: evTime } = _fmtEventDateTime(ev.event_datetime);
-              const ticker = ev.ticker || ev.entity_id;
-              return (
-                <li key={i} className="pb-event">
-                  <div className="pb-event-when">
-                    <span className="pb-event-date">{evDate}</span>
-                    <span className="pb-event-time tnum">{evTime}</span>
-                    <span className="pb-event-tz">{DISPLAY_TZ}</span>
-                  </div>
-                  <div className="pb-event-meta" style={{ flexDirection: "column", alignItems: "flex-start", gap: 3 }}>
-                    <span className="pb-event-detail">{ev.entity_name}{ev.fiscal_period ? ` · ${ev.fiscal_period}` : ""}{ev.fiscal_year ? ` ${ev.fiscal_year}` : ""}</span>
-                    <span className="pb-event-kind" data-kind={ev.category === "conference-call" ? "conference" : "earnings"}>
-                      {ev.category === "conference-call" ? "Conference" : "Earnings Call"}
-                    </span>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        {_layout === "in-panel" && eventsInPanelBlock}
       </section>
 
       {/* RIGHT: Company picker */}
@@ -1084,7 +1180,7 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
             style={{ marginTop: 12 }}
           />
         </div>
-        <div className="brief-pick-list">
+        <div className="brief-pick-list" ref={pickListRef}>
           <div className="brief-pick-row brief-pick-row-head">
             <span className="brief-pick-col-ticker">Ticker</span>
             <span className="brief-pick-col-name">Company</span>
@@ -1104,6 +1200,8 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
           })}
         </div>
       </div>
+    </div>
+    {_layout === "below" && eventsBelowBlock}
     </div>
   );
 }

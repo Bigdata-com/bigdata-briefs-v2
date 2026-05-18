@@ -66,7 +66,7 @@ function formatUtcClockHm() {
 }
 
 // ── Masthead ───────────────────────────────────────────────────────
-function Masthead({ view, setView, theme, setTheme, headerStyle, setHeaderStyle }) {
+function Masthead({ view, setView, theme, setTheme, headerStyle, setHeaderStyle, briefLayout, setBriefLayout }) {
   const [utcClock, setUtcClock] = useState(formatUtcClockHm);
   useEffect(() => {
     const tick = () => setUtcClock(formatUtcClockHm());
@@ -97,6 +97,19 @@ function Masthead({ view, setView, theme, setTheme, headerStyle, setHeaderStyle 
           </div>
         </div>
       </div>
+      {view === "brief" && setBriefLayout && (
+        <div className="brief-layout-switch-row">
+          <div className="brief-layout-switch-inner">
+            <span>Events</span>
+            <div className="bls-group">
+              <button className={"bls-btn" + (briefLayout === "in-panel" ? " active" : "")}
+                      onClick={() => setBriefLayout("in-panel")}>In panel</button>
+              <button className={"bls-btn" + (briefLayout === "below" ? " active" : "")}
+                      onClick={() => setBriefLayout("below")}>Calendar strip</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="section-nav">
         <div className="section-nav-inner">
           <a href="#" className={view === "brief" || view === "overview" || view === "overview-audit" || view === "overview-archive" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("brief");}}>The Brief</a>

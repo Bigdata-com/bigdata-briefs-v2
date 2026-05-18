@@ -19,6 +19,7 @@ def ensure_orchestration_schema(engine: Engine) -> None:
     _ensure_not_fully_novel_column(engine)
     _ensure_bullet_run_log_json_columns(engine)
     _ensure_run_metrics_columns(engine)
+    _ensure_signal_history_columns(engine)
 
 
 def _ensure_bullet_run_log_json_columns(engine: Engine) -> None:
@@ -80,6 +81,27 @@ def _ensure_run_metrics_columns(engine: Engine) -> None:
         with engine.connect() as conn:
             conn.execute(text("ALTER TABLE sqlrunmetrics ADD COLUMN sources_scanned INTEGER NOT NULL DEFAULT 0"))
             conn.commit()
+
+
+def _ensure_signal_history_columns(engine: Engine) -> None:
+    """Add new signal metric columns to sqlentitysignalhistory for existing DBs."""
+    with engine.connect() as conn:
+        rows = conn.execute(text("PRAGMA table_info(sqlentitysignalhistory)")).fetchall()
+    if not rows:
+        return
+    colnames = {r[1] for r in rows}
+    new_cols = {
+        "chunks_zscore_qt": "REAL",
+        "sent_zscore_qt": "REAL",
+        "sent_ewm_long": "REAL",
+        "sent_momentum": "REAL",
+        "chunks_momentum_pct": "REAL",
+    }
+    for col, definition in new_cols.items():
+        if col not in colnames:
+            with engine.connect() as conn:
+                conn.execute(text(f"ALTER TABLE sqlentitysignalhistory ADD COLUMN {col} {definition}"))
+                conn.commit()
 
 
 def _ensure_not_fully_novel_column(engine: Engine) -> None:

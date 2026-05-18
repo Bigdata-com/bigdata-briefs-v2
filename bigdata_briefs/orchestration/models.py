@@ -254,10 +254,18 @@ class SQLEntitySignalHistory(SQLModel, table=True):
 
     entity_id: str = Field(primary_key=True, max_length=64)
     date: str = Field(primary_key=True, max_length=10)  # YYYY-MM-DD
-    chunks_zscore_mo: float | None = Field(default=None)   # normalized z-score
-    sent_zscore_mo: float | None = Field(default=None)     # normalized z-score
-    chunks_ewm_short: float | None = Field(default=None)   # raw smoothed chunk count
-    sent_ewm_short: float | None = Field(default=None)     # raw smoothed sentiment
+    # Z-scores (1-month and 1-quarter rolling windows)
+    chunks_zscore_mo: float | None = Field(default=None)
+    chunks_zscore_qt: float | None = Field(default=None)
+    sent_zscore_mo: float | None = Field(default=None)
+    sent_zscore_qt: float | None = Field(default=None)
+    # EWM values (short=5d halflife, long=21d halflife)
+    chunks_ewm_short: float | None = Field(default=None)
+    sent_ewm_short: float | None = Field(default=None)
+    sent_ewm_long: float | None = Field(default=None)
+    # Derived: sentiment momentum (ewm_short - ewm_long), chunks momentum %
+    sent_momentum: float | None = Field(default=None)
+    chunks_momentum_pct: float | None = Field(default=None)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 

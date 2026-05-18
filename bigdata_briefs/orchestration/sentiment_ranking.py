@@ -145,9 +145,14 @@ def _fetch_and_store_entity_signals(entity_id: str, fetch_volume, compute_signal
                     entity_id=entity_id,
                     date=date_val,
                     chunks_zscore_mo=_safe("chunks_zscore_mo"),
+                    chunks_zscore_qt=_safe("chunks_zscore_qt"),
                     sent_zscore_mo=_safe("sent_zscore_mo"),
+                    sent_zscore_qt=_safe("sent_zscore_qt"),
                     chunks_ewm_short=_safe("chunks_ewm_short"),
                     sent_ewm_short=_safe("sent_ewm_short"),
+                    sent_ewm_long=_safe("sent_ewm_long"),
+                    sent_momentum=_safe("sent_momentum"),
+                    chunks_momentum_pct=_safe("chunks_momentum_pct"),
                     updated_at=datetime.now(timezone.utc),
                 ))
             session.commit()

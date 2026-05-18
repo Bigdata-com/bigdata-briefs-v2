@@ -17,39 +17,44 @@ if TYPE_CHECKING:
 
 _PORTFOLIO_BRIEF_TOP_N = 5
 
-_METRIC_DB_FIELD = {
-    "media_attention": ("chunks_ewm_short", "chunks_zscore_mo"),
-    "sentiment":       ("sent_ewm_short",   "sent_zscore_mo"),
-}
-
-
 def _rank_from_db(session, entity_ids: list[str], metric: str) -> list[str]:
-    """Rank entities by |Δ zscore| using the last 2 rows in SQLEntitySignalHistory.
+    """Rank entities from SQLEntitySignalHistory (no API calls).
 
-    Reads directly from DB — no API calls. Called after compute_and_store_signals()
-    has already populated the table for this batch.
+    Metrics:
+      "media_attention_momentum" — latest chunks_momentum_pct (higher = more media acceleration)
+      "media_attention"          — |Δ chunks_zscore_mo| between last 2 rows
+      "sentiment"                — |Δ sent_zscore_mo| between last 2 rows
     """
     from bigdata_briefs.orchestration.models import SQLEntitySignalHistory
 
-    _, zscore_col = _METRIC_DB_FIELD.get(metric, ("chunks_ewm_short", "chunks_zscore_mo"))
-
     scores: dict[str, float] = {}
-    for eid in entity_ids:
-        rows = session.exec(
-            select(SQLEntitySignalHistory)
-            .where(SQLEntitySignalHistory.entity_id == eid)
-            .order_by(desc(SQLEntitySignalHistory.date))
-            .limit(2)
-        ).all()
-        if len(rows) < 2:
-            scores[eid] = 0.0
-            continue
-        today_val     = getattr(rows[0], zscore_col, None)
-        yesterday_val = getattr(rows[1], zscore_col, None)
-        if today_val is None or yesterday_val is None:
-            scores[eid] = 0.0
-        else:
-            scores[eid] = abs(float(today_val) - float(yesterday_val))
+
+    if metric == "media_attention_momentum":
+        # Use the latest chunks_momentum_pct value directly — higher means more acceleration
+        for eid in entity_ids:
+            row = session.exec(
+                select(SQLEntitySignalHistory)
+                .where(SQLEntitySignalHistory.entity_id == eid)
+                .order_by(desc(SQLEntitySignalHistory.date))
+                .limit(1)
+            ).first()
+            v = getattr(row, "chunks_momentum_pct", None) if row else None
+            scores[eid] = float(v) if v is not None else 0.0
+    else:
+        zscore_col = "sent_zscore_mo" if metric == "sentiment" else "chunks_zscore_mo"
+        for eid in entity_ids:
+            rows = session.exec(
+                select(SQLEntitySignalHistory)
+                .where(SQLEntitySignalHistory.entity_id == eid)
+                .order_by(desc(SQLEntitySignalHistory.date))
+                .limit(2)
+            ).all()
+            if len(rows) < 2:
+                scores[eid] = 0.0
+                continue
+            a = getattr(rows[0], zscore_col, None)
+            b = getattr(rows[1], zscore_col, None)
+            scores[eid] = abs(float(a) - float(b)) if a is not None and b is not None else 0.0
 
     return sorted(entity_ids, key=lambda e: scores.get(e, 0.0), reverse=True)
 
@@ -58,7 +63,7 @@ def generate_and_store_portfolio_brief(
     engine: Engine,
     date_iso: str,
     top_n: int = _PORTFOLIO_BRIEF_TOP_N,
-    ranking_metric: str = "media_attention",
+    ranking_metric: str = "media_attention_momentum",
 ) -> None:
     """Generate a portfolio narrative for the top N companies on date_iso and persist it.
 
@@ -83,6 +88,8 @@ def generate_and_store_portfolio_brief(
     try:
         # ── collect active bullets per entity for this date ──────────────
         with Session(engine) as session:
+            from bigdata_briefs.orchestration.models import SQLRunNarrative
+
             runs = session.exec(
                 select(SQLEntityPipelineRunLog).where(
                     SQLEntityPipelineRunLog.status.in_(["succeeded", "no_data"]),
@@ -92,6 +99,7 @@ def generate_and_store_portfolio_brief(
             ).all()
 
             entity_bullets: dict[str, list[str]] = {}
+            entity_narrative: dict[str, str] = {}
             for run in runs:
                 bullets = session.exec(
                     select(SQLBulletRunLog).where(
@@ -104,6 +112,13 @@ def generate_and_store_portfolio_brief(
                     if eid not in entity_bullets:
                         entity_bullets[eid] = []
                     entity_bullets[eid].extend(b.text for b in bullets)
+                    # Prefer LLM narrative if available
+                    if eid not in entity_narrative:
+                        narr = session.exec(
+                            select(SQLRunNarrative).where(SQLRunNarrative.run_id == run.run_id)
+                        ).first()
+                        if narr and narr.narrative_text:
+                            entity_narrative[eid] = narr.narrative_text
 
             if not entity_bullets:
                 logger.info("Portfolio brief: no active bullets for date", date=date_iso)
@@ -146,15 +161,19 @@ def generate_and_store_portfolio_brief(
                     "bulletCount": len(texts),
                 })
 
-        # ── build narrative directly from bullet summaries (LLM disabled) ──
+        # ── build narrative from LLM run narratives (fallback: bullet concat) ──
         sections = []
         for i, (eid, texts) in enumerate(ranked):
             if not texts:
                 continue
-            name   = companies_out[i]["name"]
-            ticker = companies_out[i]["ticker"]
-            joined = " ".join(f"{t.strip().rstrip('.')}." for t in texts)
-            sections.append(f"{name}\n{joined}")
+            name = companies_out[i]["name"]
+            # Prefer the LLM-generated narrative; fall back to bullet concat
+            narr_text = entity_narrative.get(eid)
+            if narr_text:
+                body = narr_text.strip()
+            else:
+                body = " ".join(f"{t.strip().rstrip('.')}." for t in texts)
+            sections.append(f"{name}\n{body}")
 
         narrative   = "\n\n".join(sections) if sections else None
         narrative_b = None

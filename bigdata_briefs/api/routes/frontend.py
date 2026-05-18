@@ -1344,9 +1344,14 @@ def get_entity_signals(entity_id: str, days: int = 30, end_date: str | None = No
             {
                 "date": r.date,
                 "chunks_zscore_mo": r.chunks_zscore_mo,
+                "chunks_zscore_qt": r.chunks_zscore_qt,
                 "sent_zscore_mo": r.sent_zscore_mo,
+                "sent_zscore_qt": r.sent_zscore_qt,
                 "chunks_ewm_short": r.chunks_ewm_short,
                 "sent_ewm_short": r.sent_ewm_short,
+                "sent_ewm_long": r.sent_ewm_long,
+                "sent_momentum": r.sent_momentum,
+                "chunks_momentum_pct": r.chunks_momentum_pct,
             }
             for r in rows_sorted
         ],

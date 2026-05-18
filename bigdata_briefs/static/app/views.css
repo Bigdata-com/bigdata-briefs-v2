@@ -194,12 +194,14 @@
   gap: 22px;
   background: var(--paper);
 }
-.cw-v6-stamp { display: flex; flex-direction: column; gap: 4px; }
+.cw-v6-stamp { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
 .cw-v6-stamp-end { text-align: right; }
 .cw-v6-stamp-row {
   display: flex;
   align-items: baseline;
   gap: 12px;
+  white-space: nowrap;
+  flex-wrap: nowrap;
 }
 .cw-v6-stamp-end .cw-v6-stamp-row { justify-content: flex-end; }
 .cw-v6-stamp-date {
@@ -207,12 +209,14 @@
   font-weight: 600;
   font-size: 16px;
   color: var(--ink);
+  white-space: nowrap;
 }
 .cw-v6-stamp-time {
   font-family: var(--mono);
   font-size: 16px;
   color: var(--ink-soft);
   letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 .cw-v6-spine {
   display: flex;
@@ -1218,9 +1222,9 @@
 .section-subnav a {
   display: inline-flex;
   align-items: center;
-  padding: 7px 14px 7px 0;
-  margin-right: 20px;
-  font-size: 11px;
+  padding: 8px 14px 8px 0;
+  margin-right: 22px;
+  font-size: 12.5px;
   letter-spacing: 0.07em;
   text-transform: uppercase;
   font-weight: 600;
@@ -1280,7 +1284,6 @@
 .brief-pick-row-head .brief-pick-col-ticker,
 .brief-pick-row-head .brief-pick-col-name,
 .brief-pick-row-head .brief-pick-col-date,
-.brief-pick-row-head .brief-pick-col-bullets,
 .brief-pick-row-head .brief-pick-col-discarded,
 .brief-pick-row-head .brief-pick-col-delta {
   font-family: var(--sans);
@@ -1290,7 +1293,7 @@
   text-transform: uppercase;
   color: var(--ink-mute);
   white-space: nowrap;
-  text-align: right;
+  text-align: left;
 }
 .brief-pick-col-name {
   font-family: var(--sans);
@@ -1310,6 +1313,7 @@
   color: var(--ink);
   text-align: right;
 }
+.brief-pick-row-head .brief-pick-col-bullets { text-align: right; }
 .brief-pick-col-discarded {
   font-family: var(--serif-display);
   font-size: 15px;
