@@ -86,20 +86,10 @@ function Masthead({ view, setView, theme, setTheme, headerStyle, setHeaderStyle 
             <span className="edition-label">Vol. II · No. 0427</span>
             <span className="edition-date">{fmt}</span>
           </div>
-          <MastheadLockup style={headerStyle || "paren-lockup"} theme={theme} />
+          <a href="/app" style={{ textDecoration: "none", color: "inherit" }}>
+            <MastheadLockup style={headerStyle || "paren-lockup"} theme={theme} />
+          </a>
           <div className="masthead-actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {setHeaderStyle && (
-              <div style={{ display: "flex", gap: 4 }}>
-                {[["stacked","Stack"],["inline","Inline"],["paren-lockup","Paren"]].map(([val, label]) => (
-                  <button key={val}
-                    className={"theme-chip" + ((headerStyle || "paren-lockup") === val ? " active" : "")}
-                    onClick={() => setHeaderStyle(val)}
-                    style={{ fontSize: 11 }}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-            )}
             <button className="btn-ghost btn-sm" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "var(--sans)", fontSize: 12, fontWeight: 600, color: "var(--ink-soft)" }}
             onClick={() => setTheme(theme === "light" ? "dark" : "light")}>
               {theme === "light" ? "◐ Dark" : "◑ Light"}
@@ -109,17 +99,37 @@ function Masthead({ view, setView, theme, setTheme, headerStyle, setHeaderStyle 
       </div>
       <div className="section-nav">
         <div className="section-nav-inner">
-          <a href="#" className={view === "brief" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("brief");}}>The Brief</a>
+          <a href="#" className={view === "brief" || view === "overview" || view === "overview-audit" || view === "overview-archive" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("brief");}}>The Brief</a>
           <a href="#" className={view === "portfolio" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("portfolio");}}>My Portfolio</a>
           <a href="#" className={view === "cost" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("cost");}}>Costs</a>
           <span className="nav-spacer"></span>
-          <span className="live-status">
-            <span className="live-dot"></span>
-            <span>Live · {utcClock} UTC</span>
-          </span>
+          {(() => {
+            const summaries = window.DATA?.companySummaries || {};
+            const allDates = Object.values(summaries).map(s => s.lastRunDate).filter(Boolean);
+            const latestRun = allDates.length > 0 ? allDates.sort().at(-1) : null;
+            if (!latestRun) return null;
+            const zone = _tzIana();
+            const d = new Date(latestRun);
+            const datePart = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: zone });
+            const timePart = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: zone });
+            return (
+              <span className="live-status" style={{ gap: 6 }}>
+                <span>Last run · {datePart} · {timePart} {DISPLAY_TZ}</span>
+              </span>
+            );
+          })()}
         </div>
       </div>
 
+      {(view === "brief" || view === "overview" || view === "overview-audit" || view === "overview-archive") && (
+        <div className="section-subnav">
+          <div className="section-subnav-inner">
+            <a href="#" className={view === "overview" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("overview");}}>Company Overview</a>
+            <a href="#" className={view === "overview-audit" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("overview-audit");}}>Audit</a>
+            <a href="#" className={view === "overview-archive" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("overview-archive");}}>Archive</a>
+          </div>
+        </div>
+      )}
     </React.Fragment>);
 
 }

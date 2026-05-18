@@ -11,7 +11,7 @@ function PortfolioView({ tweaks }) {
   const hh = String(now.getHours()).padStart(2, "0");
   const mm = String(now.getMinutes()).padStart(2, "0");
 
-  // portfolio: array of entity_id strings (loaded from API)
+  // portfolio: array of {entity_id, entity_name, kg_ticker} objects (loaded from API)
   const [portfolio, setPortfolio] = useStateP([]);
   const [portfolioLoaded, setPortfolioLoaded] = useStateP(false);
   const [search, setSearch] = useStateP("");
@@ -27,8 +27,7 @@ function PortfolioView({ tweaks }) {
     fetch("/api/frontend/portfolio")
       .then(r => r.json())
       .then(data => {
-        const ids = (data.portfolio || []).map(p => p.entity_id);
-        setPortfolio(ids);
+        setPortfolio(data.portfolio || []);
         setPortfolioLoaded(true);
       })
       .catch(() => setPortfolioLoaded(true));
@@ -43,42 +42,26 @@ function PortfolioView({ tweaks }) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const portfolioCompanies = portfolio
-    .map(id => ALL.find(c => c.id === id))
-    .filter(Boolean);
+  const portfolioIds = new Set(portfolio.map(p => p.entity_id));
+  const portfolioCompanies = portfolio; // full objects from API
 
   const searchLower = search.trim().toLowerCase();
   const searchResults = searchLower
     ? ALL
         .filter(c =>
-          !portfolio.includes(c.id) &&
+          !portfolioIds.has(c.id) &&
           (c.name.toLowerCase().includes(searchLower) || (c.ticker || "").toLowerCase().includes(searchLower))
         )
         .slice(0, 8)
     : [];
 
   function addCompany(id) {
-    if (portfolio.includes(id)) return;
-    fetch("/api/frontend/portfolio", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entity_id: id }),
-    })
-      .then(r => r.json())
-      .then(() => {
-        setPortfolio(prev => [...prev, id]);
-      })
-      .catch(console.error);
     setSearch("");
     setShowResults(false);
+    setShowSupport(true);
   }
   function removeCompany(id) {
-    fetch(`/api/frontend/portfolio/${encodeURIComponent(id)}`, { method: "DELETE" })
-      .then(r => r.json())
-      .then(() => {
-        setPortfolio(prev => prev.filter(x => x !== id));
-      })
-      .catch(console.error);
+    setShowSupport(true);
   }
   function handleStart() {
     setShowSupport(true);
@@ -116,10 +99,10 @@ function PortfolioView({ tweaks }) {
             <div className="portfolio-search-results">
               {searchResults.length === 0 ? (
                 <div className="portfolio-search-empty">
-                  {portfolio.some(id => {
-                    const c = ALL.find(x => x.id === id);
-                    return c && (c.name.toLowerCase().includes(searchLower) || c.ticker.toLowerCase().includes(searchLower));
-                  })
+                  {portfolio.some(p =>
+                    p.entity_name.toLowerCase().includes(searchLower) ||
+                    (p.kg_ticker || "").toLowerCase().includes(searchLower)
+                  )
                     ? "Already in your portfolio."
                     : "No matches in the coverage universe."}
                 </div>
@@ -185,14 +168,11 @@ function PortfolioView({ tweaks }) {
 
             {portfolioCompanies.length > 0 ? (
               <ul className="portfolio-list portfolio-list-right">
-                {portfolioCompanies.map(c => (
-                  <li key={c.id} className="portfolio-list-row">
-                    <span className="portfolio-list-ticker">{c.ticker}</span>
-                    <span className="portfolio-list-name">
-                      {c.name}
-                      <span className="meta">{c.sector?.split(" ")[0]} · {c.exchange}</span>
-                    </span>
-                    <button className="portfolio-list-remove" onClick={() => removeCompany(c.id)} aria-label={`Remove ${c.name}`}>
+                {portfolioCompanies.map(p => (
+                  <li key={p.entity_id} className="portfolio-list-row">
+                    <span className="portfolio-list-ticker">{p.kg_ticker || "—"}</span>
+                    <span className="portfolio-list-name">{p.entity_name}</span>
+                    <button className="portfolio-list-remove" onClick={() => removeCompany(p.entity_id)} aria-label={`Remove ${p.entity_name}`}>
                       Remove
                     </button>
                   </li>
@@ -208,27 +188,10 @@ function PortfolioView({ tweaks }) {
           </div>
         ) : (
           <div className="portfolio-support-box">
-            <div className="portfolio-support-box-eyebrow">Update unavailable</div>
-            <h2 className="portfolio-support-box-title">Contact support to enable portfolio updates.</h2>
-            <p className="portfolio-support-box-body">
-              Portfolio update orchestration is not available in your current workspace.
-              Reach out and the team will configure it for you.
-            </p>
+            <p className="portfolio-support-box-title">Contact support to enable portfolio updates.</p>
             <a className="portfolio-support-box-link" href="mailto:support@bigdata.com">
               support@bigdata.com
             </a>
-            <div className="portfolio-support-box-meta">
-              Window requested: {updateDate} · {updateTime}
-            </div>
-            <div style={{ marginTop: 18 }}>
-              <button
-                className="portfolio-list-remove"
-                style={{ padding: "8px 14px", fontSize: 12 }}
-                onClick={() => setShowSupport(false)}
-              >
-                Back to configuration
-              </button>
-            </div>
           </div>
         )}
       </main>

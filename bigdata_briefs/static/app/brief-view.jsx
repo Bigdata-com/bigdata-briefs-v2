@@ -61,17 +61,20 @@ function BriefWindowBand({ start, end }) {
   );
 }
 
-function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView }) {
+function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView, view }) {
   const initialBrief = window.DATA.todaysBrief;
   const initialDates = window.DATA.availableDates || [];
   const initialDate = initialBrief?.windowEnd?.slice(0, 10) || initialDates[initialDates.length - 1] || null;
 
   const [currentBrief, setCurrentBrief] = React.useState(null);
-  const [mode, setMode] = React.useState("brief"); // "brief" | "archive" | "audit"
+  // mode derived from view: "overview" → brief, "overview-audit" → audit, "overview-archive" → archive
+  const mode = view === "overview-audit" ? "audit" : view === "overview-archive" ? "archive" : "brief";
+  const setMode = (m) => setView(m === "audit" ? "overview-audit" : m === "archive" ? "overview-archive" : "overview");
   const [currentPulse, setCurrentPulse] = React.useState(window.DATA.pulse);
   const [availableDates, setAvailableDates] = React.useState(initialDates);
   const [selectedDate, setSelectedDate] = React.useState(initialDate);
   const [companySummaries, setCompanySummaries] = React.useState(window.DATA.companySummaries || {});
+  const [landingSummaries, setLandingSummaries] = React.useState(window.DATA.companySummaries || {});
   const [loading, setLoading] = React.useState(false);
   const [activeBulletId, setActiveBulletId] = React.useState(null);
   const [filterTheme, setFilterTheme] = React.useState(null);
@@ -80,6 +83,26 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
   const [entitySignals, setEntitySignals] = React.useState(null);
   const [signalsLoading, setSignalsLoading] = React.useState(false);
   const [signalMode, setSignalMode] = React.useState("zscore"); // "zscore" | "raw"
+  const [portfolioIds, setPortfolioIds] = React.useState(null); // null = loading
+  const _loadingEntityRef = React.useRef(null); // prevents auto-load from racing with explicit loadEntity calls
+
+  React.useEffect(() => {
+    fetch("/api/frontend/portfolio")
+      .then(r => r.json())
+      .then(data => {
+        const ids = new Set((data.portfolio || []).map(p => p.entity_id));
+        setPortfolioIds(ids);
+      })
+      .catch(() => setPortfolioIds(new Set()));
+  }, []);
+
+  // Reset to landing when The Brief nav is clicked
+  React.useEffect(() => {
+    if (view === "brief") {
+      setCurrentBrief(null);
+      setCurrentPulse(window.DATA.pulse || []);
+    }
+  }, [view]);
 
   const brief = currentBrief;
 
@@ -114,44 +137,55 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
     return () => { cancelled = true; };
   }, [brief?.entityId, brief?.windowEnd, selectedDate]);
 
-  const allCompanies = Array.isArray(window.DATA?.companies) ? window.DATA.companies : [];
+  const _allCompanies = Array.isArray(window.DATA?.companies) ? window.DATA.companies : [];
+  const allCompanies = portfolioIds === null
+    ? []
+    : portfolioIds.size === 0
+      ? _allCompanies
+      : _allCompanies.filter(c => portfolioIds.has(c.id));
+
+  // Auto-load top company when navigating to any overview* view with no brief loaded.
+  // Skips if loadEntity is already in flight (race-condition guard via _loadingEntityRef).
+  React.useEffect(() => {
+    const isOverview = view === "overview" || view === "overview-audit" || view === "overview-archive";
+    if (!isOverview || currentBrief || !portfolioIds || _loadingEntityRef.current) return;
+    const top = [...allCompanies]
+      .filter(c => companySummaries[c.id]?.bulletsSaved > 0)
+      .sort((a, b) => (companySummaries[b.id]?.bulletsSaved ?? 0) - (companySummaries[a.id]?.bulletsSaved ?? 0))[0];
+    if (top) loadEntity(top.id, selectedDate, view);
+  }, [view, portfolioIds]);
 
   const _searchLower = companySearch.toLowerCase();
   const _filterCompany = (c) => !_searchLower ||
     c.name.toLowerCase().includes(_searchLower) ||
     (c.ticker || "").toLowerCase().includes(_searchLower);
 
-  // Multi-level sort: Last run → Published → Discarded → |Med.Att.Δ| → |Sent.Δ|
-  const _sortCompanies = (list) => [...list].sort((a, b) => {
-    const sa = companySummaries[a.id] || {};
-    const sb = companySummaries[b.id] || {};
-    // 1. Most recent last run
+  // Multi-level sort: Last run → Published → |Med.Att.Δ| → |Sent.Δ|
+  const _sortCompanies = (list, summ) => [...list].sort((a, b) => {
+    const sa = summ[a.id] || {};
+    const sb = summ[b.id] || {};
     const da = sa.lastRunDate || "";
     const db = sb.lastRunDate || "";
     if (db !== da) return db > da ? 1 : -1;
-    // 2. Published descending
     const pa = sa.bulletsSaved ?? 0;
     const pb = sb.bulletsSaved ?? 0;
     if (pb !== pa) return pb - pa;
-    // 3. Discarded descending
-    const disca = sa.bulletsDiscarded ?? 0;
-    const discb = sb.bulletsDiscarded ?? 0;
-    if (discb !== disca) return discb - disca;
-    // 4. |Media Att. Δ| descending
-    const ma = Math.abs(sa.deltaChunksPct ?? 0);
-    const mb = Math.abs(sb.deltaChunksPct ?? 0);
+    const ma = Math.abs(sa.deltaChunks ?? 0);
+    const mb = Math.abs(sb.deltaChunks ?? 0);
     if (mb !== ma) return mb - ma;
-    // 5. |Sentiment Δ| descending
-    const sea = Math.abs(sa.deltaSentPct ?? 0);
-    const seb = Math.abs(sb.deltaSentPct ?? 0);
+    const sea = Math.abs(sa.deltaSent ?? 0);
+    const seb = Math.abs(sb.deltaSent ?? 0);
     return seb - sea;
   });
 
+  // Landing: always sorted by latest-day summaries, independent of selectedDate
+  const landingCompanies = React.useMemo(() =>
+    _sortCompanies(allCompanies, landingSummaries),
+  [landingSummaries, allCompanies]);
+
+  // Overview left rail: filtered to companies that ran on selectedDate
   const companiesForFrontPage = React.useMemo(() => {
-    if (!brief) {
-      return _sortCompanies(allCompanies);
-    }
-    const bid = brief.entityId;
+    const bid = brief?.entityId;
     const list = allCompanies.filter(c => {
       if (c.id === bid) return true;
       const s = companySummaries[c.id];
@@ -160,7 +194,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
       if (s.hasRunOnDate === false) return false;
       return (s.bulletsSaved ?? 0) > 0;
     });
-    return _sortCompanies(list);
+    return _sortCompanies(list, companySummaries);
   }, [companySummaries, brief?.entityId, allCompanies]);
 
   function refreshSidebar(date) {
@@ -170,6 +204,14 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
       .then(data => { if (data.summaries) setCompanySummaries(data.summaries); })
       .catch(console.error);
   }
+
+  // Landing summaries: always latest day, independent of selectedDate
+  React.useEffect(() => {
+    fetch("/api/frontend/companies/summaries")
+      .then(r => r.json())
+      .then(data => { if (data.summaries) setLandingSummaries(data.summaries); })
+      .catch(console.error);
+  }, []);
 
   React.useEffect(() => {
     if (selectedDate) refreshSidebar(selectedDate);
@@ -192,9 +234,11 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
     return () => { cancelled = true; };
   }, [brief?.entityId, selectedDate]);
 
-  function loadEntity(entityId, date) {
+  function loadEntity(entityId, date, targetView = "overview") {
     const targetDate =
       typeof date === "string" && /^\d{4}-\d{2}-\d{2}/.test(date) ? date.slice(0, 10) : null;
+    _loadingEntityRef.current = entityId;
+    setView(targetView);
     setLoading(true);
     setFilterTheme(null);
     setActiveBulletId(null);
@@ -226,7 +270,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
         }
       })
       .catch(console.error)
-      .finally(() => setLoading(false));
+      .finally(() => { setLoading(false); _loadingEntityRef.current = null; });
   }
 
   function navigateDate(direction) {
@@ -236,7 +280,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
     if (nextIdx < 0 || nextIdx >= availableDates.length) return;
     const newDate = availableDates[nextIdx];
     setSelectedDate(newDate);
-    loadEntity(brief?.entityId, newDate);
+    loadEntity(brief?.entityId, newDate, view);
   }
 
   const navDateKey = (selectedDate || brief?.windowEnd || "").toString().slice(0, 10);
@@ -244,17 +288,25 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
   const canPrev = dateIdx > 0;
   const canNext = dateIdx >= 0 && dateIdx < availableDates.length - 1;
 
-  const briefOk = brief != null && Array.isArray(brief.bullets);
-  if (!briefOk) {
+  if (view === "brief") {
     return <BriefLanding
       loading={loading}
-      companies={companiesForFrontPage.filter(_filterCompany)}
-      summaries={companySummaries}
+      companies={landingCompanies.filter(_filterCompany)}
+      summaries={landingSummaries}
       onPick={loadEntity}
       companySearch={companySearch}
       setCompanySearch={setCompanySearch}
       selectedDate={selectedDate}
     />;
+  }
+
+  // view === "overview"
+  if (!brief || !Array.isArray(brief.bullets)) {
+    return (
+      <div style={{ padding: "80px 0", fontFamily: "var(--serif)", fontStyle: "italic", color: "var(--ink-mute)", textAlign: "center", fontSize: 15 }}>
+        {loading ? "Loading…" : "No company data available."}
+      </div>
+    );
   }
 
   const allBullets = brief.bullets;
@@ -359,59 +411,25 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
 
       {/* ── Main column ── */}
       <main className="brief-main">
-        {/* Top row: date + prev/next on the left — mode tabs on the right */}
-        <div className="brief-mode-bar">
-          <div className="brief-mode-bar-left">
-            {(mode === "brief" || mode === "audit") ? (
-              <>
-                <div className="dateline" style={{ marginBottom: 0 }}>
-                  {selectedDate
-                    ? (() => {
-                        const [y, m, d] = selectedDate.split("-").map(Number);
-                        const dt = new Date(Date.UTC(y, m - 1, d));
-                        return dt.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
-                      })()
-                    : "—"}
-                </div>
-                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                  <button
-                    onClick={() => navigateDate(-1)}
-                    disabled={!canPrev || loading}
-                    style={{
-                      fontFamily: "var(--mono)", fontSize: 12, padding: "3px 8px",
-                      border: "1px solid var(--rule)", background: "var(--paper)",
-                      color: canPrev ? "var(--ink)" : "var(--ink-faint)",
-                      cursor: canPrev ? "pointer" : "default",
-                      opacity: canPrev ? 1 : 0.4,
-                    }}
-                    title="Previous day"
-                  >← prev</button>
-                  <button
-                    onClick={() => navigateDate(1)}
-                    disabled={!canNext || loading}
-                    style={{
-                      fontFamily: "var(--mono)", fontSize: 12, padding: "3px 8px",
-                      border: "1px solid var(--rule)", background: "var(--paper)",
-                      color: canNext ? "var(--ink)" : "var(--ink-faint)",
-                      cursor: canNext ? "pointer" : "default",
-                      opacity: canNext ? 1 : 0.4,
-                    }}
-                    title="Next day"
-                  >next →</button>
-                  {loading && <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-faint)" }}>loading…</span>}
-                </div>
-              </>
-            ) : null}
+
+        {/* Date navigation — shown in brief and audit modes */}
+        {(mode === "brief" || mode === "audit") && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--rule)" }}>
+            <span style={{ fontFamily: "var(--sans)", fontSize: 12, fontWeight: 600, color: "var(--ink-soft)", flex: 1 }}>
+              {selectedDate ? (() => {
+                const [y, m, d] = selectedDate.split("-").map(Number);
+                return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+              })() : "—"}
+            </span>
+            <button onClick={() => navigateDate(-1)} disabled={!canPrev || loading}
+              style={{ fontFamily: "var(--mono)", fontSize: 12, padding: "3px 8px", border: "1px solid var(--rule)", background: "var(--paper)", color: canPrev ? "var(--ink)" : "var(--ink-faint)", cursor: canPrev ? "pointer" : "default", opacity: canPrev ? 1 : 0.4 }}
+              title="Previous day">← prev</button>
+            <button onClick={() => navigateDate(1)} disabled={!canNext || loading}
+              style={{ fontFamily: "var(--mono)", fontSize: 12, padding: "3px 8px", border: "1px solid var(--rule)", background: "var(--paper)", color: canNext ? "var(--ink)" : "var(--ink-faint)", cursor: canNext ? "pointer" : "default", opacity: canNext ? 1 : 0.4 }}
+              title="Next day">next →</button>
+            {loading && <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-faint)" }}>loading…</span>}
           </div>
-          <div className="brief-mode-tabs" role="tablist">
-            <button className={"brief-mode-tab" + (mode === "brief" ? " active" : "")}
-                    onClick={() => setMode("brief")}>The Brief</button>
-            <button className={"brief-mode-tab" + (mode === "audit" ? " active" : "")}
-                    onClick={() => setMode("audit")}>Audit</button>
-            <button className={"brief-mode-tab" + (mode === "archive" ? " active" : "")}
-                    onClick={() => setMode("archive")}>Archive</button>
-          </div>
-        </div>
+        )}
 
         {mode === "archive" && (
           <BriefEntityArchive entityId={brief.entityId} entityName={brief.entityName} ticker={brief.ticker} onOpenDate={(d) => { setMode("brief"); loadEntity(brief.entityId, d); }} />
@@ -557,27 +575,23 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
 
         <div className="rail-section">
           {(() => {
-            const pulseValues = currentPulse.map(p => p.saved);
-            const n = pulseValues.length;
-            const avg = n ? (pulseValues.reduce((a, b) => a + b, 0) / n) : 0;
-            // Selected day value = last entry in pulse (pulse ends on selectedDate)
-            const selectedValue = n ? pulseValues[n - 1] : (brief?.bulletsSaved ?? 0);
-            // vs prev 7d: avg of last 7 vs avg of the 7 before that
-            const last7 = pulseValues.slice(-7);
-            const prev7 = pulseValues.slice(-14, -7);
-            const last7avg = last7.length ? last7.reduce((a, b) => a + b, 0) / last7.length : 0;
-            const prev7avg = prev7.length ? prev7.reduce((a, b) => a + b, 0) / prev7.length : null;
-            const vs7pct = prev7avg !== null && prev7avg > 0
-              ? Math.round((last7avg - prev7avg) / prev7avg * 100)
-              : null;
-            const vs7color = vs7pct === null ? "var(--ink-mute)" : vs7pct >= 0 ? "var(--novel)" : "var(--discard)";
-            const vs7label = vs7pct === null ? "—" : (vs7pct >= 0 ? `+${vs7pct}%` : `${vs7pct}%`);
-            const firstDate = currentPulse[0]?.date?.slice(5) || "";
-            const lastDate = currentPulse[n - 1]?.date?.slice(5) || selectedDate?.slice(5) || "";
+            // Build a fixed 14-day window ending on selectedDate, filling missing days with 0
+            const _endIso = selectedDate || brief?.windowEnd?.slice(0, 10) || new Date().toISOString().slice(0, 10);
+            const _14dates = Array.from({ length: 14 }, (_, i) => {
+              const d = new Date(_endIso + "T00:00:00Z");
+              d.setUTCDate(d.getUTCDate() - (13 - i));
+              return d.toISOString().slice(0, 10);
+            });
+            const _pulseByDate = Object.fromEntries(currentPulse.map(p => [p.date?.slice(0, 10), p.saved ?? 0]));
+            const pulseValues = _14dates.map(d => _pulseByDate[d] ?? 0);
+            const avg = pulseValues.reduce((a, b) => a + b, 0) / 14;
+            const selectedValue = pulseValues[13]; // last = end date
+            const firstDate = _14dates[0].slice(5);
+            const lastDate = _14dates[13].slice(5);
             return (
               <>
                 <div className="t-cap" style={{ marginBottom: 10 }}>
-                  {n}-day pulse
+                  14-day pulse
                 </div>
                 <div className="pulse-card surface">
                   <div className="pulse-label">Material developments per day</div>
@@ -599,13 +613,13 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
                   <hr className="rule" style={{ margin: "10px 0" }} />
                   <div className="pulse-summary">
                     <div>
-                      <div className="t-cap" style={{ fontSize: 9.5 }}>Selected</div>
+                      <div className="t-cap" style={{ fontSize: 9.5 }}>Current</div>
                       <div className="tnum" style={{ fontSize: 18, fontFamily: "var(--serif-display)", fontWeight: 600 }}>
                         {selectedValue}
                       </div>
                     </div>
                     <div>
-                      <div className="t-cap" style={{ fontSize: 9.5 }}>{n}d avg</div>
+                      <div className="t-cap" style={{ fontSize: 9.5 }}>14d avg</div>
                       <div className="tnum" style={{ fontSize: 18, fontFamily: "var(--serif-display)", fontWeight: 600 }}>
                         {avg.toFixed(1)}
                       </div>
@@ -613,7 +627,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
                     <div>
                       <div className="t-cap" style={{ fontSize: 9.5 }}>Peak</div>
                       <div className="tnum" style={{ fontSize: 18, fontFamily: "var(--serif-display)", fontWeight: 600 }}>
-                        {n ? Math.max(...pulseValues) : "—"}
+                        {Math.max(...pulseValues)}
                       </div>
                     </div>
                   </div>
@@ -663,7 +677,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
                   </div>
                   <div className="pulse-axis"><span>{firstDate}</span><span>{lastDate}</span></div>
                   <div className="pulse-summary" style={{ marginTop: 8 }}>
-                    <div><div className="t-cap" style={{ fontSize: 9.5 }}>Selected</div>
+                    <div><div className="t-cap" style={{ fontSize: 9.5 }}>Current</div>
                       <div className="tnum" style={{ fontSize: 18, fontFamily: "var(--serif-display)", fontWeight: 600 }}>{chunksVals.length ? chunksVals[chunksVals.length - 1].toFixed(2) : "—"}</div></div>
                     <div><div className="t-cap" style={{ fontSize: 9.5 }}>Avg</div>
                       <div className="tnum" style={{ fontSize: 18, fontFamily: "var(--serif-display)", fontWeight: 600 }}>{chunksVals.length ? (chunksVals.reduce((a, b) => a + b, 0) / chunksVals.length).toFixed(2) : "—"}</div></div>
@@ -680,12 +694,10 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
                   </div>
                   <div className="pulse-axis"><span>{firstDate}</span><span>{lastDate}</span></div>
                   <div className="pulse-summary" style={{ marginTop: 8 }}>
-                    <div><div className="t-cap" style={{ fontSize: 9.5 }}>Selected</div>
+                    <div><div className="t-cap" style={{ fontSize: 9.5 }}>Current</div>
                       <div className="tnum" style={{ fontSize: 18, fontFamily: "var(--serif-display)", fontWeight: 600 }}>{sentVals.length ? sentVals[sentVals.length - 1].toFixed(3) : "—"}</div></div>
                     <div><div className="t-cap" style={{ fontSize: 9.5 }}>Avg</div>
                       <div className="tnum" style={{ fontSize: 18, fontFamily: "var(--serif-display)", fontWeight: 600 }}>{sentVals.length ? (sentVals.reduce((a, b) => a + b, 0) / sentVals.length).toFixed(3) : "—"}</div></div>
-                    <div><div className="t-cap" style={{ fontSize: 9.5 }}>Min / Max</div>
-                      <div className="tnum" style={{ fontSize: 14, fontFamily: "var(--serif-display)", fontWeight: 600 }}>{sentVals.length ? `${Math.min(...sentVals).toFixed(2)} / ${Math.max(...sentVals).toFixed(2)}` : "—"}</div></div>
                   </div>
                 </div>
               </>
@@ -729,6 +741,21 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView 
 // ── Single bullet ───────────────────────────────────────────────────
 function BulletItem({ bullet, index, isFirst, active, onActivate, themeColor }) {
   const [noteOpen, setNoteOpen] = React.useState(false);
+  const [expandedSources, setExpandedSources] = React.useState(new Set());
+
+  React.useEffect(() => {
+    if (!active) setExpandedSources(new Set());
+  }, [active]);
+
+  const toggleSource = (src) => {
+    setExpandedSources(prev => {
+      const next = new Set(prev);
+      if (next.has(src)) next.delete(src); else next.add(src);
+      return next;
+    });
+  };
+
+  const groupedCitations = _groupCitations(bullet.citations);
 
   return (
     <article className={`bullet ${isFirst ? "bullet-first" : ""} ${active ? "bullet-active" : ""}`}>
@@ -754,32 +781,29 @@ function BulletItem({ bullet, index, isFirst, active, onActivate, themeColor }) 
           </div>
         )}
         <div className="bullet-citations-row">
-          {(() => {
-            // Group chips by source name, combine citation numbers
-            // Group by source, count unique excerpts
-            const grouped = [];
-            const seen = new Map();
-            bullet.citations.forEach((c) => {
-              const src = c.source || "—";
-              if (!seen.has(src)) { seen.set(src, { source: src, excerpts: new Set() }); grouped.push(seen.get(src)); }
-              const ex = String(c.excerpt != null ? c.excerpt : (c.text != null ? c.text : "")).trim();
-              if (ex) seen.get(src).excerpts.add(ex);
-            });
-            return grouped.map((g, gi) => (
-              <span key={gi} className="bullet-source-chip">
+          {groupedCitations.map((sg, gi) => {
+            const isOpen = active || expandedSources.has(sg.source);
+            const excerptCount = sg.headlineGroups.reduce((s, hg) => s + hg.excerpts.length, 0);
+            return (
+              <button key={gi}
+                className={"bullet-source-chip" + (isOpen ? " active" : "")}
+                onClick={() => toggleSource(sg.source)}
+              >
                 <span className="cite-source">
-                  {g.source}{g.excerpts.size > 1 && <span style={{ fontFamily: "var(--sans)", color: "var(--ink-mute)" }}> ({g.excerpts.size})</span>}
+                  {sg.source}{excerptCount > 1 && <span style={{ fontFamily: "var(--sans)", color: "var(--ink-mute)" }}> ({excerptCount})</span>}
                 </span>
-              </span>
-            ));
-          })()}
+              </button>
+            );
+          })}
           <button className="bullet-action" onClick={onActivate}>
-            {active ? "Hide" : "View"}
+            {active ? "Hide" : "View all"}
           </button>
         </div>
-        {active && (
+        {(active || expandedSources.size > 0) && (
           <div className="bullet-sources-expanded">
-            {_groupCitations(bullet.citations).map((sg, si) => (
+            {groupedCitations
+              .filter(sg => active || expandedSources.has(sg.source))
+              .map((sg, si) => (
               <div key={si} className="source-block">
                 <div className="source-block-source" style={{ fontWeight: 600 }}>
                   {sg.source}{sg.date ? <span className="muted" style={{ fontWeight: 400 }}> · {sg.date}</span> : null}
@@ -847,6 +871,70 @@ function DiscardedList({ items }) {
 
 window.BriefView = BriefView;
 
+// ── Archive bullet item — bullet text + collapsible source chips ────
+function ArchiveBulletItem({ bullet, index }) {
+  const [expandedSources, setExpandedSources] = React.useState(new Set());
+  const groupedCitations = _groupCitations(bullet.citations || []);
+
+  const toggleSource = (src) => setExpandedSources(prev => {
+    const next = new Set(prev);
+    if (next.has(src)) next.delete(src); else next.add(src);
+    return next;
+  });
+
+  return (
+    <div className="archive-bullet-item">
+      {bullet.theme && (
+        <span className="archive-bullet-theme"><ThemeDot theme={bullet.theme} />&nbsp;{bullet.theme}</span>
+      )}
+      <p className="archive-bullet-text">{bullet.text}</p>
+      {groupedCitations.length > 0 && (
+        <div className="bullet-citations-row" style={{ marginTop: 6 }}>
+          {groupedCitations.map((sg, gi) => {
+            const isOpen = expandedSources.has(sg.source);
+            const excerptCount = sg.headlineGroups.reduce((s, hg) => s + hg.excerpts.length, 0);
+            return (
+              <button key={gi}
+                className={"bullet-source-chip" + (isOpen ? " active" : "")}
+                onClick={() => toggleSource(sg.source)}
+              >
+                <span className="cite-source">
+                  {sg.source}{excerptCount > 1 && <span style={{ fontFamily: "var(--sans)", color: "var(--ink-mute)" }}> ({excerptCount})</span>}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {expandedSources.size > 0 && (
+        <div className="bullet-sources-expanded">
+          {groupedCitations.filter(sg => expandedSources.has(sg.source)).map((sg, si) => (
+            <div key={si} className="source-block">
+              <div className="source-block-source" style={{ fontWeight: 600 }}>
+                {sg.source}{sg.date ? <span className="muted" style={{ fontWeight: 400 }}> · {sg.date}</span> : null}
+              </div>
+              {sg.headlineGroups.map((hg, hi) => (
+                <div key={hi} style={{ marginTop: 8 }}>
+                  <div className="source-block-headline">{hg.headline}</div>
+                  {hg.excerpts.length === 1
+                    ? <p className="source-block-excerpt">"{hg.excerpts[0]}"</p>
+                    : hg.excerpts.map((ex, xi) => (
+                        <div key={xi} style={{ marginTop: 6 }}>
+                          <div style={{ fontFamily: "var(--sans)", fontSize: 11, color: "var(--ink-mute)", marginBottom: 2 }}>Text {xi + 1}:</div>
+                          <p className="source-block-excerpt">"{ex}"</p>
+                        </div>
+                      ))
+                  }
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Brief landing ─────────────────────────────────────────
 // Two-column split: Portfolio Brief narrative on the left, company picker on the right.
 function BriefLanding({ loading, companies, summaries, onPick, companySearch, setCompanySearch, selectedDate }) {
@@ -909,6 +997,8 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
     return { date, time };
   }
 
+  const [showExtraCols, setShowExtraCols] = React.useState(false);
+
   const narrativeText = narrativeMode === "lead" && portfolioBrief?.narrative_b
     ? portfolioBrief.narrative_b
     : portfolioBrief?.narrative;
@@ -926,35 +1016,27 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
         <div className="pb-meta-strip">
           <span className="pb-meta-cell"><strong>{companiesCount}</strong> companies</span>
           <span className="pb-meta-cell"><strong>{totalSaved}</strong> material developments</span>
-          <span className="pb-meta-cell"><strong>{totalDiscarded}</strong> filtered out</span>
           <span className="pb-meta-cell"><strong>{activeCount}</strong> active names</span>
         </div>
 
-        {portfolioBrief?.narrative && (
-          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-            <button
-              className={"theme-chip" + (narrativeMode === "thematic" ? " active" : "")}
-              onClick={() => setNarrativeMode("thematic")}
-              title="Identifies dominant cross-cutting themes"
-            >Thematic</button>
-            {portfolioBrief?.narrative_b && (
-              <button
-                className={"theme-chip" + (narrativeMode === "lead" ? " active" : "")}
-                onClick={() => setNarrativeMode("lead")}
-                title="One strong theme sentence + concrete examples"
-              >Lead + Support</button>
-            )}
-          </div>
-        )}
-
-        <p className="pb-narrative">
+        <div className="pb-narrative">
           {briefLoading
             ? null
             : narrativeText
-              ? <><span className="dropcap">{narrativeText.charAt(0)}</span>{narrativeText.slice(1)}</>
+              ? narrativeText.split("\n\n").map((section, i) => {
+                  const nl = section.indexOf("\n");
+                  const company = nl === -1 ? section : section.slice(0, nl);
+                  const bullets = nl === -1 ? "" : section.slice(nl + 1);
+                  return (
+                    <div key={i} className="pb-narrative-section">
+                      <div className="pb-narrative-company">{company}</div>
+                      {bullets && <p className="pb-narrative-bullets">{bullets}</p>}
+                    </div>
+                  );
+                })
               : <span style={{ color: "var(--ink-mute)", fontStyle: "italic" }}>No portfolio brief available yet — will be generated after the next run.</span>
           }
-        </p>
+        </div>
 
         <div className="pb-highlight-head">Next closest events</div>
         {eventsLoading ? (
@@ -991,7 +1073,7 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
         <div className="brief-pick-header">
           <div className="dateline" style={{ marginBottom: 6 }}>The Brief</div>
           <p className="brief-pick-sub">
-            {loading ? "Loading…" : "Choose a company to read its brief."}
+            {loading ? "Loading…" : companies.length === 0 ? "Add companies in My Portfolio to see briefs here." : "Choose a company to read its brief."}
           </p>
           <input
             className="archive-search"
@@ -1006,37 +1088,17 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
           <div className="brief-pick-row brief-pick-row-head">
             <span className="brief-pick-col-ticker">Ticker</span>
             <span className="brief-pick-col-name">Company</span>
-            <span className="brief-pick-col-date">Last run</span>
-            <span className="brief-pick-col-bullets">Published</span>
-            <span className="brief-pick-col-discarded">Discarded</span>
-            <span className="brief-pick-col-delta">Med. Att. Δ</span>
-            <span className="brief-pick-col-delta">Sent. Δ</span>
+            <span className="brief-pick-col-bullets">Items</span>
           </div>
           {companies.map(c => {
             const s = summaries[c.id] || {};
             const saved = s.bulletsSaved != null ? s.bulletsSaved : "—";
-            const discarded = s.bulletsDiscarded != null ? s.bulletsDiscarded : "—";
-            const rawDate = s.lastRunDate || (s.pulse7?.length > 0 ? s.pulse7[s.pulse7.length - 1].date : null);
-            const date = _fmtRunDate(rawDate);
-            const fmtDelta = (v) => {
-              if (v == null) return { label: "—", color: "inherit" };
-              const fixed = v.toFixed(1);
-              const label = v >= 0 ? `+${fixed}%` : `${fixed}%`;
-              const color = v >= 0 ? "var(--novel)" : "var(--discard)";
-              return { label, color };
-            };
-            const chunksDelta = fmtDelta(s.deltaChunksPct);
-            const sentDelta = fmtDelta(s.deltaSentPct);
             return (
               <button key={c.id} className="brief-pick-row brief-pick-row-item"
                       onClick={() => onPick(c.id, null)} disabled={loading}>
                 <span className="brief-pick-col-ticker">{_tk(c.ticker)}</span>
                 <span className="brief-pick-col-name">{c.name}</span>
-                <span className="brief-pick-col-date">{date}</span>
                 <span className="brief-pick-col-bullets">{saved}</span>
-                <span className="brief-pick-col-discarded">{discarded}</span>
-                <span className="brief-pick-col-delta tnum" style={{ color: chunksDelta.color }}>{chunksDelta.label}</span>
-                <span className="brief-pick-col-delta tnum" style={{ color: sentDelta.color }}>{sentDelta.label}</span>
               </button>
             );
           })}
@@ -1111,14 +1173,11 @@ function BriefEntityArchive({ entityId, entityName, ticker, onOpenDate }) {
                     </button>
                   )}
                   {expandedRunId === entry.runId && entry.bullets?.length > 0 && (
-                    <ol className="archive-bullets-list">
+                    <div className="archive-bullets-list">
                       {entry.bullets.map((b, i) => (
-                        <li key={i} className="archive-bullet-item">
-                          {b.theme && <span className="archive-bullet-theme"><ThemeDot theme={b.theme} />&nbsp;{b.theme}</span>}
-                          <p className="archive-bullet-text">{b.text}</p>
-                        </li>
+                        <ArchiveBulletItem key={b.id || i} bullet={b} index={i} />
                       ))}
-                    </ol>
+                    </div>
                   )}
                 </div>
               </div>

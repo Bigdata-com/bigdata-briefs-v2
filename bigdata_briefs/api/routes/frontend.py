@@ -833,7 +833,7 @@ def _build_history(session: Session, entity_id: str, limit: int = 30) -> list[di
             "discarded": len(discarded),
             "themes": themes,
             "narrative": narrative.narrative_text if narrative else "",
-            "bullets": [{"text": b.text, "theme": b.theme or ""} for b in active],
+            "bullets": [_bullet_to_dict(b) for b in active],
         })
     return out
 
@@ -1299,25 +1299,23 @@ def get_companies_summaries(date: str | None = None) -> dict:
                 .limit(2)
             ).all()
 
-            delta_chunks_pct = None
-            delta_sent_pct = None
+            delta_chunks = None
+            delta_sent = None
             if len(sig_rows) == 2:
                 today_row = sig_rows[0]
                 yesterday_row = sig_rows[1]
                 if (
-                    today_row.chunks_ewm_short is not None
-                    and yesterday_row.chunks_ewm_short is not None
+                    today_row.chunks_zscore_mo is not None
+                    and yesterday_row.chunks_zscore_mo is not None
                 ):
-                    denom = max(abs(yesterday_row.chunks_ewm_short), 0.01)
-                    delta_chunks_pct = (today_row.chunks_ewm_short - yesterday_row.chunks_ewm_short) / denom * 100
+                    delta_chunks = today_row.chunks_zscore_mo - yesterday_row.chunks_zscore_mo
                 if (
-                    today_row.sent_ewm_short is not None
-                    and yesterday_row.sent_ewm_short is not None
+                    today_row.sent_zscore_mo is not None
+                    and yesterday_row.sent_zscore_mo is not None
                 ):
-                    denom = max(abs(yesterday_row.sent_ewm_short), 0.01)
-                    delta_sent_pct = (today_row.sent_ewm_short - yesterday_row.sent_ewm_short) / denom * 100
-            summ["deltaChunksPct"] = delta_chunks_pct
-            summ["deltaSentPct"] = delta_sent_pct
+                    delta_sent = today_row.sent_zscore_mo - yesterday_row.sent_zscore_mo
+            summ["deltaChunks"] = delta_chunks
+            summ["deltaSent"] = delta_sent
 
     return {"summaries": summaries, "date": target_date}
 

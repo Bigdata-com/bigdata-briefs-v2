@@ -435,7 +435,12 @@
   font-family: var(--sans);
   font-size: 11.5px;
   color: var(--ink-soft);
+  cursor: pointer;
 }
+.bullet-source-chip:hover { border-color: var(--ink-soft); color: var(--ink); }
+.bullet-source-chip.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.bullet-source-chip.active .cite-source { color: var(--paper); }
+[data-theme="dark"] .bullet-source-chip.active { background: var(--ink); color: var(--paper); }
 .bullet-source-chip .cite-num {
   display: inline-flex;
   width: 16px;
@@ -1250,7 +1255,7 @@
 }
 .brief-pick-row {
   display: grid;
-  grid-template-columns: 80px 1fr 180px 60px 60px 70px 70px;
+  grid-template-columns: 80px 1fr 180px auto;
   align-items: center;
   gap: 0 16px;
   padding: 10px 0;

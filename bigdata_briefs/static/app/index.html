@@ -71,13 +71,14 @@
 
           <div className="page">
             <div className="page-inner">
-              {view === "brief" && (
+              {(view === "brief" || view === "overview" || view === "overview-audit" || view === "overview-archive") && (
                 <BriefView
                   density={t.density}
                   showDiscarded={showDiscarded}
                   setShowDiscarded={(v) => { setShowDiscarded(v); setTweak("showDiscarded", v); }}
                   dropcap={t.dropcap}
                   setView={setView}
+                  view={view}
                 />
               )}
               {view === "history"   && <ArchiveView tweaks={t} />}

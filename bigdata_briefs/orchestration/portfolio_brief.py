@@ -146,71 +146,18 @@ def generate_and_store_portfolio_brief(
                     "bulletCount": len(texts),
                 })
 
-        # ── build shared prompt context ───────────────────────────────────
-        company_names = ", ".join(c["name"] for c in companies_out)
+        # ── build narrative directly from bullet summaries (LLM disabled) ──
         sections = []
         for i, (eid, texts) in enumerate(ranked):
-            name = companies_out[i]["name"]
+            if not texts:
+                continue
+            name   = companies_out[i]["name"]
+            ticker = companies_out[i]["ticker"]
             joined = " ".join(f"{t.strip().rstrip('.')}." for t in texts)
-            sections.append(f"**{name}**: {joined}")
-        briefing_text = "\n\n".join(sections)
+            sections.append(f"{name}\n{joined}")
 
-        user_msg = (
-            f"Date: {date_iso}.\n\n"
-            f"Companies: {company_names}\n\n"
-            f"Developments:\n\n{briefing_text}"
-        )
-
-        # ── two prompts ───────────────────────────────────────────────────
-        _SYS_THEMATIC = (
-            "You are a financial editor writing a concise morning portfolio note. "
-            "Given the day's developments across multiple companies, identify 1-2 dominant "
-            "cross-cutting themes and write 2-3 sentences about those themes, using the "
-            "companies as examples rather than listing them one by one. "
-            "Do not summarise each company sequentially. "
-            "Write in third person. No bullet points. "
-            "Do not use the words 'brief' or 'pipeline'."
-        )
-
-        _SYS_LEAD = (
-            "You are a financial editor writing a concise morning portfolio note. "
-            "Write exactly 2 sentences: the first captures the dominant theme of the day "
-            "in one strong declarative sentence; the second cites 2-3 specific concrete "
-            "developments that support it. "
-            "Do not summarise each company separately or sequentially. "
-            "Write in third person. No bullet points. "
-            "Do not use the words 'brief' or 'pipeline'."
-        )
-
-        # ── call both LLMs in parallel ────────────────────────────────────
-        from concurrent.futures import ThreadPoolExecutor as _TPE
-        from bigdata_briefs.llm_client import LLMClient
-        from pydantic import BaseModel as _BaseModel
-
-        class _R(_BaseModel):
-            narrative: str
-
-        llm = LLMClient()
-
-        def _call(sys_prompt, step):
-            try:
-                r = llm.call_with_response_format(
-                    system=[{"role": "system", "content": sys_prompt}],
-                    messages=[{"role": "user", "content": user_msg}],
-                    model="gpt-4.1",
-                    max_tokens=400,
-                    text_format=_R,
-                    step_name=step,
-                )
-                return r.narrative.strip() if r and r.narrative else None
-            except Exception:
-                return None
-
-        with _TPE(max_workers=2) as ex:
-            fut_a = ex.submit(_call, _SYS_THEMATIC, "portfolio_brief_thematic")
-            fut_b = ex.submit(_call, _SYS_LEAD,     "portfolio_brief_lead")
-            narrative   = fut_a.result()
-            narrative_b = fut_b.result()
+        narrative   = "\n\n".join(sections) if sections else None
+        narrative_b = None
 
         if not narrative:
             return

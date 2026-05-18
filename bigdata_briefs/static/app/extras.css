@@ -7,6 +7,7 @@
 .section-nav-inner { gap: 18px; }
 .section-nav .live-status { white-space: nowrap; }
 .dateline { white-space: nowrap; }
+
 /* ── Masthead lockup ────────────────────────────────────────────
    Three variants, switched via headerStyle Tweak:
    - is-paren    (default): "The Briefs" big LEFT + (powered by / [logo]) RIGHT in parens
@@ -19,6 +20,7 @@
   align-items: center;
   white-space: nowrap;
   line-height: 1;
+  cursor: pointer;
 }
 
 .masthead-title-big {
@@ -125,14 +127,14 @@
 .is-stacked .ml-stacked-sub {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: 10px;
   color: var(--ink-mute);
   letter-spacing: 0.04em;
 }
-.is-stacked .ml-powered-text { font-size: 14px; }
-.is-stacked .ml-logo { height: 34px; }
+.is-stacked .ml-powered-text { font-size: 10px; }
+.is-stacked .ml-logo { height: 20px; }
 
 /* Hide stale .masthead-title rules but keep edition columns balanced */
 .masthead-inner > .masthead-title-lockup {
@@ -142,7 +144,7 @@
 /* ── Change 2: Brief landing — split layout ─────────────────────── */
 .brief-landing {
   display: grid;
-  grid-template-columns: 1.05fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 48px;
   padding: 24px 16px 60px;
   max-width: 1320px;
@@ -193,8 +195,7 @@
 }
 .pb-meta-strip {
   display: flex;
-  gap: 18px;
-  flex-wrap: wrap;
+  justify-content: space-between;
   align-items: baseline;
   font-family: var(--sans);
   font-size: 12px;
@@ -209,11 +210,26 @@
 .pb-meta-cell .num { font-family: var(--mono); }
 
 .pb-narrative {
-  font-family: var(--serif);
-  font-size: 19px;
-  line-height: 1.55;
-  color: var(--ink);
   margin: 0 0 22px;
+}
+.pb-narrative-section {
+  margin-bottom: 16px;
+}
+.pb-narrative-company {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 4px;
+}
+.pb-narrative-bullets {
+  font-family: var(--serif);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink);
+  margin: 0;
 }
 .pb-narrative .dropcap {
   float: left;
