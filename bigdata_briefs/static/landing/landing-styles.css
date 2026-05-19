@@ -1167,11 +1167,24 @@
 
 /* ── Cost at scale disclaimer ── */
 .landing-prod .cost-disclaimer {
-  margin: 18px 0 4px;
-  padding: 14px 18px;
+  max-width: 1280px;
+  margin: 12px auto 0;
+  padding: 12px 18px;
   border: 1px solid var(--accent);
   background: color-mix(in srgb, var(--accent) 6%, var(--paper));
   border-radius: 4px;
+  box-sizing: border-box;
+  /* match the horizontal padding of pr-explorer-wrap so it aligns with the box */
+  width: calc(100% - 80px);
+}
+.landing-prod .pr-explorer-stat-asterisk {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.55em;
+  font-weight: 700;
+  margin-left: 1px;
+  vertical-align: super;
+  line-height: 0;
 }
 .landing-prod .cost-disclaimer-star {
   color: var(--accent);
