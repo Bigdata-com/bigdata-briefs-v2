@@ -232,13 +232,7 @@ a:hover { color: var(--link-hover); text-decoration: underline; text-underline-o
   align-items: center;
   gap: 10px;
 }
-.dateline::after {
-  content: "";
-  width: 32px;
-  height: 1px;
-  background: var(--ink-mute);
-  display: inline-block;
-}
+.dateline::after { content: none; }
 
 /* ── Buttons ── */
 .btn {
