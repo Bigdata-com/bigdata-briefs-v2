@@ -348,15 +348,15 @@ class NoveltyFilteringService:
                     except Exception as e:
                         bidx, ename = futures[future]
                         logger.warning(
-                            f"Evaluator {ename} failed for bullet {bidx}: {e}. Treating as KEEP."
+                            f"Evaluator {ename} failed for bullet {bidx}: {e}. Discarding bullet."
                         )
                         all_tasks.append(
                             (
                                 bidx,
                                 ename,
                                 NoveltyEvaluatorResult(
-                                    decision="KEEP",
-                                    reason=str(e),
+                                    decision="DISCARD",
+                                    reason=f"Evaluator {ename} failed: {e}",
                                     rewritten_text=None,
                                     evaluator_name=ename,
                                 ),

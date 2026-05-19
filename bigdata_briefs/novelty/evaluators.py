@@ -592,8 +592,8 @@ class LLMNoveltyJudge:
                 )
                 if attempt >= max_attempts - 1:
                     return NoveltyEvaluatorResult(
-                        decision="KEEP",
-                        reason=f"Error during novelty Step 1 (after {max_attempts} attempts): {last_error!s}",
+                        decision="DISCARD",
+                        reason=f"Step 1 failed after {max_attempts} attempts: {last_error!s}",
                         rewritten_text=None,
                         evaluator_name=evaluator_name,
                         evidence_ids=[],
@@ -601,7 +601,7 @@ class LLMNoveltyJudge:
 
         if result is None:
             return NoveltyEvaluatorResult(
-                decision="KEEP",
+                decision="DISCARD",
                 reason="Step 1 produced no result (unexpected).",
                 rewritten_text=None,
                 evaluator_name=evaluator_name,
@@ -730,7 +730,7 @@ class LLMNoveltyJudge:
                         _debug_path,
                         last_error,
                     )
-                    return original_text, "REWRITE"
+                    return "", "DISCARD"
 
         if result is None:
             _date = context.current_date.strftime("%Y-%m-%d")
@@ -758,7 +758,7 @@ class LLMNoveltyJudge:
                 bullet_index,
                 _debug_path,
             )
-            return original_text, "REWRITE"
+            return "", "DISCARD"
 
         if result.is_empty:
             _novelty_step2_empty_count += 1

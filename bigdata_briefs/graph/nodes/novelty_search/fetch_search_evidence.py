@@ -174,7 +174,7 @@ def fetch_search_evidence(
                     bullet_idx,
                     exc,
                 )
-                # Do not deactivate bullet here — judgment will skip on empty cache
+                deps.store_search_data(trace_id, "fetch_error", str(exc))
                 failure_count += 1
 
     if deps.entity_metrics:

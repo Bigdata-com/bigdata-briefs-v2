@@ -108,10 +108,17 @@ def rewrite_search_bullets(
     for i in active_indices:
         record = bullet_to_record(bullet_points[i])
         if deps.get_search_data(record.trace_id, "claim_verdicts") is None:
-            logger.debug(
-                "[novelty_search_rewrite] bullet=%d no verdict data in cache — skipping",
+            logger.warning(
+                "[novelty_search_rewrite] bullet=%d no verdict data in cache — discarding",
                 i,
             )
+            record.is_active = False
+            record.failure = BulletFailure(
+                node_id=NODE_NOVELTY_SEARCH_REWRITE,
+                error_type="MissingVerdictData",
+                error_message="No verdict data found in search cache — novelty judgment was skipped or failed.",
+            )
+            updated[i] = record_to_bullet(record)
             continue
         active_entries.append((i, record.trace_id, record.text or ""))
 
@@ -179,6 +186,23 @@ def rewrite_search_bullets(
                 "[novelty_search_rewrite] bullet=%d action=discard overall_verdict=%r (bypass)",
                 bullet_idx,
                 overall_verdict,
+            )
+            return {
+                **base_result,
+                "rewrite_action": "discard",
+                "rewritten_sentence": None,
+                "reason": reason,
+                "verdict_reason": reason,
+                "overall_verdict_reason": reason,
+            }
+
+        if overall_verdict == "discard_step_error":
+            step_error_reason = deps.get_search_data(trace_id, "step_error_reason") or "novelty check step failed"
+            reason = f"Bullet discarded: {step_error_reason}"
+            logger.warning(
+                "[novelty_search_rewrite] bullet=%d action=discard overall_verdict=discard_step_error: %s",
+                bullet_idx,
+                step_error_reason,
             )
             return {
                 **base_result,

@@ -138,7 +138,20 @@ def judge_novelty_by_search(
         merged_results: list[_NSSearchResult] | None = deps.get_search_data(trace_id, "merged_results")
         results_per_part: list[list[_NSSearchResult]] | None = deps.get_search_data(trace_id, "results_per_part")
 
-        # No evidence → all claims are novel (no LLM needed)
+        # Fetch failed → discard (no evidence due to error, not genuine absence)
+        fetch_error = deps.get_search_data(trace_id, "fetch_error")
+        if merged_results is None and fetch_error:
+            deps.store_search_data(trace_id, "claim_verdicts", [])
+            deps.store_search_data(trace_id, "overall_verdict", "discard_step_error")
+            deps.store_search_data(trace_id, "step_error_reason", f"Search fetch failed: {fetch_error}")
+            logger.warning(
+                "[novelty_search_judgment] bullet=%d fetch error → discard: %s",
+                bullet_idx,
+                fetch_error,
+            )
+            return 0
+
+        # No evidence (search succeeded but returned nothing) → all claims are novel
         if not merged_results:
             claim_verdicts: list[_NSClaimVerdict] = [
                 _NSClaimVerdict(
@@ -236,6 +249,9 @@ def judge_novelty_by_search(
                     bullet_idx,
                     exc,
                 )
+                deps.store_search_data(trace_id, "claim_verdicts", [])
+                deps.store_search_data(trace_id, "overall_verdict", "discard_step_error")
+                deps.store_search_data(trace_id, "step_error_reason", f"Judgment failed: {exc}")
                 failure_count += 1
 
     wall_ms = (time.monotonic() - t0) * 1000
