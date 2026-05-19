@@ -268,15 +268,7 @@ function LandingProduct() {
       {/* Nav */}
       <nav className="pr-nav">
         <div className="pr-nav-inner">
-          <div className="pr-nav-lockup" aria-label="The Brief, powered by Bigdata.com">
-            <span className="pr-nav-title">The Brief</span>
-            <span className="pr-nav-paren-group">
-              <span className="pr-nav-paren">(</span>
-              <span className="pr-nav-powered-text">powered by</span>
-              <img className="pr-nav-logo" src="assets/bigdata-logo.svg" alt="Bigdata.com by RavenPack" />
-              <span className="pr-nav-paren">)</span>
-            </span>
-          </div>
+          <img className="pr-logo" src="/app/desk/bigdata-logo-black.png" alt="Bigdata.com by RavenPack" />
           <div className="pr-nav-spacer"></div>
           <a href="/app/desk" className="pr-btn pr-btn-primary" style={{ padding: "9px 16px" }}>Open the app →</a>
         </div>
