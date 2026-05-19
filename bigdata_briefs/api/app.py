@@ -10,7 +10,7 @@ from threading import Semaphore
 import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -129,6 +129,14 @@ def create_app() -> FastAPI:
     @app.get("/", include_in_schema=False)
     async def root() -> RedirectResponse:
         return RedirectResponse(url="/app/desk")
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    async def favicon_ico() -> FileResponse:
+        return FileResponse(str(static_dir / "favicon.ico"), media_type="image/x-icon")
+
+    @app.get("/favicon.png", include_in_schema=False)
+    async def favicon_png() -> FileResponse:
+        return FileResponse(str(static_dir / "favicon.png"), media_type="image/png")
 
     @app.get("/health", include_in_schema=False)
     async def health() -> JSONResponse:
