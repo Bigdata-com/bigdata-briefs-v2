@@ -254,10 +254,11 @@
 
 /* — Left: Portfolio Brief — */
 .portfolio-brief {
-  padding-left: 40px;
+  border-right: 1px solid var(--rule);
+  padding-right: 40px;
 }
 @media (max-width: 860px) {
-  .portfolio-brief { padding-left: 0; border-bottom: 1px solid var(--rule); padding-bottom: 36px; }
+  .portfolio-brief { border-right: 0; padding-right: 0; border-bottom: 1px solid var(--rule); padding-bottom: 36px; }
 }
 
 .pb-eyebrow {
@@ -495,18 +496,9 @@
   text-wrap: pretty;
 }
 
-/* — Left: company picker (existing brief-pick reused, layout-only changes) — */
+/* — Right: company picker (existing brief-pick reused, layout-only changes) — */
 .brief-landing .brief-pick-wrap {
   padding: 0;
-  order: 1;
-  border-right: 1px solid var(--rule);
-  padding-right: 40px;
-}
-@media (max-width: 860px) {
-  .brief-landing .brief-pick-wrap { border-right: 0; padding-right: 0; }
-}
-.brief-landing .portfolio-brief {
-  order: 2;
 }
 .brief-landing .brief-pick-header { margin-bottom: 16px; }
 .brief-landing .brief-pick-list {

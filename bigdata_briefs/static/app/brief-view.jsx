@@ -1130,41 +1130,7 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
   return (
     <div className="brief-landing-page" data-layout={_layout}>
     <div className="brief-landing">
-      {/* LEFT: Portfolio Brief */}
-      <section className="portfolio-brief" ref={leftRef}>
-        <div className="pb-eyebrow">Portfolio Brief{dateLabel ? ` — ${dateLabel}` : ""}</div>
-        <h1 className="pb-title">Where the news moved.</h1>
-        <p className="pb-subtitle">The most active names in your portfolio today — short reads, one per company.</p>
-
-        <div className="pb-meta-strip">
-          <span className="pb-meta-cell"><strong>{companiesCount}</strong> companies</span>
-          <span className="pb-meta-cell"><strong>{totalSaved}</strong> material developments</span>
-          <span className="pb-meta-cell"><strong>{activeCount}</strong> active names</span>
-        </div>
-
-        <div className="pb-narrative">
-          {briefLoading
-            ? null
-            : narrativeText
-              ? narrativeText.split("\n\n").map((section, i) => {
-                  const nl = section.indexOf("\n");
-                  const company = nl === -1 ? section : section.slice(0, nl);
-                  const bullets = nl === -1 ? "" : section.slice(nl + 1);
-                  return (
-                    <div key={i} className="pb-narrative-section">
-                      <div className="pb-narrative-company">{company}</div>
-                      {bullets && <p className="pb-narrative-bullets">{bullets}</p>}
-                    </div>
-                  );
-                })
-              : <span style={{ color: "var(--ink-mute)", fontStyle: "italic" }}>No portfolio brief available yet — will be generated after the next run.</span>
-          }
-        </div>
-
-        {_layout === "in-panel" && eventsInPanelBlock}
-      </section>
-
-      {/* RIGHT: Company picker */}
+      {/* LEFT: Company picker */}
       <div className="brief-pick-wrap">
         <div className="brief-pick-header">
           <div className="dateline" style={{ marginBottom: 6 }}>The Brief</div>
@@ -1200,6 +1166,56 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
           })}
         </div>
       </div>
+
+      {/* RIGHT: Portfolio Brief */}
+      <section className="portfolio-brief" ref={leftRef}>
+        <div className="pb-eyebrow">Portfolio Brief{dateLabel ? ` — ${dateLabel}` : ""}</div>
+        <h1 className="pb-title">Where the news moved.</h1>
+        <p className="pb-subtitle">The most active names in your portfolio today — short reads, one per company.</p>
+
+        <div className="pb-meta-strip">
+          <span className="pb-meta-cell"><strong>{companiesCount}</strong> companies</span>
+          <span className="pb-meta-cell"><strong>{totalSaved}</strong> material developments</span>
+          <span className="pb-meta-cell"><strong>{activeCount}</strong> active names</span>
+        </div>
+
+        <div className="pb-narrative">
+          {briefLoading
+            ? null
+            : narrativeText
+              ? (() => {
+                  const _companyById = {};
+                  (portfolioBrief?.companies || []).forEach(c => { _companyById[c.name] = c.entityId; });
+                  return narrativeText.split("\n\n").map((section, i) => {
+                    const nl = section.indexOf("\n");
+                    const company = nl === -1 ? section : section.slice(0, nl);
+                    const bullets = nl === -1 ? "" : section.slice(nl + 1);
+                    const entityId = _companyById[company];
+                    const _go = entityId ? () => onPick(entityId, null) : null;
+                    return (
+                      <div key={i} className="pb-narrative-section">
+                        <div
+                          className={"pb-narrative-company" + (entityId ? " pb-narrative-company--link" : "")}
+                          onClick={_go}
+                          style={entityId ? { cursor: "pointer" } : {}}
+                        >{company}</div>
+                        {bullets && (
+                          <p
+                            className="pb-narrative-bullets"
+                            onClick={_go}
+                            style={entityId ? { cursor: "pointer" } : {}}
+                          >{bullets}</p>
+                        )}
+                      </div>
+                    );
+                  });
+                })()
+              : <span style={{ color: "var(--ink-mute)", fontStyle: "italic" }}>No portfolio brief available yet — will be generated after the next run.</span>
+          }
+        </div>
+
+        {_layout === "in-panel" && eventsInPanelBlock}
+      </section>
     </div>
     {_layout === "below" && eventsBelowBlock}
     </div>
