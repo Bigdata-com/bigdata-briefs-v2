@@ -230,7 +230,7 @@ class BatchRunRequest(BaseModel):
         ),
     )
     ranking_metric: str = Field(
-        default="media_attention",
+        default="media_attention_momentum",
         description=(
             "Metric used to rank companies for the portfolio brief generated after this batch. "
             "'media_attention' (default): ranks by |Δ chunks_zscore_mo| (day-over-day change in "
