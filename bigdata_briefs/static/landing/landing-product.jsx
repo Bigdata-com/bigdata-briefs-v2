@@ -225,15 +225,15 @@ function CostExplorer({ universeData }) {
 
         <div className="pr-explorer-stats">
           <div className="pr-explorer-stat">
-            <div className="pr-explorer-stat-val">{fmtUSDsmart(total)}<span className="pr-explorer-stat-day">/day</span><sup className="pr-explorer-stat-asterisk">*</sup></div>
+            <div className="pr-explorer-stat-val">{fmtUSDsmart(total)}<span className="pr-explorer-stat-day">/day</span></div>
             <div className="pr-explorer-stat-lbl">Total · top {topNLabel}</div>
           </div>
           <div className="pr-explorer-stat">
-            <div className="pr-explorer-stat-val">{fmtD(avg)}<span className="pr-explorer-stat-day">/day</span><sup className="pr-explorer-stat-asterisk">*</sup></div>
+            <div className="pr-explorer-stat-val">{fmtD(avg)}<span className="pr-explorer-stat-day">/day</span></div>
             <div className="pr-explorer-stat-lbl">Average per company</div>
           </div>
           <div className="pr-explorer-stat">
-            <div className="pr-explorer-stat-val">{top1 ? fmtD(top1.c) : "—"}<span className="pr-explorer-stat-day">/day</span><sup className="pr-explorer-stat-asterisk">*</sup></div>
+            <div className="pr-explorer-stat-val">{top1 ? fmtD(top1.c) : "—"}<span className="pr-explorer-stat-day">/day</span></div>
             <div className="pr-explorer-stat-lbl">
               Highest · {top1 ? top1.name : "—"}
             </div>
@@ -244,7 +244,7 @@ function CostExplorer({ universeData }) {
 
       <div className="cost-disclaimer" role="note">
         <div className="cost-disclaimer-body">
-          <strong><sup className="cost-disclaimer-star">*</sup>Note:</strong> The costs shown do not include the required data licence fees.
+          <strong>Note:</strong> The costs shown do not include the required data licence fees.
         </div>
       </div>
     </section>
