@@ -1164,3 +1164,71 @@
   color: var(--ink-mute);
   line-height: 1.5;
 }
+
+/* ── Nav masthead lockup (matches /desk masthead style) ── */
+.landing-prod .pr-nav-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+  line-height: 1;
+}
+.landing-prod .pr-nav-title {
+  font-family: var(--serif-display);
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 0;
+  line-height: 1;
+}
+.landing-prod .pr-nav-paren-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.landing-prod .pr-nav-paren {
+  font-family: var(--serif-display);
+  font-size: 32px;
+  line-height: 1;
+  font-weight: 300;
+  opacity: 0.5;
+  color: var(--ink);
+}
+.landing-prod .pr-nav-powered-text {
+  font-family: var(--sans);
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--ink-mute);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.landing-prod .pr-nav-logo { height: 20px; display: inline-block; width: auto; }
+
+/* ── Cost at scale disclaimer ── */
+.landing-prod .cost-disclaimer {
+  margin: 18px 0 4px;
+  padding: 14px 18px;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--paper));
+  border-radius: 4px;
+}
+.landing-prod .cost-disclaimer-star {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.7em;
+  font-weight: 700;
+  line-height: 0;
+  position: relative;
+  top: -0.55em;
+  margin-right: 1px;
+  vertical-align: baseline;
+}
+.landing-prod .cost-disclaimer-body {
+  font-family: var(--serif);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+.landing-prod .cost-disclaimer-body strong { color: var(--ink); font-style: normal; font-weight: 600; }

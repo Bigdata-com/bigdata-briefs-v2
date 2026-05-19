@@ -239,6 +239,12 @@ function CostExplorer({ universeData }) {
             </div>
           </div>
         </div>
+
+        <div className="cost-disclaimer" role="note">
+          <div className="cost-disclaimer-body">
+            <strong><sup className="cost-disclaimer-star">*</sup>Note:</strong> The Grounding Token cost does not take into account the data licences.
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -262,7 +268,15 @@ function LandingProduct() {
       {/* Nav */}
       <nav className="pr-nav">
         <div className="pr-nav-inner">
-          <img className="pr-logo" src="assets/bigdata-logo.svg" alt="bigdata by RavenPack" />
+          <div className="pr-nav-lockup" aria-label="The Brief, powered by Bigdata.com">
+            <span className="pr-nav-title">The Brief</span>
+            <span className="pr-nav-paren-group">
+              <span className="pr-nav-paren">(</span>
+              <span className="pr-nav-powered-text">powered by</span>
+              <img className="pr-nav-logo" src="assets/bigdata-logo.svg" alt="Bigdata.com by RavenPack" />
+              <span className="pr-nav-paren">)</span>
+            </span>
+          </div>
           <div className="pr-nav-spacer"></div>
           <a href="/app/desk" className="pr-btn pr-btn-primary" style={{ padding: "9px 16px" }}>Open the app →</a>
         </div>
