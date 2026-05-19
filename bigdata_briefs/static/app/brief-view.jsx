@@ -343,11 +343,11 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
             onChange={e => setCompanySearch(e.target.value)}
             style={{ marginBottom: 10 }}
           />
-          <div className="t-meta" style={{ color: "var(--ink-faint)", marginBottom: 10, fontSize: 10.5 }}>
-            {selectedDate
-              ? "Companies on the desk for this date"
-              : "Choose a publication day to load the roster."}
-          </div>
+          {!selectedDate && (
+            <div className="t-meta" style={{ color: "var(--ink-faint)", marginBottom: 10, fontSize: 10.5 }}>
+              Choose a publication day to load the roster.
+            </div>
+          )}
           <div className="frontpage-scroll">
           <ol className="frontpage-list">
             {companiesForFrontPage.filter(_filterCompany).map(c => {
@@ -438,10 +438,12 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
         )}
         {mode === "audit" && (
           <>
-            <header style={{ marginBottom: 20 }}>
-              <div className="dateline" style={{ marginBottom: 6 }}>{_tk(brief?.ticker)} · Audit</div>
+            <header className="brief-hero" style={{ marginBottom: 20 }}>
+              <h1 className="brief-headline t-display">
+                <span className="brief-eyebrow">{brief?.entityName} — Audit</span>
+              </h1>
               <h2 className="t-display" style={{ fontSize: 32, margin: "0 0 6px", letterSpacing: "-0.018em" }}>
-                Every bullet, kept or cut
+                Every bullet, kept or cut for {_tk(brief?.ticker)}
               </h2>
             </header>
             <BriefEntityAudit entityId={brief.entityId} selectedDate={selectedDate} />
@@ -1141,7 +1143,7 @@ function BriefLanding({ loading, companies, summaries, onPick, companySearch, se
       {/* LEFT: Company picker */}
       <div className="brief-pick-wrap">
         <div className="brief-pick-header">
-          <div className="dateline" style={{ marginBottom: 6 }}>The Brief</div>
+          <div style={{ marginBottom: 6 }}></div>
           <p className="brief-pick-sub">
             {loading ? "Loading…" : companies.length === 0 ? "Add companies in My Portfolio to see briefs here." : "Choose a company to read its brief."}
           </p>
@@ -1253,10 +1255,12 @@ function BriefEntityArchive({ entityId, entityName, ticker, onOpenDate }) {
 
   return (
     <div className="archive-inline" style={{ padding: "0 0 40px" }}>
-      <header style={{ marginBottom: 20 }}>
-        <div className="dateline" style={{ marginBottom: 6 }}>{_tk(ticker)} · Archive</div>
+      <header className="brief-hero" style={{ marginBottom: 20 }}>
+        <h1 className="brief-headline t-display">
+          <span className="brief-eyebrow">{entityName} — Archive</span>
+        </h1>
         <h2 className="t-display" style={{ fontSize: 32, margin: "0 0 6px", letterSpacing: "-0.018em" }}>
-          Every brief filed for {entityName}
+          Every brief filed for {_tk(ticker)}
         </h2>
         <p style={{ fontFamily: "var(--serif)", fontStyle: "italic", color: "var(--ink-mute)", margin: 0, fontSize: 14 }}>
           {history.length} runs · {history.reduce((s, h) => s + h.saved, 0)} bullets saved · {history.reduce((s, h) => s + h.discarded, 0)} discarded

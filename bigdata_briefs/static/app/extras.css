@@ -141,7 +141,7 @@
 .brief-landing {
   display: grid;
   grid-template-columns: var(--brief-split, minmax(0, 1fr) minmax(0, 1fr));
-  gap: 48px;
+  gap: 0;
   padding: 24px 16px 60px;
   max-width: 1320px;
   margin: 0 auto;
@@ -250,7 +250,7 @@
 
 /* — Left: Portfolio Brief — */
 .portfolio-brief {
-  padding-left: 40px;
+  padding-left: 44px;
 }
 @media (max-width: 860px) {
   .portfolio-brief { padding-left: 0; border-bottom: 1px solid var(--rule); padding-bottom: 36px; }
@@ -495,12 +495,18 @@
 .brief-landing .brief-pick-wrap {
   padding: 0;
   border-right: 1px solid var(--rule);
-  padding-right: 40px;
+  padding-right: 44px;
+  max-width: none;
+  min-width: 0;
+}
+.brief-landing .brief-pick-row {
+  grid-template-columns: 56px 1fr auto;
+  padding-right: 12px;
 }
 @media (max-width: 860px) {
   .brief-landing .brief-pick-wrap { border-right: 0; padding-right: 0; }
 }
-.brief-landing .brief-pick-header { margin-bottom: 16px; }
+.brief-landing .brief-pick-header { margin-bottom: 0; padding-bottom: 10px; }
 .brief-landing .brief-pick-list {
   max-height: calc(100vh - 280px);
   overflow-y: auto;

@@ -1285,7 +1285,8 @@
 .brief-pick-row-head .brief-pick-col-name,
 .brief-pick-row-head .brief-pick-col-date,
 .brief-pick-row-head .brief-pick-col-discarded,
-.brief-pick-row-head .brief-pick-col-delta {
+.brief-pick-row-head .brief-pick-col-delta,
+.brief-pick-row-head .brief-pick-col-bullets {
   font-family: var(--sans);
   font-size: 10px;
   font-weight: 600;
@@ -1295,6 +1296,7 @@
   white-space: nowrap;
   text-align: left;
 }
+.brief-pick-row-head .brief-pick-col-bullets { text-align: right; }
 .brief-pick-col-name {
   font-family: var(--sans);
   font-size: 13px;
@@ -1313,7 +1315,6 @@
   color: var(--ink);
   text-align: right;
 }
-.brief-pick-row-head .brief-pick-col-bullets { text-align: right; }
 .brief-pick-col-discarded {
   font-family: var(--serif-display);
   font-size: 15px;
