@@ -182,6 +182,7 @@ function CostExplorer({ universeData }) {
   const fmtD = (v) => v >= 10 ? `$${v.toFixed(1)}` : `$${v.toFixed(2)}`;
 
   return (
+    <React.Fragment>
     <section className="pr-explorer-wrap">
       <div className="pr-explorer">
         <div className="pr-explorer-head">
@@ -240,13 +241,15 @@ function CostExplorer({ universeData }) {
           </div>
         </div>
 
-        <div className="cost-disclaimer" role="note">
-          <div className="cost-disclaimer-body">
-            <strong><sup className="cost-disclaimer-star">*</sup>Note:</strong> The Grounding Token cost does not take into account the data licences.
-          </div>
-        </div>
       </div>
     </section>
+
+    <div className="cost-disclaimer" role="note">
+      <div className="cost-disclaimer-body">
+        <strong><sup className="cost-disclaimer-star">*</sup>Note:</strong> The grounding token cost part of the total cost shown does not take into account the data licenses required.
+      </div>
+    </div>
+    </React.Fragment>
   );
 }
 
