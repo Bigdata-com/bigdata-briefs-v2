@@ -15,6 +15,7 @@ HTMX partials (HTML fragments):
     GET  /ui/partials/history-details → bullet history + full details for a selected entity
     POST /ui/admin/reset-db           → drop + recreate all tables
     POST /ui/admin/delete-entity      → delete all data for a specific entity
+    POST /ui/admin/delete-date        → delete all run data generated on a given calendar date
 """
 
 from __future__ import annotations
@@ -59,7 +60,10 @@ from bigdata_briefs.orchestration.models import (
     SQLBulletRunLog,
     SQLEntityOrchestrationState,
     SQLEntityPipelineRunLog,
+    SQLEntitySignalHistory,
+    SQLPortfolioBrief,
     SQLRunMetrics,
+    SQLRunNarrative,
     SQLUIBatchRun,
     SQLUIScanRun,
 )
@@ -1373,6 +1377,84 @@ async def ui_admin_delete_entity(
         session.commit()
 
     return HTMLResponse(f'<p class="admin-ok">All data for <code>{html.escape(eid)}</code> deleted.</p>')
+
+
+def _delete_date_data(engine, date_str: str) -> int:
+    """Delete all pipeline data for the given YYYY-MM-DD date. Returns run count deleted."""
+    from datetime import date as date_type, timedelta
+    from bigdata_briefs.novelty.sql_models import (
+        SQLBulletPointEmbedding,
+        SQLChunkTextHash,
+        SQLGeneratedBulletPoint,
+    )
+    from bigdata_briefs.novelty.sql_pipeline_checkpoint import SQLBulletPipelineCheckpoint
+    from bigdata_briefs.novelty.sql_step_wall_timing import SQLPipelineStepWallTiming
+
+    d = date_type.fromisoformat(date_str)
+    day_start = datetime(d.year, d.month, d.day, tzinfo=timezone.utc)
+    day_end = day_start + timedelta(days=1)
+
+    with Session(engine) as session:
+        run_ids = [
+            r for r in session.exec(
+                select(SQLEntityPipelineRunLog.run_id).where(
+                    SQLEntityPipelineRunLog.report_window_end >= day_start,
+                    SQLEntityPipelineRunLog.report_window_end < day_end,
+                )
+            ).all()
+        ]
+
+        if run_ids:
+            str_run_ids = [str(r) for r in run_ids]
+            for model in (SQLBulletRunLog, SQLRunMetrics, SQLRunNarrative):
+                session.exec(sa_delete(model).where(model.run_id.in_(run_ids)))
+            # SQLGeneratedBulletPoint.run_id is str, not uuid.UUID
+            session.exec(sa_delete(SQLGeneratedBulletPoint).where(
+                SQLGeneratedBulletPoint.run_id.in_(str_run_ids)
+            ))
+            session.exec(sa_delete(SQLEntityPipelineRunLog).where(
+                SQLEntityPipelineRunLog.run_id.in_(run_ids)
+            ))
+
+        for model in (SQLBulletPointEmbedding, SQLChunkTextHash):
+            session.exec(sa_delete(model).where(
+                and_(model.date >= day_start, model.date < day_end)
+            ))
+        session.exec(sa_delete(SQLBulletPipelineCheckpoint).where(
+            and_(
+                SQLBulletPipelineCheckpoint.report_date >= day_start,
+                SQLBulletPipelineCheckpoint.report_date < day_end,
+            )
+        ))
+
+        for model in (SQLEntitySignalHistory, SQLPortfolioBrief):
+            session.exec(sa_delete(model).where(model.date == date_str))
+        session.exec(sa_delete(SQLPipelineStepWallTiming).where(
+            SQLPipelineStepWallTiming.calendar_day == date_str
+        ))
+
+        session.commit()
+
+    return len(run_ids)
+
+
+@router.post("/admin/delete-date", response_class=HTMLResponse)
+async def ui_admin_delete_date(
+    request: Request,
+    date: str = Form(default=""),
+) -> HTMLResponse:
+    date_str = date.strip()
+    if not date_str:
+        return HTMLResponse('<p class="admin-err">No date provided.</p>')
+    try:
+        run_count = _delete_date_data(get_engine(), date_str)
+    except ValueError:
+        return HTMLResponse('<p class="admin-err">Invalid date format. Use YYYY-MM-DD.</p>')
+
+    return HTMLResponse(
+        f'<p class="admin-ok">All data for <code>{html.escape(date_str)}</code> deleted'
+        f' ({run_count} run(s) removed).</p>'
+    )
 
 
 def _get_all_entities(engine) -> list[tuple[str, str]]:
