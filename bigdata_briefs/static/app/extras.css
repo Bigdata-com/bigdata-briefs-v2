@@ -136,10 +136,6 @@
 .is-stacked .ml-powered-text { font-size: 10px; }
 .is-stacked .ml-logo { height: 20px; }
 
-/* Hide stale .masthead-title rules but keep edition columns balanced */
-.masthead-inner > .masthead-title-lockup {
-  /* spans middle column */
-}
 
 /* ── Change 2: Brief landing — split layout ─────────────────────── */
 .brief-landing {
@@ -254,11 +250,10 @@
 
 /* — Left: Portfolio Brief — */
 .portfolio-brief {
-  border-right: 1px solid var(--rule);
-  padding-right: 40px;
+  padding-left: 40px;
 }
 @media (max-width: 860px) {
-  .portfolio-brief { border-right: 0; padding-right: 0; border-bottom: 1px solid var(--rule); padding-bottom: 36px; }
+  .portfolio-brief { padding-left: 0; border-bottom: 1px solid var(--rule); padding-bottom: 36px; }
 }
 
 .pb-eyebrow {
@@ -496,9 +491,14 @@
   text-wrap: pretty;
 }
 
-/* — Right: company picker (existing brief-pick reused, layout-only changes) — */
+/* — Left: company picker — */
 .brief-landing .brief-pick-wrap {
   padding: 0;
+  border-right: 1px solid var(--rule);
+  padding-right: 40px;
+}
+@media (max-width: 860px) {
+  .brief-landing .brief-pick-wrap { border-right: 0; padding-right: 0; }
 }
 .brief-landing .brief-pick-header { margin-bottom: 16px; }
 .brief-landing .brief-pick-list {
