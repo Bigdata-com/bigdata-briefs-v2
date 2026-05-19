@@ -414,8 +414,8 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
       {/* ── Main column ── */}
       <main className="brief-main">
 
-        {/* Date navigation — shown in brief and audit modes */}
-        {(mode === "brief" || mode === "audit") && (
+        {/* Date navigation — shown in brief, audit and archive (buttons hidden in archive) */}
+        {(mode === "brief" || mode === "audit" || mode === "archive") && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--rule)" }}>
             <span style={{ fontFamily: "var(--sans)", fontSize: 12, fontWeight: 600, color: "var(--ink-soft)", flex: 1 }}>
               {selectedDate ? (() => {
@@ -424,10 +424,10 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
               })() : "—"}
             </span>
             <button onClick={() => navigateDate(-1)} disabled={!canPrev || loading}
-              style={{ fontFamily: "var(--mono)", fontSize: 12, padding: "3px 8px", border: "1px solid var(--rule)", background: "var(--paper)", color: canPrev ? "var(--ink)" : "var(--ink-faint)", cursor: canPrev ? "pointer" : "default", opacity: canPrev ? 1 : 0.4 }}
+              style={{ fontFamily: "var(--mono)", fontSize: 12, padding: "3px 8px", border: "1px solid var(--rule)", background: "var(--paper)", color: canPrev ? "var(--ink)" : "var(--ink-faint)", cursor: canPrev ? "pointer" : "default", opacity: canPrev ? 1 : 0.4, visibility: mode === "archive" ? "hidden" : "visible" }}
               title="Previous day">← prev</button>
             <button onClick={() => navigateDate(1)} disabled={!canNext || loading}
-              style={{ fontFamily: "var(--mono)", fontSize: 12, padding: "3px 8px", border: "1px solid var(--rule)", background: "var(--paper)", color: canNext ? "var(--ink)" : "var(--ink-faint)", cursor: canNext ? "pointer" : "default", opacity: canNext ? 1 : 0.4 }}
+              style={{ fontFamily: "var(--mono)", fontSize: 12, padding: "3px 8px", border: "1px solid var(--rule)", background: "var(--paper)", color: canNext ? "var(--ink)" : "var(--ink-faint)", cursor: canNext ? "pointer" : "default", opacity: canNext ? 1 : 0.4, visibility: mode === "archive" ? "hidden" : "visible" }}
               title="Next day">next →</button>
             {loading && <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-faint)" }}>loading…</span>}
           </div>
@@ -437,7 +437,15 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
           <BriefEntityArchive entityId={brief.entityId} entityName={brief.entityName} ticker={brief.ticker} onOpenDate={(d) => { setMode("brief"); loadEntity(brief.entityId, d); }} />
         )}
         {mode === "audit" && (
-          <BriefEntityAudit entityId={brief.entityId} selectedDate={selectedDate} />
+          <>
+            <header style={{ marginBottom: 20 }}>
+              <div className="dateline" style={{ marginBottom: 6 }}>{_tk(brief?.ticker)} · Audit</div>
+              <h2 className="t-display" style={{ fontSize: 32, margin: "0 0 6px", letterSpacing: "-0.018em" }}>
+                Every bullet, kept or cut
+              </h2>
+            </header>
+            <BriefEntityAudit entityId={brief.entityId} selectedDate={selectedDate} />
+          </>
         )}
         {mode === "brief" && (<>
         {/* Hero */}
@@ -1244,11 +1252,11 @@ function BriefEntityArchive({ entityId, entityName, ticker, onOpenDate }) {
   const history = data.history || [];
 
   return (
-    <div className="archive-inline" style={{ padding: "12px 4px 40px" }}>
+    <div className="archive-inline" style={{ padding: "0 0 40px" }}>
       <header style={{ marginBottom: 20 }}>
         <div className="dateline" style={{ marginBottom: 6 }}>{_tk(ticker)} · Archive</div>
         <h2 className="t-display" style={{ fontSize: 32, margin: "0 0 6px", letterSpacing: "-0.018em" }}>
-          Every brief filed for {entityName}.
+          Every brief filed for {entityName}
         </h2>
         <p style={{ fontFamily: "var(--serif)", fontStyle: "italic", color: "var(--ink-mute)", margin: 0, fontSize: 14 }}>
           {history.length} runs · {history.reduce((s, h) => s + h.saved, 0)} bullets saved · {history.reduce((s, h) => s + h.discarded, 0)} discarded

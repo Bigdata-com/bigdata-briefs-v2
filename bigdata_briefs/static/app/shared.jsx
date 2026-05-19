@@ -83,7 +83,6 @@ function Masthead({ view, setView, theme, setTheme, headerStyle, setHeaderStyle,
       <div className="masthead" data-style={headerStyle || "paren-lockup"}>
         <div className="masthead-inner">
           <div className="masthead-edition">
-            <span className="edition-label">Vol. II · No. 0427</span>
             <span className="edition-date">{fmt}</span>
           </div>
           <a href="/app" style={{ textDecoration: "none", color: "inherit" }}>
@@ -97,19 +96,6 @@ function Masthead({ view, setView, theme, setTheme, headerStyle, setHeaderStyle,
           </div>
         </div>
       </div>
-      {view === "brief" && setBriefLayout && (
-        <div className="brief-layout-switch-row">
-          <div className="brief-layout-switch-inner">
-            <span>Events</span>
-            <div className="bls-group">
-              <button className={"bls-btn" + (briefLayout === "in-panel" ? " active" : "")}
-                      onClick={() => setBriefLayout("in-panel")}>In panel</button>
-              <button className={"bls-btn" + (briefLayout === "below" ? " active" : "")}
-                      onClick={() => setBriefLayout("below")}>Calendar strip</button>
-            </div>
-          </div>
-        </div>
-      )}
       <div className="section-nav">
         <div className="section-nav-inner">
           <a href="#" className={view === "brief" || view === "overview" || view === "overview-audit" || view === "overview-archive" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("brief");}}>The Brief</a>
@@ -134,10 +120,10 @@ function Masthead({ view, setView, theme, setTheme, headerStyle, setHeaderStyle,
         </div>
       </div>
 
-      {(view === "brief" || view === "overview" || view === "overview-audit" || view === "overview-archive") && (
+      {(view === "overview" || view === "overview-audit" || view === "overview-archive") && (
         <div className="section-subnav">
           <div className="section-subnav-inner">
-            <a href="#" className={view === "overview" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("overview");}}>Company Overview</a>
+            <a href="#" className={view === "overview" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("overview");}}>Tearsheet</a>
             <a href="#" className={view === "overview-audit" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("overview-audit");}}>Audit</a>
             <a href="#" className={view === "overview-archive" ? "active" : ""} onClick={(e) => {e.preventDefault();setView("overview-archive");}}>Archive</a>
           </div>

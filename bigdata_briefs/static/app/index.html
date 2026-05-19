@@ -70,9 +70,9 @@
       useEffect(() => {
         const map = {
           "50 / 50": "minmax(0, 1fr) minmax(0, 1fr)",
-          "66 / 33": "minmax(0, 2fr) minmax(0, 1fr)",
-          "70 / 30": "minmax(0, 7fr) minmax(0, 3fr)",
-          "75 / 25": "minmax(0, 3fr) minmax(0, 1fr)",
+          "66 / 33": "minmax(0, 1fr) minmax(0, 2fr)",
+          "70 / 30": "minmax(0, 3fr) minmax(0, 7fr)",
+          "75 / 25": "minmax(0, 1fr) minmax(0, 3fr)",
         };
         const val = map[t.briefSplit] || map["66 / 33"];
         document.documentElement.style.setProperty("--brief-split", val);
@@ -80,7 +80,7 @@
 
       return (
         <React.Fragment>
-          <Masthead view={view} setView={setView} theme={t.dark ? "dark" : "light"} setTheme={(v) => setTweak("dark", v === "dark")} headerStyle={t.headerStyle} setHeaderStyle={(v) => setTweak("headerStyle", v)} briefLayout={t.briefLayout} setBriefLayout={(v) => setTweak("briefLayout", v)} />
+          <Masthead view={view} setView={setView} theme={t.dark ? "dark" : "light"} setTheme={(v) => setTweak("dark", v === "dark")} headerStyle={t.headerStyle} setHeaderStyle={(v) => setTweak("headerStyle", v)} />
 
           <div className="page">
             <div className="page-inner">
@@ -92,8 +92,8 @@
                   dropcap={t.dropcap}
                   setView={setView}
                   view={view}
-                  briefLayout={t.briefLayout}
-                  setBriefLayout={(v) => setTweak("briefLayout", v)}
+                  briefLayout="below"
+                  setBriefLayout={() => {}}
                 />
               )}
               {view === "history"   && <ArchiveView tweaks={t} />}
@@ -130,9 +130,6 @@
             <TweakSelect label="Column split" value={t.briefSplit}
                         options={["50 / 50", "66 / 33", "70 / 30", "75 / 25"]}
                         onChange={(v) => setTweak("briefSplit", v)} />
-            <TweakRadio label="Events placement" value={t.briefLayout}
-                        options={["in-panel", "below"]}
-                        onChange={(v) => setTweak("briefLayout", v)} />
 
             <TweakSection label="View" />
             <TweakSelect label="Section" value={view}
