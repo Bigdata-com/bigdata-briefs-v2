@@ -378,6 +378,7 @@ function ForensicsDiscardDetail({ item }) {
   const reason = (d.reason || "").trim();
   const claims = Array.isArray(d.claim_verdicts) ? d.claim_verdicts : [];
   const evals = Array.isArray(d.evaluator_details) ? d.evaluator_details : [];
+  const evidenceMap = (d.evidence_map && typeof d.evidence_map === "object") ? d.evidence_map : {};
   return (
     <React.Fragment>
       {reason !== "" && (
@@ -402,29 +403,69 @@ function ForensicsDiscardDetail({ item }) {
         <div className="hd-rej-row">
           <span className="t-cap">Claim review</span>
           <ul className="hd-rej-claims" style={{ margin: "8px 0 0", paddingLeft: 18 }}>
-            {claims.map((cv, i) => (
-              <li key={i} style={{ marginBottom: 10 }}>
-                {cv.claim_index != null && <span className="muted tnum" style={{ marginRight: 6 }}>#{cv.claim_index}</span>}
-                {cv.novelty && <span className="hd-rej-flag" style={{ marginRight: 6 }}>{cv.novelty}</span>}
-                {cv.claim_text && <p style={{ margin: "4px 0" }}>{cv.claim_text}</p>}
-                {cv.reasoning && <p className="muted" style={{ margin: "4px 0 0", fontSize: 13 }}>{cv.reasoning}</p>}
-              </li>
-            ))}
+            {claims.map((cv, i) => {
+              const claimEvidence = (cv.evidence_ids || [])
+                .map(eid => ({ id: eid, ...evidenceMap[eid] }))
+                .filter(e => e.headline || e.text);
+              return (
+                <li key={i} style={{ marginBottom: 16 }}>
+                  {cv.claim_index != null && <span className="muted tnum" style={{ marginRight: 6 }}>Claim {cv.claim_index + 1}</span>}
+                  {cv.novelty && <span className="hd-rej-flag" style={{ marginRight: 6 }}>{cv.novelty}</span>}
+                  {cv.claim_text && <p style={{ margin: "4px 0" }}>{cv.claim_text}</p>}
+                  {cv.reasoning && <p className="muted" style={{ margin: "4px 0 0", fontSize: 13 }}>{cv.reasoning}</p>}
+                  {claimEvidence.length > 0 && (
+                    <ul style={{ margin: "10px 0 0", paddingLeft: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
+                      {claimEvidence.map(e => (
+                        <li key={e.id} style={{ background: "var(--paper-deep)", border: "1px solid var(--rule)", borderRadius: 4, padding: "8px 12px" }}>
+                          <div style={{ display: "flex", gap: 8, alignItems: "baseline", marginBottom: 4 }}>
+                            <span className="t-mono" style={{ fontSize: 10, color: "var(--ink-mute)" }}>{e.id}</span>
+                            {e.date && <span className="muted" style={{ fontSize: 11 }}>{e.date}</span>}
+                          </div>
+                          {e.headline && <p style={{ margin: "0 0 4px", fontFamily: "var(--sans)", fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>{e.headline}</p>}
+                          {e.text && <p style={{ margin: 0, fontFamily: "var(--serif)", fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.5 }}>{e.text}</p>}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
-      {evals.length > 0 && (
-        <div className="hd-rej-row">
-          <span className="t-cap">Embedding check</span>
-          <ul className="hd-rej-claims" style={{ margin: "8px 0 0", paddingLeft: 18 }}>
-            {evals.map((ev, i) => (
-              <li key={i} style={{ marginBottom: 8 }}>
-                {ev.evaluator_name && <span className="muted" style={{ fontSize: 12 }}>{ev.evaluator_name}</span>}
-                {ev.reason && <p className="muted" style={{ margin: "4px 0 0", fontSize: 13 }}>{ev.reason}</p>}
-              </li>
-            ))}
-          </ul>
-        </div>
+      {evals.length > 0 && d.stage !== "novelty_search" && (
+        <React.Fragment>
+          {evals.map((ev, i) => {
+            const retrieved = Array.isArray(ev.retrieved_bullets) ? ev.retrieved_bullets : [];
+            return (
+              <React.Fragment key={i}>
+                {retrieved.length > 0 && (
+                  <div className="hd-rej-row">
+                    <span className="t-cap">Similar prior bullets</span>
+                    <table style={{ width: "100%", marginTop: 8, borderCollapse: "collapse", fontFamily: "var(--sans)", fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ borderBottom: "2px solid var(--ink)" }}>
+                          <th style={{ textAlign: "left", padding: "4px 8px 4px 0", fontWeight: 600, whiteSpace: "nowrap", width: "9em" }}>Date</th>
+                          <th style={{ textAlign: "left", padding: "4px 8px", fontWeight: 600 }}>Text</th>
+                          <th style={{ textAlign: "right", padding: "4px 0 4px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>Score</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {retrieved.map((rb, j) => (
+                          <tr key={j} style={{ borderBottom: "1px solid var(--rule)" }}>
+                            <td className="tnum" style={{ padding: "6px 8px 6px 0", color: "var(--ink-mute)", verticalAlign: "top", whiteSpace: "nowrap" }}>{rb.date ? rb.date.slice(0, 10) : "—"}</td>
+                            <td style={{ padding: "6px 8px", fontFamily: "var(--serif)", color: "var(--ink-soft)", lineHeight: 1.5, verticalAlign: "top" }}>{rb.text}</td>
+                            <td className="tnum" style={{ padding: "6px 0 6px 8px", textAlign: "right", color: "var(--ink-mute)", verticalAlign: "top", whiteSpace: "nowrap" }}>{(rb.score * 100).toFixed(1)}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </React.Fragment>
       )}
     </React.Fragment>
   );
