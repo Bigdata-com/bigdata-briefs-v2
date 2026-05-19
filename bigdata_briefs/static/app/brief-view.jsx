@@ -534,33 +534,6 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
           ))}
         </div>
 
-        {/* Discarded reveal */}
-        <div className="discarded-section">
-          <button className="discarded-toggle" onClick={() => setShowDiscarded(!showDiscarded)}>
-            <span className="t-cap">Editor's Cut · {discardedList.length} items filtered</span>
-            <span className="discarded-toggle-arrow">{showDiscarded ? "▴ hide" : "▾ show"}</span>
-          </button>
-          {showDiscarded && <DiscardedList items={discardedList} />}
-        </div>
-
-        {/* Footer dateline */}
-        <footer className="brief-footer">
-          <hr className="rule-double" />
-          <div className="brief-footer-grid">
-            <div>
-              <div className="t-cap">Pipeline</div>
-              <div className="soft">Run <span className="t-mono">{brief.runId}</span> · 5-stage novelty filter · gpt-4.1 + text-embedding-3-large</div>
-            </div>
-            <div>
-              <div className="t-cap">Window</div>
-              <div className="soft">{_fmtWindow(brief?.windowStart, brief?.windowEnd)}</div>
-            </div>
-            <div>
-              <div className="t-cap">Coverage</div>
-              <div className="soft">DOW 30 universe · 14-day novelty lookback</div>
-            </div>
-          </div>
-        </footer>
         </>)}
       </main>
 
