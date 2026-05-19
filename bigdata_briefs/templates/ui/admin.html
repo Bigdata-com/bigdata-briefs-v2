@@ -73,28 +73,6 @@
     </div>
   </div>
 
-  <!-- ── Delete by date ── -->
-  <div class="card admin-section">
-    <div class="card-body">
-      <h2>Delete all data for a date</h2>
-      <p style="font-size:.9rem;color:var(--muted);margin:0 0 1rem">
-        Removes all runs, bullets, embeddings, checkpoints, signals and narratives generated on the given calendar date (matched against <code>report_window_end</code>). All entities are affected.
-      </p>
-      <form
-        hx-post="/ui/admin/delete-date"
-        hx-target="#delete-date-result"
-        hx-swap="innerHTML"
-        onsubmit="return confirm('Delete ALL data for ' + document.getElementById('delete-date-input').value + '? This cannot be undone.')"
-      >
-        <div class="field">
-          <label for="delete-date-input">Date (YYYY-MM-DD)</label>
-          <input type="date" id="delete-date-input" name="date" />
-        </div>
-        <button type="submit" class="btn btn-danger btn-sm">Delete date</button>
-      </form>
-      <div id="delete-date-result"></div>
-    </div>
-  </div>
 
 </div>
 {% endblock %}

@@ -14,7 +14,7 @@ from sqlmodel import SQLModel, Session, select
 
 from bigdata_briefs.api.auth import require_api_key
 from bigdata_briefs.api.dependencies import get_engine
-from bigdata_briefs.api.schemas import ClearStaleRunsResponse, ResetDatabaseResponse
+from bigdata_briefs.api.schemas import ClearStaleRunsResponse, DeleteDateResponse, ResetDatabaseResponse
 from bigdata_briefs.orchestration.db import ensure_orchestration_schema
 from bigdata_briefs.orchestration.models import SQLEntityPipelineRunLog
 from bigdata_briefs.settings import settings
@@ -123,3 +123,23 @@ def clear_stale_runs(
         entity_ids=cleared_ids,
         stale_seconds_threshold=stale_seconds,
     )
+
+
+@router.post(
+    "/admin/delete-date",
+    response_model=DeleteDateResponse,
+    dependencies=[Depends(require_api_key)],
+    summary="Delete all pipeline data for a calendar date",
+    description=(
+        "**DESTRUCTIVE — irreversible.** Removes every pipeline artifact generated on "
+        "the given calendar date (matched via ``report_window_end``): run logs, bullet "
+        "logs, embeddings, checkpoints, chunk hashes, step timings, signal history, "
+        "portfolio briefs, and narratives.\n\n"
+        "Date must be in ``YYYY-MM-DD`` format."
+    ),
+)
+def delete_date(date: str = Query(..., description="Calendar date to delete (YYYY-MM-DD)")) -> DeleteDateResponse:
+    from bigdata_briefs.api.routes.ui import _delete_date_data
+    engine = get_engine()
+    runs_deleted = _delete_date_data(engine, date)
+    return DeleteDateResponse(date=date, runs_deleted=runs_deleted)

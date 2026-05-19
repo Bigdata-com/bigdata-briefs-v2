@@ -504,6 +504,15 @@ class ClearStaleRunsResponse(BaseModel):
     """Age (seconds) above which a running row was considered stale."""
 
 
+class DeleteDateResponse(BaseModel):
+    """Result of POST /admin/delete-date."""
+
+    date: str
+    """Calendar date that was deleted (YYYY-MM-DD)."""
+    runs_deleted: int
+    """Number of pipeline runs removed."""
+
+
 # ── Date-range run ───────────────────────────────────────────────────────────
 
 

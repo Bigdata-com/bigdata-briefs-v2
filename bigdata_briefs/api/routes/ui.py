@@ -1438,24 +1438,6 @@ def _delete_date_data(engine, date_str: str) -> int:
     return len(run_ids)
 
 
-@router.post("/admin/delete-date", response_class=HTMLResponse)
-async def ui_admin_delete_date(
-    request: Request,
-    date: str = Form(default=""),
-) -> HTMLResponse:
-    date_str = date.strip()
-    if not date_str:
-        return HTMLResponse('<p class="admin-err">No date provided.</p>')
-    try:
-        run_count = _delete_date_data(get_engine(), date_str)
-    except ValueError:
-        return HTMLResponse('<p class="admin-err">Invalid date format. Use YYYY-MM-DD.</p>')
-
-    return HTMLResponse(
-        f'<p class="admin-ok">All data for <code>{html.escape(date_str)}</code> deleted'
-        f' ({run_count} run(s) removed).</p>'
-    )
-
 
 def _get_all_entities(engine) -> list[tuple[str, str]]:
     """Return (entity_id, display_name) for all known entities."""
