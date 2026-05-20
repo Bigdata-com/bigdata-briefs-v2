@@ -292,6 +292,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
     return <BriefLanding
       loading={loading}
       companies={landingCompanies.filter(_filterCompany)}
+      allCompanies={landingCompanies}
       summaries={landingSummaries}
       onPick={loadEntity}
       companySearch={companySearch}
@@ -936,9 +937,10 @@ function ArchiveBulletItem({ bullet, index }) {
 
 // ── Brief landing ─────────────────────────────────────────
 // Two-column split: Portfolio Brief narrative on the left, company picker on the right.
-function BriefLanding({ loading, companies, summaries, onPick, companySearch, setCompanySearch, selectedDate, briefLayout, setBriefLayout }) {
-  // Only count companies that actually ran on the selected date
-  const ranToday = companies.filter(c => summaries[c.id]?.hasRunOnDate === true);
+function BriefLanding({ loading, companies, allCompanies, summaries, onPick, companySearch, setCompanySearch, selectedDate, briefLayout, setBriefLayout }) {
+  // Stats are always computed from the full (unfiltered) company list for the selected date
+  const _statsBase = (allCompanies || companies).filter(c => summaries[c.id]?.hasRunOnDate === true);
+  const ranToday = _statsBase;
   const totalSaved     = ranToday.reduce((s, c) => s + (summaries[c.id]?.bulletsSaved     || 0), 0);
   const totalDiscarded = ranToday.reduce((s, c) => s + (summaries[c.id]?.bulletsDiscarded || 0), 0);
   const moversAll = ranToday
