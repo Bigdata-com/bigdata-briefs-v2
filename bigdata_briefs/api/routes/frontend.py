@@ -1959,14 +1959,11 @@ def get_portfolio_candidates() -> dict:
                 seen.add(eid)
                 orch = orch_map.get(eid)
                 name = (orch.kg_name if orch else None) or row.get("name", "").strip() or eid
-                ticker = (
-                    _TICKER_MAP.get(eid)
-                    or (orch.kg_ticker if orch else None)
-                    or ""
-                )
+                ticker = _TICKER_MAP.get(eid) or ""
                 if not ticker and orch and orch.kg_payload_json:
-                    kg = _parse_kg_payload(orch.kg_payload_json)
-                    ticker = kg.get("ticker") or ""
+                    ticker = _parse_kg_payload(orch.kg_payload_json).get("ticker") or ""
+                if not ticker and orch:
+                    ticker = orch.kg_ticker or ""
                 candidates.append({"id": eid, "name": name, "ticker": ticker})
 
     return {"candidates": candidates}
@@ -1986,12 +1983,24 @@ def get_portfolio() -> dict:
     engine = get_engine()
     with Session(engine) as session:
         rows = session.exec(select(SQLUserPortfolio).order_by(SQLUserPortfolio.added_at)).all()
+        orch_map = {
+            r.entity_id: r
+            for r in session.exec(select(SQLEntityOrchestrationState)).all()
+        }
     return {
         "portfolio": [
             {
                 "entity_id": r.entity_id,
                 "entity_name": r.entity_name,
-                "kg_ticker": r.kg_ticker,
+                "kg_ticker": (
+                    _TICKER_MAP.get(r.entity_id)
+                    or _parse_kg_payload(
+                        orch_map[r.entity_id].kg_payload_json
+                        if r.entity_id in orch_map else None
+                    ).get("ticker")
+                    or r.kg_ticker
+                    or ""
+                ),
                 "added_at": _iso(r.added_at),
             }
             for r in rows
