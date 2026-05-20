@@ -417,7 +417,8 @@ def _discarded_to_dict(b: SQLBulletRunLog) -> dict:
 
 
 def _build_companies(session: Session) -> list[dict]:
-    rows = session.exec(select(SQLEntityOrchestrationState)).all()
+    allowed = _allowed_entity_ids(session)
+    rows = [r for r in session.exec(select(SQLEntityOrchestrationState)).all() if r.entity_id in allowed]
     out = []
     for r in rows:
         kg = _parse_kg_payload(r.kg_payload_json)
@@ -499,10 +500,16 @@ def _all_universe_entity_ids() -> list[str]:
     return ordered
 
 
+def _allowed_entity_ids(session: Session) -> set[str]:
+    """Entity IDs allowed in the brief: only user portfolio members."""
+    return {row.entity_id for row in session.exec(select(SQLUserPortfolio)).all()}
+
+
 def _build_company_summaries(session: Session) -> dict[str, dict]:
     """Return per-company summary for the sidebar: latest bullet count + 7-day pulse bars."""
     cutoff = datetime.now(timezone.utc) - timedelta(days=7)
-    orches = session.exec(select(SQLEntityOrchestrationState)).all()
+    allowed = _allowed_entity_ids(session)
+    orches = [o for o in session.exec(select(SQLEntityOrchestrationState)).all() if o.entity_id in allowed]
     result: dict[str, dict] = {}
 
     for orch in orches:
@@ -1198,7 +1205,8 @@ def get_companies_summaries(date: str | None = None) -> dict:
         td = date_type.fromisoformat(target_date)
         window_start = td - timedelta(days=6)  # 7-day window ending on target_date
 
-        orches = session.exec(select(SQLEntityOrchestrationState)).all()
+        allowed = _allowed_entity_ids(session)
+        orches = [o for o in session.exec(select(SQLEntityOrchestrationState)).all() if o.entity_id in allowed]
         summaries: dict[str, dict] = {}
 
         for orch in orches:
