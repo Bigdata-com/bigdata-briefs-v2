@@ -1930,6 +1930,48 @@ def get_upcoming_events(date: str | None = None, limit: int = 10) -> dict:
     return {"events": events, "reference_date": ref_iso}
 
 
+# ── Portfolio universe (candidates for search bar) ───────────────────────────
+
+@router.get("/portfolio/candidates")
+def get_portfolio_candidates() -> dict:
+    """All universe entities eligible to add to the portfolio.
+
+    Reads ``universe_entity_costs.csv`` as the master list, enriches with
+    name/ticker from ``SQLEntityOrchestrationState`` (no portfolio filter) and
+    ``_TICKER_MAP``.  Used only by the portfolio search bar.
+    """
+    engine = get_engine()
+    with Session(engine) as session:
+        orch_map = {
+            r.entity_id: r
+            for r in session.exec(select(SQLEntityOrchestrationState)).all()
+        }
+
+    candidates: list[dict] = []
+    seen: set[str] = set()
+
+    if _ENTITY_COSTS_CSV.is_file():
+        with _ENTITY_COSTS_CSV.open(newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                eid = row.get("entity_id", "").strip()
+                if not eid or eid in seen:
+                    continue
+                seen.add(eid)
+                orch = orch_map.get(eid)
+                name = (orch.kg_name if orch else None) or row.get("name", "").strip() or eid
+                ticker = (
+                    _TICKER_MAP.get(eid)
+                    or (orch.kg_ticker if orch else None)
+                    or ""
+                )
+                if not ticker and orch and orch.kg_payload_json:
+                    kg = _parse_kg_payload(orch.kg_payload_json)
+                    ticker = kg.get("ticker") or ""
+                candidates.append({"id": eid, "name": name, "ticker": ticker})
+
+    return {"candidates": candidates}
+
+
 # ── Portfolio CRUD ────────────────────────────────────────────────────────────
 
 class _PortfolioAddBody(_BaseModel):

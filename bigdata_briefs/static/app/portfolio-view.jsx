@@ -5,7 +5,6 @@
 const { useState: useStateP, useEffect: useEffectP, useRef: useRefP } = React;
 
 function PortfolioView({ tweaks }) {
-  const ALL = window.DATA?.companies || [];
   const today = new Date().toISOString().slice(0, 10);
   const now = new Date();
   const hh = String(now.getHours()).padStart(2, "0");
@@ -14,6 +13,7 @@ function PortfolioView({ tweaks }) {
   // portfolio: array of {entity_id, entity_name, kg_ticker} objects (loaded from API)
   const [portfolio, setPortfolio] = useStateP([]);
   const [portfolioLoaded, setPortfolioLoaded] = useStateP(false);
+  const [allCandidates, setAllCandidates] = useStateP([]);
   const [search, setSearch] = useStateP("");
   const [showResults, setShowResults] = useStateP(false);
   const [updateDate, setUpdateDate] = useStateP(today);
@@ -22,7 +22,7 @@ function PortfolioView({ tweaks }) {
 
   const searchRef = useRefP(null);
 
-  // Load portfolio from API on mount
+  // Load portfolio and universe candidates on mount
   useEffectP(() => {
     fetch("/api/frontend/portfolio")
       .then(r => r.json())
@@ -31,6 +31,11 @@ function PortfolioView({ tweaks }) {
         setPortfolioLoaded(true);
       })
       .catch(() => setPortfolioLoaded(true));
+
+    fetch("/api/frontend/portfolio/candidates")
+      .then(r => r.json())
+      .then(data => setAllCandidates(data.candidates || []))
+      .catch(() => {});
   }, []);
 
   // Close search dropdown on outside click
@@ -47,7 +52,7 @@ function PortfolioView({ tweaks }) {
 
   const searchLower = search.trim().toLowerCase();
   const searchResults = searchLower
-    ? ALL
+    ? allCandidates
         .filter(c =>
           !portfolioIds.has(c.id) &&
           (c.name.toLowerCase().includes(searchLower) || (c.ticker || "").toLowerCase().includes(searchLower))
