@@ -22,7 +22,7 @@ Service type: none (DB write, no LLM or search API)
 from __future__ import annotations
 
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from langchain_core.runnables import RunnableConfig
 
@@ -57,7 +57,7 @@ def persist_embeddings_of_novel_bullets(
 
     end_date = datetime.fromisoformat(state["report_end_date"])
     start_date = datetime.fromisoformat(state["report_start_date"])
-    save_emb_date = end_date - timedelta(days=1)
+    save_emb_date = end_date
 
     bullet_points: list[dict] = state.get("bullet_points") or []
 
