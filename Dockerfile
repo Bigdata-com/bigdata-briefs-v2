@@ -35,8 +35,9 @@ COPY --chown=bigdata:bigdata bigdata_briefs ./bigdata_briefs
 COPY --chown=bigdata:bigdata vendor ./vendor
 COPY --chown=bigdata:bigdata crontab ./crontab
 COPY --chown=bigdata:bigdata start.sh ./start.sh
+COPY --chown=bigdata:bigdata run_daily.sh ./run_daily.sh
 
-RUN chmod +x /code/start.sh
+RUN chmod +x /code/start.sh /code/run_daily.sh
 
 RUN uv sync --no-dev
 
