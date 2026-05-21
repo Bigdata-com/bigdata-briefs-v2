@@ -269,7 +269,7 @@ function LandingProduct() {
       {/* Nav */}
       <nav className="pr-nav">
         <div className="pr-nav-inner">
-          <img className="pr-logo" src="/app/desk/bigdata-logo-black.png" alt="Bigdata.com by RavenPack" />
+          <img className="pr-logo" src="/app/desk/bigdata-logo-black.png" alt="Bigdata by RavenPack" />
           <div className="pr-nav-spacer"></div>
           <a href="/app/desk" className="pr-btn pr-btn-primary" style={{ padding: "9px 16px" }}>Open the app →</a>
         </div>
@@ -328,8 +328,8 @@ function LandingProduct() {
 
             {/* Pipeline side */}
             <div className="pr-side pr-side-pipeline">
-              <span className="pr-side-tag">Scenario B · Pipeline</span>
-              <h3 className="pr-side-h">Pipeline runs the briefs automatically.</h3>
+              <span className="pr-side-tag">Scenario B · Bigdata</span>
+              <h3 className="pr-side-h"><em><span style={{ color: "var(--accent)" }}>Bigdata</span></em> runs the briefs automatically.</h3>
               <p className="pr-side-sub">Cost metered per chunk, per token.</p>
 
               <div className="pr-bignum">{fmtUSDsmart(pipeline.cost)}<span className="small">/day</span></div>
@@ -397,10 +397,10 @@ function LandingProduct() {
         </div>
 
         <div className="pr-narr-block pipeline">
-          <div className="lbl">The pipeline workflow</div>
+          <div className="lbl">The Bigdata workflow</div>
           <h3>Search, draft, then <em>verify</em> what actually moved.</h3>
           <p>
-            The pipeline searches for relevant news on each company. No source list
+            Bigdata searches for relevant news on each company. No source list
             to maintain, no wires to open. The briefs are drafted, then tested against
             the desk's prior output and confirmed against the historical news record.
             Only what has materially changed since the last run is published.
@@ -427,7 +427,7 @@ function LandingProduct() {
           <div className="pr-method-card">
             <div className="step">01 · Surface</div>
             <h4>Relevant news, automatically</h4>
-            <p>The pipeline searches Bigdata's licensed news corpus and surfaces the content relevant to each issuer. No source list to maintain, no wires to open.</p>
+            <p>Bigdata searches its licensed news corpus and surfaces the content relevant to each issuer. No source list to maintain, no wires to open.</p>
           </div>
           <div className="pr-method-card">
             <div className="step">02 · First screen</div>
