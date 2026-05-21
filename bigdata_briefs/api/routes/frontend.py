@@ -1792,46 +1792,105 @@ def get_related_briefs(entity_id: str, date: str) -> dict:
 
 @router.get("/portfolio-brief")
 def get_portfolio_brief(date: str | None = None, top_n: int = 5) -> dict:
-    """Return the cached portfolio narrative generated after the most recent batch run.
+    """Return per-company run narratives for the portfolio on the given date.
 
-    Never generates on-demand — the narrative is produced exclusively by
-    generate_and_store_portfolio_brief() triggered at the end of batch/run-parallel.
-    Returns narrative=null when no cached brief exists yet.
+    Reads directly from SQLRunNarrative (generated at end of each entity run).
+    No separate portfolio-brief table or generation step needed.
     """
-    from bigdata_briefs.orchestration.models import SQLPortfolioBrief
     engine = get_engine()
     with Session(engine) as session:
-        # Resolve the target date
+        # Resolve target date: use most recent date that has portfolio runs
+        allowed = _allowed_entity_ids(session)
         if date:
             target_date = date.strip()[:10]
         else:
-            # Use the most recent date that has a cached portfolio brief
-            latest_brief = session.exec(
-                select(SQLPortfolioBrief).order_by(desc(SQLPortfolioBrief.date))
+            latest = session.exec(
+                select(SQLEntityPipelineRunLog)
+                .where(
+                    SQLEntityPipelineRunLog.entity_id.in_(list(allowed)),
+                    SQLEntityPipelineRunLog.status.in_(["succeeded", "no_data"]),
+                    SQLEntityPipelineRunLog.report_window_end.isnot(None),
+                )
+                .order_by(desc(SQLEntityPipelineRunLog.report_window_end))
             ).first()
-            target_date = latest_brief.date if latest_brief else None
+            target_date = latest.report_window_end.date().isoformat() if latest and latest.report_window_end else None
 
         if not target_date:
             return {"narrative": None, "date": None, "companies": [], "generated_at": None}
 
-        cached = session.exec(
-            select(SQLPortfolioBrief).where(SQLPortfolioBrief.date == target_date)
-        ).first()
-        if not cached:
-            return {"narrative": None, "date": target_date, "companies": [], "generated_at": None}
+        from datetime import date as _date
+        td = _date.fromisoformat(target_date)
+        day_start = datetime(td.year, td.month, td.day, 0, 0, 0)
+        day_end   = datetime(td.year, td.month, td.day, 23, 59, 59)
 
-        try:
-            companies = json.loads(cached.companies_json)
-        except Exception:
-            companies = []
+        # All portfolio runs on that day, ordered by bullet count descending
+        runs = session.exec(
+            select(SQLEntityPipelineRunLog)
+            .where(
+                SQLEntityPipelineRunLog.entity_id.in_(list(allowed)),
+                SQLEntityPipelineRunLog.status == "succeeded",
+                SQLEntityPipelineRunLog.report_window_end >= day_start,
+                SQLEntityPipelineRunLog.report_window_end <= day_end,
+            )
+        ).all()
 
-        return {
-            "narrative":   cached.narrative,
-            "narrative_b": cached.narrative_b,
-            "date": target_date,
-            "companies": companies,
-            "generated_at": _iso(cached.generated_at),
-        }
+        # Deduplicate by entity_id: pick the run with the most active bullets
+        best: dict[str, SQLEntityPipelineRunLog] = {}
+        for run in runs:
+            eid = run.entity_id
+            if eid not in best:
+                best[eid] = run
+            else:
+                cur_count = len(session.exec(
+                    select(SQLBulletRunLog).where(
+                        SQLBulletRunLog.run_id == best[eid].run_id,
+                        SQLBulletRunLog.is_active == True,  # noqa: E712
+                    )
+                ).all())
+                new_count = len(session.exec(
+                    select(SQLBulletRunLog).where(
+                        SQLBulletRunLog.run_id == run.run_id,
+                        SQLBulletRunLog.is_active == True,  # noqa: E712
+                    )
+                ).all())
+                if new_count > cur_count:
+                    best[eid] = run
+
+        # Sort by active bullet count descending
+        def _bullet_count(run: SQLEntityPipelineRunLog) -> int:
+            return len(session.exec(
+                select(SQLBulletRunLog).where(
+                    SQLBulletRunLog.run_id == run.run_id,
+                    SQLBulletRunLog.is_active == True,  # noqa: E712
+                )
+            ).all())
+
+        ranked = sorted(best.values(), key=_bullet_count, reverse=True)
+
+        sections = []
+        companies_out = []
+        for run in ranked:
+            orch = session.get(SQLEntityOrchestrationState, run.entity_id)
+            name = (orch.kg_name if orch else None) or run.entity_id
+            narrative = session.exec(
+                select(SQLRunNarrative)
+                .where(SQLRunNarrative.run_id == run.run_id)
+                .order_by(desc(SQLRunNarrative.created_at))
+            ).first()
+            if not narrative or not narrative.narrative_text:
+                continue
+            sections.append(f"{name}\n{narrative.narrative_text.strip()}")
+            companies_out.append({"name": name, "entityId": run.entity_id})
+
+        narrative_text = "\n\n".join(sections) if sections else None
+
+    return {
+        "narrative":   narrative_text,
+        "narrative_b": None,
+        "date":        target_date,
+        "companies":   companies_out,
+        "generated_at": None,
+    }
 
 
 # ── Upcoming Events ──────────────────────────────────────────────────────────
