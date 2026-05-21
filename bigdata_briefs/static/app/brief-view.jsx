@@ -635,7 +635,6 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
             const sentVals   = sigs.map(s => s.sent_ewm_short ?? 0);
             const firstDate  = sigs[0]?.date?.slice(5) || "";
             const lastDate   = last?.date?.slice(5) || "";
-            const sentAbsMax = Math.max(0.15, ...sentVals.map(v => Math.abs(v)));
 
             const _fmtN = (v, dec = 4) => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(dec);
             const _fmtZ = (v, dec = 1) => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(dec);
@@ -687,15 +686,26 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
 
                 <hr className="rule" style={{ margin: "10px 0" }} />
 
-                {/* Sentiment sparkline */}
+                {/* Sentiment sparkline — diverging area with min/max gutter */}
                 <div className="pulse-label">Sentiment</div>
                 <div className="pulse-spark">
-                  <Sparkline data={sentVals} height={36} width={240} fluid
-                    color="var(--ink)" fillColor="color-mix(in srgb, var(--ink) 8%, transparent)" showLast
-                    minVal={-sentAbsMax} maxVal={sentAbsMax} showZero />
+                  <DivergingSparkline data={sentVals} height={38} width={240} />
                 </div>
+                {(() => {
+                  const sMin = Math.min(...sentVals);
+                  const sMax = Math.max(...sentVals);
+                  const sNow = sentVals[sentVals.length - 1];
+                  const sgn  = (v) => v >= 0 ? "+" : "−";
+                  const num  = (v, d = 3) => v == null ? "—" : sgn(v) + Math.abs(v).toFixed(d);
+                  return (
+                    <div className="pulse-caption">
+                      <span>min <b style={{ color: "var(--discard)" }}>{num(sMin)}</b></span>
+                      <span>now <b style={{ color: sNow >= 0 ? "var(--novel)" : "var(--discard)" }}>{num(sNow)}</b></span>
+                      <span>max <b style={{ color: "var(--novel)" }}>{num(sMax)}</b></span>
+                    </div>
+                  );
+                })()}
                 <div className="pulse-axis" style={{ marginBottom: 8 }}><span>{firstDate}</span><span>{lastDate}</span></div>
-                <MetricRow label="Current" value={_fmtN(last.sent_ewm_short)} />
                 <MetricRow label="Baseline" value={_fmtN(last.sent_ewm_long)} />
                 <MetricRow label="Momentum" value={_fmtN(last.sent_momentum)} interp={_interpMomSent(last.sent_momentum)} color={_col(last.sent_momentum)} />
                 <MetricRow label="vs. 1-month (z)" value={_fmtZ(last.sent_zscore_mo)} interp={_interpZ(last.sent_zscore_mo)} color={_col(last.sent_zscore_mo)} />

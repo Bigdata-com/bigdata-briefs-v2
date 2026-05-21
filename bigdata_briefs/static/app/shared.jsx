@@ -301,10 +301,72 @@ function StatusBadge({ status }) {
   return <span className={`tag ${m.cls}`}>{m.label}</span>;
 }
 
+// ── DivergingSparkline — two-tone area chart for signed signals ──────────────
+function DivergingSparkline({
+  data,
+  height = 38,
+  width = 240,
+  posColor = "var(--novel)",
+  negColor = "var(--discard)",
+}) {
+  if (!data || data.length === 0) return null;
+
+  const uid = React.useId();
+
+  const absMax = Math.max(...data.map(v => Math.abs(v)));
+  const ext    = Math.max(absMax * 1.18, 0.005);
+  const ymin   = -ext;
+  const ymax   =  ext;
+  const range  = ymax - ymin;
+
+  const h    = height;
+  const w    = width;
+  const yOf  = (v) => h - 2 - (v - ymin) / range * (h - 4);
+  const zeroY = yOf(0);
+  const step  = w / Math.max(data.length - 1, 1);
+
+  const pts  = data.map((v, i) => [i * step, yOf(v)]);
+  const line = pts
+    .map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`)
+    .join(" ");
+  const last = pts[pts.length - 1];
+  const area = `${line} L${last[0].toFixed(2)},${zeroY.toFixed(2)} L0,${zeroY.toFixed(2)} Z`;
+
+  return (
+    <svg
+        viewBox={`0 0 ${w} ${h}`}
+        preserveAspectRatio="none"
+        style={{ width: "100%", height: h, display: "block" }}
+      >
+        <defs>
+          <clipPath id={`above-${uid}`}>
+            <rect x="0" y="0" width={w} height={zeroY} />
+          </clipPath>
+          <clipPath id={`below-${uid}`}>
+            <rect x="0" y={zeroY} width={w} height={Math.max(h - zeroY, 0)} />
+          </clipPath>
+        </defs>
+        <g clipPath={`url(#above-${uid})`}>
+          <path d={area} fill="color-mix(in srgb, var(--novel) 45%, transparent)" />
+          <path d={line} fill="none" stroke={posColor}
+            strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+        </g>
+        <g clipPath={`url(#below-${uid})`}>
+          <path d={area} fill="color-mix(in srgb, var(--discard) 45%, transparent)" />
+          <path d={line} fill="none" stroke={negColor}
+            strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+        </g>
+        <line x1="0" y1={zeroY} x2={w} y2={zeroY}
+          stroke="var(--ink-mute)" strokeWidth="0.75" />
+      </svg>
+  );
+}
+
 window.Masthead = Masthead;
 window.MastheadLockup = MastheadLockup;
 window.ThemeDot = ThemeDot;
 window.Sparkline = Sparkline;
+window.DivergingSparkline = DivergingSparkline;
 window.MiniBars = MiniBars;
 window.CitationRef = CitationRef;
 window.StatusBadge = StatusBadge;
