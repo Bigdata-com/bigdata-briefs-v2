@@ -11,4 +11,4 @@ END=$(date -u -d "today 12:00:00" +"%Y-%m-%dT%H:%M:%SZ")
 curl -s -X POST http://localhost:8000/api/v1/batch/run-parallel \
     -H "Content-Type: application/json" \
     -H "X-Api-Key: ${PIPELINE_API_KEY}" \
-    -d "{\"universe_name\":\"dow_30\",\"force_window_start\":\"${START}\",\"force_window_end\":\"${END}\",\"categories\":[\"news\"],\"ranking_metric\":\"media_attention_momentum\"}"
+    -d "{\"universe\":\"my_portfolio\",\"force_window_start\":\"${START}\",\"force_window_end\":\"${END}\",\"categories\":[\"news\"],\"ranking_metric\":\"media_attention_momentum\"}"

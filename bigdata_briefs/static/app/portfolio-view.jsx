@@ -175,7 +175,7 @@ function PortfolioView({ tweaks }) {
               <ul className="portfolio-list portfolio-list-right">
                 {portfolioCompanies.map(p => (
                   <li key={p.entity_id} className="portfolio-list-row">
-                    <span className="portfolio-list-ticker">{p.kg_ticker || "—"}</span>
+                    <span className="portfolio-list-ticker">{p.kg_ticker || "PRIVATE"}</span>
                     <span className="portfolio-list-name">{p.entity_name}</span>
                     <button className="portfolio-list-remove" onClick={() => removeCompany(p.entity_id)} aria-label={`Remove ${p.entity_name}`}>
                       Remove

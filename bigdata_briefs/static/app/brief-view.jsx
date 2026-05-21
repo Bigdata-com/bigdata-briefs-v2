@@ -444,7 +444,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
                 <span className="brief-eyebrow">{brief?.entityName} — Audit</span>
               </h1>
               <h2 className="t-display" style={{ fontSize: 32, margin: "0 0 6px", letterSpacing: "-0.018em" }}>
-                Every bullet, kept or cut for {_tk(brief?.ticker)}
+                Every bullet, kept or cut for {brief?.ticker || brief?.entityName}
               </h2>
             </header>
             <BriefEntityAudit entityId={brief.entityId} selectedDate={selectedDate} />
@@ -455,7 +455,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
         <header className="brief-hero">
           <h1 className="brief-headline t-display">
             <span className="brief-eyebrow">{brief?.entityName}</span>
-            What's new on <em>{_tk(brief?.ticker)}</em> this morning.
+            {brief?.ticker ? `What's new on ` : `What's new at `}<em>{brief?.ticker || brief?.entityName}</em> this morning.
           </h1>
           {loading
             ? <p className="brief-standfirst" style={{ color: "var(--ink-faint)", fontStyle: "italic" }}>Loading…</p>
@@ -1245,7 +1245,7 @@ function BriefEntityArchive({ entityId, entityName, ticker, onOpenDate }) {
           <span className="brief-eyebrow">{entityName} — Archive</span>
         </h1>
         <h2 className="t-display" style={{ fontSize: 32, margin: "0 0 6px", letterSpacing: "-0.018em" }}>
-          Every brief filed for {_tk(ticker)}
+          Every brief filed for {ticker || entityName}
         </h2>
         <p style={{ fontFamily: "var(--serif)", fontStyle: "italic", color: "var(--ink-mute)", margin: 0, fontSize: 14 }}>
           {history.length} runs · {history.reduce((s, h) => s + h.saved, 0)} bullets saved · {history.reduce((s, h) => s + h.discarded, 0)} discarded

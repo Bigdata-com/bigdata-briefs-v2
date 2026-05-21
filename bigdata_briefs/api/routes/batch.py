@@ -427,11 +427,15 @@ def batch_run_parallel(
                 status_code=422,
                 detail="Provide either 'entity_ids' or 'universe', not both.",
             )
-        entity_ids = _UNIVERSES.get(body.universe)
+        if body.universe == "my_portfolio":
+            from bigdata_briefs.api.routes.universes import _get_my_portfolio_ids
+            entity_ids = _get_my_portfolio_ids()
+        else:
+            entity_ids = _UNIVERSES.get(body.universe)
         if entity_ids is None:
             raise HTTPException(
                 status_code=404,
-                detail=f"Universe '{body.universe}' not found. Available: {list(_UNIVERSES)}",
+                detail=f"Universe '{body.universe}' not found. Available: {list(_UNIVERSES) + ['my_portfolio']}",
             )
     elif body.entity_ids:
         entity_ids = body.entity_ids
