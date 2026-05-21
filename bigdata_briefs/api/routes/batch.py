@@ -492,11 +492,30 @@ def batch_run_parallel(
 
                 def _post_batch_pipeline():
                     try:
+                        from sqlmodel import Session as _Session, select as _select
+                        from sqlalchemy import desc as _desc
+                        from bigdata_briefs.orchestration.models import SQLEntityPipelineRunLog as _RunLog
                         from bigdata_briefs.orchestration.sentiment_ranking import compute_and_store_signals
+                        from bigdata_briefs.orchestration.portfolio_brief import generate_and_store_portfolio_brief
+
                         compute_and_store_signals(engine, entity_ids)
                         logger.info("Signal history stored", batch_id=str(batch_id))
+
+                        with _Session(engine) as _s:
+                            latest = _s.exec(
+                                _select(_RunLog)
+                                .where(_RunLog.run_id.in_(_batch_run_ids))
+                                .where(_RunLog.status.in_(["succeeded", "no_data"]))
+                                .order_by(_desc(_RunLog.report_window_end))
+                            ).first()
+                        if latest and latest.report_window_end:
+                            date_iso = latest.report_window_end.date().isoformat()
+                            generate_and_store_portfolio_brief(
+                                engine, date_iso, top_n=5,
+                                ranking_metric=_ranking_metric,
+                            )
                     except Exception:
-                        logger.exception("Post-batch pipeline (signals) failed")
+                        logger.exception("Post-batch pipeline (signals + portfolio brief) failed")
 
                 _threading.Thread(target=_post_batch_pipeline, daemon=True).start()
 

@@ -161,19 +161,14 @@ def generate_and_store_portfolio_brief(
                     "bulletCount": len(texts),
                 })
 
-        # ── build narrative from LLM run narratives (fallback: bullet concat) ──
+        # ── build narrative from LLM run narratives only ──
         sections = []
         for i, (eid, texts) in enumerate(ranked):
-            if not texts:
+            narr_text = entity_narrative.get(eid)
+            if not narr_text:
                 continue
             name = companies_out[i]["name"]
-            # Prefer the LLM-generated narrative; fall back to bullet concat
-            narr_text = entity_narrative.get(eid)
-            if narr_text:
-                body = narr_text.strip()
-            else:
-                body = " ".join(f"{t.strip().rstrip('.')}." for t in texts)
-            sections.append(f"{name}\n{body}")
+            sections.append(f"{name}\n{narr_text.strip()}")
 
         narrative   = "\n\n".join(sections) if sections else None
         narrative_b = None
