@@ -948,7 +948,7 @@ function ArchiveBulletItem({ bullet, index }) {
 // ── Brief landing ─────────────────────────────────────────
 // Two-column split: Portfolio Brief narrative on the left, company picker on the right.
 function BriefLanding({ loading, companies, allCompanies, summaries, onPick, companySearch, setCompanySearch, selectedDate, briefLayout, setBriefLayout }) {
-  const [pbView, setPbView] = React.useState("summary"); // "summary" | "bullets"
+  const [pbView, setPbView] = React.useState("bullets"); // "bullets" | "summary"
 
   // Stats are always computed from the full (unfiltered) company list for the selected date
   const _statsBase = (allCompanies || companies).filter(c => summaries[c.id]?.hasRunOnDate === true);
@@ -1169,8 +1169,8 @@ function BriefLanding({ loading, companies, allCompanies, summaries, onPick, com
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
           <div className="pb-eyebrow">Portfolio Brief{dateLabel ? ` — ${dateLabel}` : ""}</div>
           <div className="pb-view-toggle">
-            <button className={"pb-view-btn" + (pbView === "summary" ? " active" : "")} onClick={() => setPbView("summary")}>Summary</button>
             <button className={"pb-view-btn" + (pbView === "bullets" ? " active" : "")} onClick={() => setPbView("bullets")}>Bullet Points</button>
+            <button className={"pb-view-btn" + (pbView === "summary" ? " active" : "")} onClick={() => setPbView("summary")}>Summary</button>
           </div>
         </div>
         <h1 className="pb-title">Where the news moved.</h1>
