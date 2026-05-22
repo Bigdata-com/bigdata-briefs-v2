@@ -40,7 +40,7 @@ BIGDATA_RATE_RETRY_SECONDS = 1.0
 _PACKAGE_DIR = Path(__file__).resolve().parent.parent
 _DESK_INDEX = _PACKAGE_DIR / "static" / "app" / "index.html"
 _DESK_CACHE: dict = {"content": None, "ts": 0.0}
-_DESK_TTL = 120  # seconds
+_DESK_TTL = 3600  # seconds — data changes once a day, 1h cache is safe
 
 
 def _build_desk_html() -> str:
