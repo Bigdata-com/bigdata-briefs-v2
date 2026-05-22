@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -113,11 +114,20 @@ def create_app() -> FastAPI:
     if app_dir.is_dir():
         _index_path = app_dir / "index.html"
 
+        _desk_cache: dict = {"content": None, "ts": 0.0}
+        _DESK_TTL = 120  # seconds — data changes once a day, 2min cache is safe
+
         def _desk_response() -> HTMLResponse:
+            now = time.time()
+            if _desk_cache["content"] and now - _desk_cache["ts"] < _DESK_TTL:
+                return HTMLResponse(content=_desk_cache["content"])
             html = _index_path.read_text(encoding="utf-8")
             d = json.dumps(get_data()).replace("</", "<\\/")
             script = f"<script>window.DATA={d};window.RUN_DATA={{}};window.EXTRAS={{}};</script>"
-            return HTMLResponse(content=html.replace("</head>", script + "\n</head>", 1))
+            content = html.replace("</head>", script + "\n</head>", 1)
+            _desk_cache["content"] = content
+            _desk_cache["ts"] = now
+            return HTMLResponse(content=content)
 
         @app.get("/app/desk", include_in_schema=False)
         @app.get("/app/desk/", include_in_schema=False)
