@@ -60,8 +60,10 @@
       const [showDiscarded, setShowDiscarded] = useState(t.showDiscarded);
 
       // Lifted shared state: portfolio, landing summaries, upcoming events, last run date, cost
-      const [appPortfolioIds, setAppPortfolioIds] = useState(null);
-      const [appPortfolio, setAppPortfolio] = useState(null);
+      const _initialPortfolio = window.DATA.portfolio || null;
+      const _initialPortfolioIds = _initialPortfolio ? new Set(_initialPortfolio.map(p => p.entity_id)) : null;
+      const [appPortfolioIds, setAppPortfolioIds] = useState(_initialPortfolioIds);
+      const [appPortfolio, setAppPortfolio] = useState(_initialPortfolio);
       const [appLandingSummaries, setAppLandingSummaries] = useState(window.DATA.companySummaries || {});
       const [appEvents, setAppEvents] = useState(null);
       const [lastRunDate, setLastRunDate] = useState(null);

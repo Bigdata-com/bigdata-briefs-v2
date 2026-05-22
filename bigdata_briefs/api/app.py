@@ -21,7 +21,7 @@ from bigdata_briefs import logger
 from bigdata_briefs.api.routes.admin import router as admin_router
 from bigdata_briefs.api.routes.batch import router as batch_router
 from bigdata_briefs.api.routes.entities import router as entities_router
-from bigdata_briefs.api.routes.frontend import router as frontend_router, get_data, get_run_data, get_extras
+from bigdata_briefs.api.routes.frontend import router as frontend_router, get_data, get_run_data, get_extras, get_portfolio
 from bigdata_briefs.api.routes.rate import router as rate_router
 from bigdata_briefs.api.routes.report import router as report_router
 from bigdata_briefs.api.routes.scan import router as scan_router
@@ -45,7 +45,9 @@ _DESK_TTL = 3600  # seconds — data changes once a day, 1h cache is safe
 
 def _build_desk_html() -> str:
     html = _DESK_INDEX.read_text(encoding="utf-8")
-    d = json.dumps(get_data()).replace("</", "<\\/")
+    data = get_data()
+    data["portfolio"] = get_portfolio().get("portfolio", [])
+    d = json.dumps(data).replace("</", "<\\/")
     script = f"<script>window.DATA={d};window.RUN_DATA={{}};window.EXTRAS={{}};</script>"
     return html.replace("</head>", script + "\n</head>", 1)
 
