@@ -60,10 +60,12 @@
       const [view, setView] = useState("brief");
       const [showDiscarded, setShowDiscarded] = useState(t.showDiscarded);
 
-      // Lifted shared state: landing summaries, upcoming events, last run date
+      // Lifted shared state: landing summaries, upcoming events, last run date, cost
       const [appLandingSummaries, setAppLandingSummaries] = useState(window.DATA.companySummaries || {});
       const [appEvents, setAppEvents] = useState(null);
       const [lastRunDate, setLastRunDate] = useState(null);
+      const [appCostData, setAppCostData] = useState(window.EXTRAS?.cost || null);
+      const [appEntityRuns, setAppEntityRuns] = useState([]);
 
       function fetchAppData() {
         fetch("/api/frontend/companies/summaries")
@@ -79,6 +81,21 @@
         fetch("/api/frontend/last-run-date")
           .then(r => r.json())
           .then(data => setLastRunDate(data.date || null))
+          .catch(() => {});
+        fetch("/api/frontend/cost/breakdown")
+          .then(r => r.json())
+          .then(data => {
+            if (data.breakdown) {
+              setAppCostData(data.breakdown);
+              const eid = data.breakdown.entityId;
+              if (eid) {
+                fetch(`/api/frontend/cost/runs-by-entity/${encodeURIComponent(eid)}`)
+                  .then(r => r.json())
+                  .then(d => setAppEntityRuns(Array.isArray(d.runs) ? d.runs : []))
+                  .catch(() => {});
+              }
+            }
+          })
           .catch(() => {});
       }
 
@@ -147,7 +164,7 @@
               {view === "history"   && <ArchiveView tweaks={t} />}
               {view === "history-details" && <HistoryDetailsView tweaks={t} />}
               {view === "portfolio" && <PortfolioView tweaks={t} />}
-              {view === "cost"      && <CostView tweaks={t} />}
+              {view === "cost"      && <CostView tweaks={t} appCostData={appCostData} appEntityRuns={appEntityRuns} />}
             </div>
           </div>
 

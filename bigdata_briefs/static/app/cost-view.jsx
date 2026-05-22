@@ -192,15 +192,15 @@ function GroupRow({ g, phaseMax }) {
   );
 }
 
-function CostView({ tweaks }) {
+function CostView({ tweaks, appCostData, appEntityRuns }) {
   const COMPANIES = window.DATA?.companies || [];
-  const initial = window.EXTRAS.cost;
+  const initial = appCostData ?? window.EXTRAS.cost;
   const defaultEntityId = initial?.entityId || COMPANIES[0]?.id || "";
 
   const [costData, setCostData] = useStateC(initial);
   const [selectedRun, setSelectedRun] = useStateC(initial?.runId || null);
   const [pickEntityId, setPickEntityId] = useStateC(defaultEntityId);
-  const [entityRuns, setEntityRuns] = useStateC([]);
+  const [entityRuns, setEntityRuns] = useStateC(appEntityRuns || []);
   const [loading, setLoading] = useStateC(false);
   const [loadingRuns, setLoadingRuns] = useStateC(false);
   const [error, setError] = useStateC(null);
@@ -264,6 +264,7 @@ function CostView({ tweaks }) {
   }
 
   useEffectC(() => {
+    if (appCostData && appEntityRuns?.length) return;
     loadBreakdown(initial?.runId || null);
   }, []);
 
