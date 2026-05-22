@@ -60,7 +60,8 @@
       const [view, setView] = useState("brief");
       const [showDiscarded, setShowDiscarded] = useState(t.showDiscarded);
 
-      // Lifted shared state: landing summaries, upcoming events, last run date, cost
+      // Lifted shared state: portfolio ids, landing summaries, upcoming events, last run date, cost
+      const [appPortfolioIds, setAppPortfolioIds] = useState(null);
       const [appLandingSummaries, setAppLandingSummaries] = useState(window.DATA.companySummaries || {});
       const [appEvents, setAppEvents] = useState(null);
       const [lastRunDate, setLastRunDate] = useState(null);
@@ -68,6 +69,13 @@
       const [appEntityRuns, setAppEntityRuns] = useState([]);
 
       function fetchAppData() {
+        fetch("/api/frontend/portfolio")
+          .then(r => r.json())
+          .then(data => {
+            const ids = new Set((data.portfolio || []).map(p => p.entity_id));
+            setAppPortfolioIds(ids);
+          })
+          .catch(() => setAppPortfolioIds(new Set()));
         fetch("/api/frontend/companies/summaries")
           .then(r => r.json())
           .then(data => { if (data.summaries) setAppLandingSummaries(data.summaries); })
@@ -157,6 +165,7 @@
                   view={view}
                   briefLayout="below"
                   setBriefLayout={() => {}}
+                  appPortfolioIds={appPortfolioIds}
                   appLandingSummaries={appLandingSummaries}
                   appEvents={appEvents}
                 />

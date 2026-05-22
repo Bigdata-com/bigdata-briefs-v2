@@ -61,7 +61,7 @@ function BriefWindowBand({ start, end }) {
   );
 }
 
-function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView, view, briefLayout, setBriefLayout, appLandingSummaries, appEvents }) {
+function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView, view, briefLayout, setBriefLayout, appPortfolioIds, appLandingSummaries, appEvents }) {
   const initialBrief = window.DATA.todaysBrief;
   const initialDates = window.DATA.availableDates || [];
   const initialDate = initialBrief?.windowEnd?.slice(0, 10) || initialDates[initialDates.length - 1] || null;
@@ -83,18 +83,8 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
   const [entitySignals, setEntitySignals] = React.useState(null);
   const [signalsLoading, setSignalsLoading] = React.useState(false);
   const [signalMode, setSignalMode] = React.useState("zscore"); // "zscore" | "raw"
-  const [portfolioIds, setPortfolioIds] = React.useState(null); // null = loading
+  const portfolioIds = appPortfolioIds; // null = loading, Set = loaded
   const _loadingEntityRef = React.useRef(null); // prevents auto-load from racing with explicit loadEntity calls
-
-  React.useEffect(() => {
-    fetch("/api/frontend/portfolio")
-      .then(r => r.json())
-      .then(data => {
-        const ids = new Set((data.portfolio || []).map(p => p.entity_id));
-        setPortfolioIds(ids);
-      })
-      .catch(() => setPortfolioIds(new Set()));
-  }, []);
 
   // Reset to landing when The Brief nav is clicked
   React.useEffect(() => {
