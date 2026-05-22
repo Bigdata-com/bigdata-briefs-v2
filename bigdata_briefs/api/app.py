@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
@@ -37,6 +38,27 @@ BIGDATA_RATE_REFRESH_SECONDS = 5
 BIGDATA_RATE_RETRY_SECONDS = 1.0
 
 _PACKAGE_DIR = Path(__file__).resolve().parent.parent
+_DESK_INDEX = _PACKAGE_DIR / "static" / "app" / "index.html"
+_DESK_CACHE: dict = {"content": None, "ts": 0.0}
+_DESK_TTL = 120  # seconds
+
+
+def _build_desk_html() -> str:
+    html = _DESK_INDEX.read_text(encoding="utf-8")
+    d = json.dumps(get_data()).replace("</", "<\\/")
+    script = f"<script>window.DATA={d};window.RUN_DATA={{}};window.EXTRAS={{}};</script>"
+    return html.replace("</head>", script + "\n</head>", 1)
+
+
+def _desk_html() -> str:
+    """Return cached desk HTML, rebuilding if stale."""
+    now = time.time()
+    if _DESK_CACHE["content"] and now - _DESK_CACHE["ts"] < _DESK_TTL:
+        return _DESK_CACHE["content"]
+    content = _build_desk_html()
+    _DESK_CACHE["content"] = content
+    _DESK_CACHE["ts"] = now
+    return content
 
 
 @asynccontextmanager
@@ -59,6 +81,10 @@ async def lifespan(app: FastAPI):
         max_workers=settings.MAX_CONCURRENT_ENTITIES,
         thread_name_prefix="entity-worker",
     )
+
+    # Pre-warm desk HTML cache in background so the first user request is instant
+    if _DESK_INDEX.exists():
+        threading.Thread(target=_desk_html, daemon=True, name="desk-cache-warmup").start()
 
     logger.info(
         "FastAPI lifespan: singletons ready "
@@ -112,27 +138,10 @@ def create_app() -> FastAPI:
     # three blocking synchronous XHR calls that were in data.js/run-data.js/extras-data.js.
     app_dir = _PACKAGE_DIR / "static" / "app"
     if app_dir.is_dir():
-        _index_path = app_dir / "index.html"
-
-        _desk_cache: dict = {"content": None, "ts": 0.0}
-        _DESK_TTL = 120  # seconds — data changes once a day, 2min cache is safe
-
-        def _desk_response() -> HTMLResponse:
-            now = time.time()
-            if _desk_cache["content"] and now - _desk_cache["ts"] < _DESK_TTL:
-                return HTMLResponse(content=_desk_cache["content"])
-            html = _index_path.read_text(encoding="utf-8")
-            d = json.dumps(get_data()).replace("</", "<\\/")
-            script = f"<script>window.DATA={d};window.RUN_DATA={{}};window.EXTRAS={{}};</script>"
-            content = html.replace("</head>", script + "\n</head>", 1)
-            _desk_cache["content"] = content
-            _desk_cache["ts"] = now
-            return HTMLResponse(content=content)
-
         @app.get("/app/desk", include_in_schema=False)
         @app.get("/app/desk/", include_in_schema=False)
         def app_desk() -> HTMLResponse:
-            return _desk_response()
+            return HTMLResponse(content=_desk_html())
 
         app.mount("/app/desk", StaticFiles(directory=str(app_dir)), name="app")
 
