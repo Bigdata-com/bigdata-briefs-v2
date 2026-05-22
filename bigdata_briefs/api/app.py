@@ -115,9 +115,10 @@ def create_app() -> FastAPI:
 
         def _desk_response() -> HTMLResponse:
             html = _index_path.read_text(encoding="utf-8")
-            d = json.dumps(get_data()).replace("</", "<\\/")
-            r = json.dumps(get_run_data()).replace("</", "<\\/")
-            e = json.dumps(get_extras()).replace("</", "<\\/")
+            with ThreadPoolExecutor(max_workers=3) as pool:
+                futures = [pool.submit(fn) for fn in (get_data, get_run_data, get_extras)]
+                results = [f.result() for f in futures]
+            d, r, e = [json.dumps(x).replace("</", "<\\/") for x in results]
             script = f"<script>window.DATA={d};window.RUN_DATA={r};window.EXTRAS={e};</script>"
             return HTMLResponse(content=html.replace("</head>", script + "\n</head>", 1))
 
