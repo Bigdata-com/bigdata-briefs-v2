@@ -21,7 +21,7 @@ from bigdata_briefs import logger
 from bigdata_briefs.api.routes.admin import router as admin_router
 from bigdata_briefs.api.routes.batch import router as batch_router
 from bigdata_briefs.api.routes.entities import router as entities_router
-from bigdata_briefs.api.routes.frontend import router as frontend_router, get_data, get_run_data, get_extras, get_portfolio
+from bigdata_briefs.api.routes.frontend import router as frontend_router, get_data, get_run_data, get_extras, get_portfolio, get_companies_summaries
 from bigdata_briefs.api.routes.rate import router as rate_router
 from bigdata_briefs.api.routes.report import router as report_router
 from bigdata_briefs.api.routes.scan import router as scan_router
@@ -47,6 +47,9 @@ def _build_desk_html() -> str:
     html = _DESK_INDEX.read_text(encoding="utf-8")
     data = get_data()
     data["portfolio"] = get_portfolio().get("portfolio", [])
+    # Override companySummaries with the richer version that includes hasRunOnDate
+    summaries = get_companies_summaries()
+    data["companySummaries"] = summaries.get("summaries", data.get("companySummaries", {}))
     d = json.dumps(data).replace("</", "<\\/")
     script = f"<script>window.DATA={d};window.RUN_DATA={{}};window.EXTRAS={{}};</script>"
     return html.replace("</head>", script + "\n</head>", 1)
