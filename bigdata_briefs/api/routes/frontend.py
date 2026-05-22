@@ -1790,10 +1790,15 @@ def get_related_briefs(entity_id: str, date: str) -> dict:
 
 # ── Portfolio Brief ──────────────────────────────────────────────────────────
 
+# Configurable: number of bullet points shown per company in the bullets view
+PORTFOLIO_BRIEF_BULLETS_PER_COMPANY = 3
+
+
 @router.get("/portfolio-brief")
 def get_portfolio_brief(date: str | None = None, top_n: int = 5) -> dict:
     """Return the cached portfolio narrative generated after the most recent batch run."""
     from bigdata_briefs.orchestration.models import SQLPortfolioBrief
+    from datetime import date as _date
     engine = get_engine()
     with Session(engine) as session:
         if date:
@@ -1805,25 +1810,62 @@ def get_portfolio_brief(date: str | None = None, top_n: int = 5) -> dict:
             target_date = latest_brief.date if latest_brief else None
 
         if not target_date:
-            return {"narrative": None, "date": None, "companies": [], "generated_at": None}
+            return {"narrative": None, "date": None, "companies": [], "bullets_by_company": [], "generated_at": None}
 
         cached = session.exec(
             select(SQLPortfolioBrief).where(SQLPortfolioBrief.date == target_date)
         ).first()
         if not cached:
-            return {"narrative": None, "date": target_date, "companies": [], "generated_at": None}
+            return {"narrative": None, "date": target_date, "companies": [], "bullets_by_company": [], "generated_at": None}
 
         try:
             companies = json.loads(cached.companies_json)
         except Exception:
             companies = []
 
+        # Fetch top Y active bullets per company from SQLBulletRunLog
+        td = _date.fromisoformat(target_date)
+        day_start = datetime(td.year, td.month, td.day, 0, 0, 0)
+        day_end   = datetime(td.year, td.month, td.day, 23, 59, 59)
+        bullets_by_company = []
+        for c in companies:
+            eid = c.get("entityId")
+            if not eid:
+                continue
+            run = session.exec(
+                select(SQLEntityPipelineRunLog)
+                .where(
+                    SQLEntityPipelineRunLog.entity_id == eid,
+                    SQLEntityPipelineRunLog.status == "succeeded",
+                    SQLEntityPipelineRunLog.report_window_end >= day_start,
+                    SQLEntityPipelineRunLog.report_window_end <= day_end,
+                )
+                .order_by(desc(SQLEntityPipelineRunLog.report_window_end))
+            ).first()
+            if not run:
+                continue
+            bullets = session.exec(
+                select(SQLBulletRunLog)
+                .where(
+                    SQLBulletRunLog.run_id == run.run_id,
+                    SQLBulletRunLog.is_active == True,  # noqa: E712
+                )
+                .limit(PORTFOLIO_BRIEF_BULLETS_PER_COMPANY)
+            ).all()
+            if bullets:
+                bullets_by_company.append({
+                    "name": c.get("name"),
+                    "entityId": eid,
+                    "bullets": [b.text for b in bullets],
+                })
+
         return {
-            "narrative":   cached.narrative,
-            "narrative_b": cached.narrative_b,
-            "date":        target_date,
-            "companies":   companies,
-            "generated_at": _iso(cached.generated_at),
+            "narrative":          cached.narrative,
+            "narrative_b":        cached.narrative_b,
+            "date":               target_date,
+            "companies":          companies,
+            "bullets_by_company": bullets_by_company,
+            "generated_at":       _iso(cached.generated_at),
         }
 
 

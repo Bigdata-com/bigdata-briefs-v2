@@ -684,7 +684,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
                 <MetricRow label="vs. 1-month (z)" value={_fmtZ(last.chunks_zscore_mo)} interp={_interpZ(last.chunks_zscore_mo)} color={_col(last.chunks_zscore_mo)} />
                 <MetricRow label="vs. 1-quarter (z)" value={_fmtZ(last.chunks_zscore_qt)} interp={_interpZ(last.chunks_zscore_qt)} color={_col(last.chunks_zscore_qt)} />
 
-                <hr className="rule" style={{ margin: "10px 0" }} />
+                <div style={{ marginTop: 10 }} />
 
                 {/* Sentiment sparkline — diverging area with min/max gutter */}
                 <div className="pulse-label">Sentiment</div>
@@ -699,9 +699,9 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
                   const num  = (v, d = 3) => v == null ? "—" : sgn(v) + Math.abs(v).toFixed(d);
                   return (
                     <div className="pulse-caption">
-                      <span>min <b style={{ color: "var(--discard)" }}>{num(sMin)}</b></span>
+                      <span>min <b style={{ color: sMin >= 0 ? "var(--novel)" : "var(--discard)" }}>{num(sMin)}</b></span>
                       <span>now <b style={{ color: sNow >= 0 ? "var(--novel)" : "var(--discard)" }}>{num(sNow)}</b></span>
-                      <span>max <b style={{ color: "var(--novel)" }}>{num(sMax)}</b></span>
+                      <span>max <b style={{ color: sMax >= 0 ? "var(--novel)" : "var(--discard)" }}>{num(sMax)}</b></span>
                     </div>
                   );
                 })()}
@@ -948,6 +948,8 @@ function ArchiveBulletItem({ bullet, index }) {
 // ── Brief landing ─────────────────────────────────────────
 // Two-column split: Portfolio Brief narrative on the left, company picker on the right.
 function BriefLanding({ loading, companies, allCompanies, summaries, onPick, companySearch, setCompanySearch, selectedDate, briefLayout, setBriefLayout }) {
+  const [pbView, setPbView] = React.useState("summary"); // "summary" | "bullets"
+
   // Stats are always computed from the full (unfiltered) company list for the selected date
   const _statsBase = (allCompanies || companies).filter(c => summaries[c.id]?.hasRunOnDate === true);
   const ranToday = _statsBase;
@@ -1164,7 +1166,13 @@ function BriefLanding({ loading, companies, allCompanies, summaries, onPick, com
 
       {/* RIGHT: Portfolio Brief */}
       <section className="portfolio-brief" ref={leftRef}>
-        <div className="pb-eyebrow">Portfolio Brief{dateLabel ? ` — ${dateLabel}` : ""}</div>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+          <div className="pb-eyebrow">Portfolio Brief{dateLabel ? ` — ${dateLabel}` : ""}</div>
+          <div className="pb-view-toggle">
+            <button className={"pb-view-btn" + (pbView === "summary" ? " active" : "")} onClick={() => setPbView("summary")}>Summary</button>
+            <button className={"pb-view-btn" + (pbView === "bullets" ? " active" : "")} onClick={() => setPbView("bullets")}>Bullet Points</button>
+          </div>
+        </div>
         <h1 className="pb-title">Where the news moved.</h1>
         <p className="pb-subtitle">The most active names in your portfolio today — short reads, one per company.</p>
 
@@ -1177,35 +1185,41 @@ function BriefLanding({ loading, companies, allCompanies, summaries, onPick, com
         <div className="pb-narrative">
           {briefLoading
             ? null
-            : narrativeText
-              ? (() => {
-                  const _companyById = {};
-                  (portfolioBrief?.companies || []).forEach(c => { _companyById[c.name] = c.entityId; });
-                  return narrativeText.split("\n\n").map((section, i) => {
-                    const nl = section.indexOf("\n");
-                    const company = nl === -1 ? section : section.slice(0, nl);
-                    const bullets = nl === -1 ? "" : section.slice(nl + 1);
-                    const entityId = _companyById[company];
-                    const _go = entityId ? () => onPick(entityId, null) : null;
-                    return (
-                      <div key={i} className="pb-narrative-section">
-                        <div
-                          className={"pb-narrative-company" + (entityId ? " pb-narrative-company--link" : "")}
-                          onClick={_go}
-                          style={entityId ? { cursor: "pointer" } : {}}
-                        >{company}</div>
-                        {bullets && (
-                          <p
-                            className="pb-narrative-bullets"
-                            onClick={_go}
-                            style={entityId ? { cursor: "pointer" } : {}}
-                          >{bullets}</p>
-                        )}
-                      </div>
-                    );
-                  });
-                })()
-              : <span style={{ color: "var(--ink-mute)", fontStyle: "italic" }}>No portfolio brief available yet — will be generated after the next run.</span>
+            : pbView === "summary"
+              ? (narrativeText
+                  ? (() => {
+                      const _companyById = {};
+                      (portfolioBrief?.companies || []).forEach(c => { _companyById[c.name] = c.entityId; });
+                      return narrativeText.split("\n\n").map((section, i) => {
+                        const nl = section.indexOf("\n");
+                        const company = nl === -1 ? section : section.slice(0, nl);
+                        const body = nl === -1 ? "" : section.slice(nl + 1);
+                        const entityId = _companyById[company];
+                        const _go = entityId ? () => onPick(entityId, null) : null;
+                        return (
+                          <div key={i} className="pb-narrative-section">
+                            <div className={"pb-narrative-company" + (entityId ? " pb-narrative-company--link" : "")} onClick={_go} style={entityId ? { cursor: "pointer" } : {}}>{company}</div>
+                            {body && <p className="pb-narrative-bullets" onClick={_go} style={entityId ? { cursor: "pointer" } : {}}>{body}</p>}
+                          </div>
+                        );
+                      });
+                    })()
+                  : <span style={{ color: "var(--ink-mute)", fontStyle: "italic" }}>No portfolio brief available yet — will be generated after the next run.</span>
+                )
+              : ((portfolioBrief?.bullets_by_company || []).length > 0
+                  ? (portfolioBrief.bullets_by_company).map((c, i) => {
+                      const _go = c.entityId ? () => onPick(c.entityId, null) : null;
+                      return (
+                        <div key={i} className="pb-narrative-section">
+                          <div className={"pb-narrative-company" + (c.entityId ? " pb-narrative-company--link" : "")} onClick={_go} style={c.entityId ? { cursor: "pointer" } : {}}>{c.name}</div>
+                          <ul className="pb-bullets-list">
+                            {c.bullets.map((b, j) => <li key={j} className="pb-bullet-item" onClick={_go} style={c.entityId ? { cursor: "pointer" } : {}}>{b}</li>)}
+                          </ul>
+                        </div>
+                      );
+                    })
+                  : <span style={{ color: "var(--ink-mute)", fontStyle: "italic" }}>No bullet points available yet.</span>
+                )
           }
         </div>
 
