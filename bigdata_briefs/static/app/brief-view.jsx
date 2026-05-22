@@ -61,7 +61,7 @@ function BriefWindowBand({ start, end }) {
   );
 }
 
-function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView, view, briefLayout, setBriefLayout }) {
+function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView, view, briefLayout, setBriefLayout, appLandingSummaries, appEvents }) {
   const initialBrief = window.DATA.todaysBrief;
   const initialDates = window.DATA.availableDates || [];
   const initialDate = initialBrief?.windowEnd?.slice(0, 10) || initialDates[initialDates.length - 1] || null;
@@ -74,7 +74,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
   const [availableDates, setAvailableDates] = React.useState(initialDates);
   const [selectedDate, setSelectedDate] = React.useState(initialDate);
   const [companySummaries, setCompanySummaries] = React.useState(window.DATA.companySummaries || {});
-  const [landingSummaries, setLandingSummaries] = React.useState(window.DATA.companySummaries || {});
+  const landingSummaries = appLandingSummaries || window.DATA.companySummaries || {};
   const [loading, setLoading] = React.useState(false);
   const [activeBulletId, setActiveBulletId] = React.useState(null);
   const [filterTheme, setFilterTheme] = React.useState(null);
@@ -205,14 +205,6 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
       .catch(console.error);
   }
 
-  // Landing summaries: always latest day, independent of selectedDate
-  React.useEffect(() => {
-    fetch("/api/frontend/companies/summaries")
-      .then(r => r.json())
-      .then(data => { if (data.summaries) setLandingSummaries(data.summaries); })
-      .catch(console.error);
-  }, []);
-
   React.useEffect(() => {
     if (selectedDate) refreshSidebar(selectedDate);
   }, [selectedDate]);
@@ -300,6 +292,8 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
       selectedDate={selectedDate}
       briefLayout={briefLayout}
       setBriefLayout={setBriefLayout}
+      upcomingEvents={appEvents}
+      eventsLoading={appEvents === null}
     />;
   }
 
@@ -947,7 +941,7 @@ function ArchiveBulletItem({ bullet, index }) {
 
 // ── Brief landing ─────────────────────────────────────────
 // Two-column split: Portfolio Brief narrative on the left, company picker on the right.
-function BriefLanding({ loading, companies, allCompanies, summaries, onPick, companySearch, setCompanySearch, selectedDate, briefLayout, setBriefLayout }) {
+function BriefLanding({ loading, companies, allCompanies, summaries, onPick, companySearch, setCompanySearch, selectedDate, briefLayout, setBriefLayout, upcomingEvents, eventsLoading }) {
   const [pbView, setPbView] = React.useState("bullets"); // "bullets" | "summary"
 
   // Stats are always computed from the full (unfiltered) company list for the selected date
@@ -976,10 +970,6 @@ function BriefLanding({ loading, companies, allCompanies, summaries, onPick, com
     });
   }, [portfolioBrief?.date]);
 
-  // Upcoming events state
-  const [upcomingEvents, setUpcomingEvents] = React.useState(null);
-  const [eventsLoading, setEventsLoading] = React.useState(false);
-
   // Fetch portfolio brief — always uses most recent date (no date param)
   React.useEffect(() => {
     setBriefLoading(true);
@@ -989,17 +979,6 @@ function BriefLanding({ loading, companies, allCompanies, summaries, onPick, com
       .catch(() => setPortfolioBrief(null))
       .finally(() => setBriefLoading(false));
   }, []);
-
-  // Fetch upcoming events
-  React.useEffect(() => {
-    setEventsLoading(true);
-    const params = selectedDate ? `?date=${encodeURIComponent(selectedDate)}&limit=8` : "?limit=8";
-    fetch(`/api/frontend/upcoming-events${params}`)
-      .then(r => r.json())
-      .then(data => setUpcomingEvents(data))
-      .catch(() => setUpcomingEvents(null))
-      .finally(() => setEventsLoading(false));
-  }, [selectedDate]);
 
   function _fmtEventDateTime(iso) {
     if (!iso) return { date: "—", time: "" };

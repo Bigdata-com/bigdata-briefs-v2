@@ -1176,6 +1176,19 @@ def get_extras() -> dict:
     }
 
 
+@router.get("/last-run-date")
+def get_last_run_date() -> dict:
+    engine = get_engine()
+    with Session(engine) as session:
+        latest = session.exec(
+            select(SQLEntityPipelineRunLog)
+            .where(SQLEntityPipelineRunLog.status.in_(["succeeded", "no_data"]))
+            .order_by(desc(SQLEntityPipelineRunLog.report_window_end))
+        ).first()
+        date = latest.report_window_end.date().isoformat() if latest and latest.report_window_end else None
+    return {"date": date}
+
+
 @router.get("/companies/summaries")
 def get_companies_summaries(date: str | None = None) -> dict:
     """Return per-company sidebar summaries for a given window date (YYYY-MM-DD).

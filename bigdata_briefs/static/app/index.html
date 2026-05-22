@@ -60,6 +60,50 @@
       const [view, setView] = useState("brief");
       const [showDiscarded, setShowDiscarded] = useState(t.showDiscarded);
 
+      // Lifted shared state: landing summaries, upcoming events, last run date
+      const [appLandingSummaries, setAppLandingSummaries] = useState(window.DATA.companySummaries || {});
+      const [appEvents, setAppEvents] = useState(null);
+      const [lastRunDate, setLastRunDate] = useState(null);
+
+      function fetchAppData() {
+        fetch("/api/frontend/companies/summaries")
+          .then(r => r.json())
+          .then(data => { if (data.summaries) setAppLandingSummaries(data.summaries); })
+          .catch(() => {});
+        const selectedDate = (window.DATA.todaysBrief?.windowEnd || "").slice(0, 10) || null;
+        const params = selectedDate ? `?date=${encodeURIComponent(selectedDate)}&limit=8` : "?limit=8";
+        fetch(`/api/frontend/upcoming-events${params}`)
+          .then(r => r.json())
+          .then(data => setAppEvents(data))
+          .catch(() => {});
+        fetch("/api/frontend/last-run-date")
+          .then(r => r.json())
+          .then(data => setLastRunDate(data.date || null))
+          .catch(() => {});
+      }
+
+      // Initial data load
+      useEffect(() => { fetchAppData(); }, []);
+
+      // Refresh on tab focus if the run date has changed
+      useEffect(() => {
+        function onVisibility() {
+          if (document.visibilityState !== "visible") return;
+          fetch("/api/frontend/last-run-date")
+            .then(r => r.json())
+            .then(data => {
+              const newDate = data.date || null;
+              if (newDate && newDate !== lastRunDate) {
+                setLastRunDate(newDate);
+                fetchAppData();
+              }
+            })
+            .catch(() => {});
+        }
+        document.addEventListener("visibilitychange", onVisibility);
+        return () => document.removeEventListener("visibilitychange", onVisibility);
+      }, [lastRunDate]);
+
       // Theme + accent + font scale applied to the document root
       useEffect(() => {
         document.documentElement.dataset.theme = t.dark ? "dark" : "light";
@@ -96,6 +140,8 @@
                   view={view}
                   briefLayout="below"
                   setBriefLayout={() => {}}
+                  appLandingSummaries={appLandingSummaries}
+                  appEvents={appEvents}
                 />
               )}
               {view === "history"   && <ArchiveView tweaks={t} />}
