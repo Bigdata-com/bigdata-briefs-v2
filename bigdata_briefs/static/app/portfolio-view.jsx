@@ -4,15 +4,15 @@
 
 const { useState: useStateP, useEffect: useEffectP, useRef: useRefP } = React;
 
-function PortfolioView({ tweaks }) {
+function PortfolioView({ tweaks, appPortfolio }) {
   const today = new Date().toISOString().slice(0, 10);
   const now = new Date();
   const hh = String(now.getHours()).padStart(2, "0");
   const mm = String(now.getMinutes()).padStart(2, "0");
 
   // portfolio: array of {entity_id, entity_name, kg_ticker} objects (loaded from API)
-  const [portfolio, setPortfolio] = useStateP([]);
-  const [portfolioLoaded, setPortfolioLoaded] = useStateP(false);
+  const [portfolio, setPortfolio] = useStateP(appPortfolio || []);
+  const [portfolioLoaded, setPortfolioLoaded] = useStateP(appPortfolio !== null);
   const [allCandidates, setAllCandidates] = useStateP([]);
   const [search, setSearch] = useStateP("");
   const [showResults, setShowResults] = useStateP(false);
@@ -24,13 +24,15 @@ function PortfolioView({ tweaks }) {
 
   // Load portfolio and universe candidates on mount
   useEffectP(() => {
-    fetch("/api/frontend/portfolio")
-      .then(r => r.json())
-      .then(data => {
-        setPortfolio(data.portfolio || []);
-        setPortfolioLoaded(true);
-      })
-      .catch(() => setPortfolioLoaded(true));
+    if (!appPortfolio) {
+      fetch("/api/frontend/portfolio")
+        .then(r => r.json())
+        .then(data => {
+          setPortfolio(data.portfolio || []);
+          setPortfolioLoaded(true);
+        })
+        .catch(() => setPortfolioLoaded(true));
+    }
 
     fetch("/api/frontend/portfolio/candidates")
       .then(r => r.json())
