@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -18,7 +19,7 @@ from bigdata_briefs import logger
 from bigdata_briefs.api.routes.admin import router as admin_router
 from bigdata_briefs.api.routes.batch import router as batch_router
 from bigdata_briefs.api.routes.entities import router as entities_router
-from bigdata_briefs.api.routes.frontend import router as frontend_router
+from bigdata_briefs.api.routes.frontend import router as frontend_router, get_data, get_run_data, get_extras
 from bigdata_briefs.api.routes.rate import router as rate_router
 from bigdata_briefs.api.routes.report import router as report_router
 from bigdata_briefs.api.routes.scan import router as scan_router
@@ -105,9 +106,27 @@ def create_app() -> FastAPI:
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
     # React frontend — served at /app/desk
+    # Routes are defined BEFORE the StaticFiles mount so they take priority.
+    # The routes inject window.DATA/RUN_DATA/EXTRAS server-side, replacing the
+    # three blocking synchronous XHR calls that were in data.js/run-data.js/extras-data.js.
     app_dir = _PACKAGE_DIR / "static" / "app"
     if app_dir.is_dir():
-        app.mount("/app/desk", StaticFiles(directory=str(app_dir), html=True), name="app")
+        _index_path = app_dir / "index.html"
+
+        def _desk_response() -> HTMLResponse:
+            html = _index_path.read_text(encoding="utf-8")
+            d = json.dumps(get_data()).replace("</", "<\\/")
+            r = json.dumps(get_run_data()).replace("</", "<\\/")
+            e = json.dumps(get_extras()).replace("</", "<\\/")
+            script = f"<script>window.DATA={d};window.RUN_DATA={r};window.EXTRAS={e};</script>"
+            return HTMLResponse(content=html.replace("</head>", script + "\n</head>", 1))
+
+        @app.get("/app/desk", include_in_schema=False)
+        @app.get("/app/desk/", include_in_schema=False)
+        def app_desk() -> HTMLResponse:
+            return _desk_response()
+
+        app.mount("/app/desk", StaticFiles(directory=str(app_dir)), name="app")
 
     # Landing pages — served at /landing/* and at /app (product page as entry point)
     landing_dir = _PACKAGE_DIR / "static" / "landing"
