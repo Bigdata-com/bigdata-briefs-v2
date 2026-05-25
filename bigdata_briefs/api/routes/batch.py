@@ -520,6 +520,12 @@ def batch_run_parallel(
                             )
                     except Exception:
                         logger.exception("Post-batch pipeline (signals + portfolio brief) failed")
+                        return
+                    try:
+                        from bigdata_briefs.api.app import invalidate_desk_cache
+                        invalidate_desk_cache()
+                    except Exception:
+                        logger.exception("Desk cache invalidation after batch failed")
 
                 _threading.Thread(target=_post_batch_pipeline, daemon=True).start()
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import threading
-import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -39,8 +38,7 @@ BIGDATA_RATE_RETRY_SECONDS = 1.0
 
 _PACKAGE_DIR = Path(__file__).resolve().parent.parent
 _DESK_INDEX = _PACKAGE_DIR / "static" / "app" / "index.html"
-_DESK_CACHE: dict = {"content": None, "ts": 0.0}
-_DESK_TTL = 120  # seconds — temporary for testing, increase to 3600 after
+_DESK_CACHE: dict = {"content": None}
 
 
 def _build_desk_html() -> str:
@@ -57,14 +55,19 @@ def _build_desk_html() -> str:
 
 
 def _desk_html() -> str:
-    """Return cached desk HTML, rebuilding if stale."""
-    now = time.time()
-    if _DESK_CACHE["content"] and now - _DESK_CACHE["ts"] < _DESK_TTL:
+    """Return cached desk HTML. Cache is permanent until invalidated by invalidate_desk_cache()."""
+    if _DESK_CACHE["content"] is not None:
         return _DESK_CACHE["content"]
     content = _build_desk_html()
     _DESK_CACHE["content"] = content
-    _DESK_CACHE["ts"] = now
     return content
+
+
+def invalidate_desk_cache() -> None:
+    """Invalidate the desk HTML cache and pre-warm it in background. Called after a pipeline run completes."""
+    _DESK_CACHE["content"] = None
+    threading.Thread(target=_desk_html, daemon=True, name="desk-cache-rewarm").start()
+    logger.info("Desk cache invalidated and pre-warm started")
 
 
 @asynccontextmanager

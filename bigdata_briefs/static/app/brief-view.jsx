@@ -75,6 +75,7 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
   const [selectedDate, setSelectedDate] = React.useState(initialDate);
   const [companySummaries, setCompanySummaries] = React.useState(window.DATA.companySummaries || {});
   const landingSummaries = appLandingSummaries || window.DATA.companySummaries || {};
+  const _summariesDateRef = React.useRef(initialDate); // tracks which date companySummaries currently reflects
   const [loading, setLoading] = React.useState(false);
   const [activeBulletId, setActiveBulletId] = React.useState(null);
   const [filterTheme, setFilterTheme] = React.useState(null);
@@ -191,12 +192,17 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
     const url = `/api/frontend/companies/summaries` + (date ? `?date=${date}` : "");
     fetch(url)
       .then(r => r.json())
-      .then(data => { if (data.summaries) setCompanySummaries(data.summaries); })
+      .then(data => {
+        if (data.summaries) {
+          setCompanySummaries(data.summaries);
+          _summariesDateRef.current = date;
+        }
+      })
       .catch(console.error);
   }
 
   React.useEffect(() => {
-    if (selectedDate) refreshSidebar(selectedDate);
+    if (selectedDate && selectedDate !== _summariesDateRef.current) refreshSidebar(selectedDate);
   }, [selectedDate]);
 
   React.useEffect(() => {
