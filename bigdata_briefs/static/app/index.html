@@ -66,10 +66,11 @@
       const [appPortfolio, setAppPortfolio] = useState(_initialPortfolio);
       const [appLandingSummaries, setAppLandingSummaries] = useState(window.DATA.companySummaries || {});
       const [appEvents, setAppEvents] = useState(null);
-      const [lastRunDate, setLastRunDate] = useState(null);
+      const [lastRunDate, setLastRunDate] = useState(window.DATA.lastRunDate || null);
       const [appCostData, setAppCostData] = useState(window.EXTRAS?.cost || null);
       const [appEntityRuns, setAppEntityRuns] = useState([]);
 
+      // Full refresh — called on visibility change when run date has changed
       function fetchAppData() {
         fetch("/api/frontend/portfolio")
           .then(r => r.json())
@@ -78,20 +79,21 @@
             setAppPortfolio(list);
             setAppPortfolioIds(new Set(list.map(p => p.entity_id)));
           })
-          .catch(() => { setAppPortfolio([]); setAppPortfolioIds(new Set()); });
+          .catch(() => {});
         fetch("/api/frontend/companies/summaries")
           .then(r => r.json())
           .then(data => { if (data.summaries) setAppLandingSummaries(data.summaries); })
           .catch(() => {});
+        _fetchSecondaryData();
+      }
+
+      // Fetch data not available in window.DATA (events, cost, last-run-date)
+      function _fetchSecondaryData() {
         const selectedDate = (window.DATA.todaysBrief?.windowEnd || "").slice(0, 10) || null;
         const params = selectedDate ? `?date=${encodeURIComponent(selectedDate)}&limit=8` : "?limit=8";
         fetch(`/api/frontend/upcoming-events${params}`)
           .then(r => r.json())
           .then(data => setAppEvents(data))
-          .catch(() => {});
-        fetch("/api/frontend/last-run-date")
-          .then(r => r.json())
-          .then(data => setLastRunDate(data.date || null))
           .catch(() => {});
         fetch("/api/frontend/cost/breakdown")
           .then(r => r.json())
@@ -110,8 +112,8 @@
           .catch(() => {});
       }
 
-      // Initial data load
-      useEffect(() => { fetchAppData(); }, []);
+      // On mount: only fetch data NOT already in window.DATA (events, cost)
+      useEffect(() => { _fetchSecondaryData(); }, []);
 
       // Refresh on tab focus if the run date has changed
       useEffect(() => {

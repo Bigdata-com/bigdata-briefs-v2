@@ -50,6 +50,7 @@ def _build_desk_html() -> str:
     # Override companySummaries with the richer version that includes hasRunOnDate
     summaries = get_companies_summaries()
     data["companySummaries"] = summaries.get("summaries", data.get("companySummaries", {}))
+    data["lastRunDate"] = summaries.get("date")
     d = json.dumps(data).replace("</", "<\\/")
     script = f"<script>window.DATA={d};window.RUN_DATA={{}};window.EXTRAS={{}};</script>"
     return html.replace("</head>", script + "\n</head>", 1)
