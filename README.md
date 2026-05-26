@@ -94,46 +94,38 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
 > `entity_ids` and `universe` are mutually exclusive. Omit both to run every entity tracked in the database.  
 > Omit `force_window_start` / `force_window_end` to use the automatic incremental window (see [Window modes](#window-modes) below).
 
-#### `POST /api/v1/batch/run`
-
-Same as `run-parallel` but processes entities **sequentially** one after the other. Useful for controlled, lower-concurrency runs.
-
-```bash
-curl -X POST http://localhost:8000/api/v1/batch/run \
-  -H "Content-Type: application/json" \
-  -d '{
-    "entity_ids": ["0157B1", "D64C6D"],
-    "force_window_start": "2026-04-22T00:00:00",
-    "force_window_end": "2026-04-22T23:59:59"
-  }'
-```
-
 ### Monitor a batch
 
 #### `GET /api/v1/batch/parallel/{batch_id}/status`
 
-Returns the real-time status of a batch submitted via `run-parallel`.
+Returns the real-time status of a batch submitted via `run-parallel`. Reports per-entity counts of `running`, `succeeded`, `failed`, and `not_started`.
 
 ```bash
 curl http://localhost:8000/api/v1/batch/parallel/3f8a1c2d-.../status
 ```
 
+#### `GET /api/v1/runs/{run_id}`
+
+Returns the status of a single pipeline run — its window, start/end timestamps, and any error message or exit code if the run failed.
+
+```bash
+curl http://localhost:8000/api/v1/runs/3f8a1c2d-...
+```
+
 ### Daily tracking
 
-For recurring monitoring of a portfolio, two patterns are available: **update** and **scan**.
+For recurring monitoring of a portfolio, two patterns are available: **daily update** and **scan**.
 
-#### `POST /api/v1/batch/run-parallel` with `window_mode: update`
+#### `POST /api/v1/batch/run-parallel` with `window_mode: daily`
 
-`update` is the standard pattern for keeping coverage current. Each run covers at most the 24 hours preceding the run time — extended to 72 hours on Mondays (UTC) to bridge the weekend gap. If a previous run exists and its end timestamp falls within that lookback window, the new run starts from there.
-
-This makes `update` self-initializing: the first call for a new entity produces the first brief; subsequent daily calls continue seamlessly from where the last run ended.
+`daily` is the standard pattern for keeping coverage current. Each run covers `[UTC midnight of today → now]`. If the pipeline already ran today, it resumes from exactly where that run ended. If the last run was yesterday or earlier, it always resets to midnight of today.
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
   -H "Content-Type: application/json" \
   -d '{
     "universe": "dow_30",
-    "window_mode": "update",
+    "window_mode": "daily",
     "categories": ["news"]
   }'
 ```
@@ -179,8 +171,8 @@ curl -X POST http://localhost:8000/api/v1/scan \
   -H "Content-Type: application/json" \
   -d '{
     "universe": "dow_30",
-    "start_date": "2026-04-01T00:00:00",
-    "end_date": "2026-04-30T23:59:59",
+    "start_date": "2026-04-01",
+    "end_date": "2026-04-30",
     "source_categories": ["news"]
   }'
 
@@ -189,48 +181,107 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
   -H "Content-Type: application/json" \
   -d '{
     "universe": "dow_30",
-    "window_mode": "update",
+    "window_mode": "daily",
     "categories": ["news"]
   }'
 ```
 
 ### Retrieve results
 
-#### `POST /api/v1/batch/bullets`
+The `/reports/` namespace groups all read-only endpoints that query bullet data from the database. These endpoints never trigger any pipeline work — they only read what has already been stored.
 
-Returns the published bullet points for one or more entities, grouped by run. Each bullet includes the final text, source citations (headline, chunk text), and novelty metadata (`search_action`, `not_fully_novel`). Pass an empty `entity_ids` list to retrieve all entities in the database.
+#### `POST /api/v1/reports/bullets`
+
+Returns the **published** bullet points for one or more entities, grouped by run. Each bullet includes the final text, source citations (headline, chunk text), and novelty metadata (`search_action`, `not_fully_novel`). Pass an empty `entity_ids` list to retrieve all entities in the database.
+
+The optional `max_runs` parameter controls how many runs per entity are returned (newest first):
+- Omit (or `null`) → all runs
+- `1` → latest run only
+- `N` → last N runs
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/batch/bullets \
+# Latest run only for two entities
+curl -X POST http://localhost:8000/api/v1/reports/bullets \
   -H "Content-Type: application/json" \
-  -d '{"entity_ids": ["0157B1", "D64C6D"]}'
+  -d '{"entity_ids": ["0157B1", "D64C6D"], "max_runs": 1}'
+
+# All runs for all entities in the database
+curl -X POST http://localhost:8000/api/v1/reports/bullets \
+  -H "Content-Type: application/json" \
+  -d '{}'
 ```
 
-#### `POST /api/v1/batch/bullets/detail`
+#### `POST /api/v1/reports/bullets/detail`
 
-Returns every bullet considered by the pipeline — both published and discarded — for one or more entities. For discarded bullets, includes the stage that eliminated them and the specific reason for that decision:
+Returns **every bullet considered** by the pipeline — both published and discarded — for one or more entities. For discarded bullets, includes the stage that eliminated them and the specific reason for that decision:
 
 - `relevance_score`: scored too low on financial materiality
 - `grounding`: text not verifiable against cited sources
-- `novelty_embedding`: already reported in a previous run
+- `novelty_embedding`: already reported in a previous run (embedding match)
 - `novelty_search`: per-claim verdicts with the evidence chunks that already covered the information
 
-Accepts optional `from_date` and `to_date` filters (ISO 8601).
+Accepts optional `from_date` and `to_date` filters (ISO 8601) to restrict the date range of runs returned.
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/batch/bullets/detail \
+curl -X POST http://localhost:8000/api/v1/reports/bullets/detail \
   -H "Content-Type: application/json" \
-  -d '{"entity_ids": ["0157B1"]}'
+  -d '{
+    "entity_ids": ["0157B1"],
+    "from_date": "2026-04-01T00:00:00",
+    "to_date": "2026-04-30T23:59:59"
+  }'
 ```
 
-### HTML report
+#### `GET /api/v1/reports/runs/{run_id}/trace`
 
-#### `GET /api/v1/report/html`
+Returns a **step-by-step trace** of every bullet that passed through the pipeline during a specific run. For each bullet, the trace records:
 
-Generates a self-contained HTML page. Published bullets are shown in **green** (fully novel) or **amber** (partially novel, rewritten to surface the new element). Discarded bullets are grouped under a collapsible section showing the reason, stage, and (for novelty search discards) the prior evidence that already covered each claim.
+- `relevance_scoring`: score and reason from the materiality check
+- `grounding`: validation decision and reason
+- `embedding`: LLM judgment from the embedding novelty step, including similar past bullets found
+- `search`: claim-level novelty verdicts from the search novelty step, including any rewrite
+- `failure`: error detail if the bullet caused an unexpected exception
 
+This is the most granular view of what the pipeline did and why. Useful for debugging a run or understanding why a specific bullet was discarded or rewritten.
+
+```bash
+curl http://localhost:8000/api/v1/reports/runs/3f8a1c2d-.../trace
 ```
-http://localhost:8000/api/v1/report/html?entity_id=0157B1
+
+### Entity history
+
+#### `GET /api/v1/entities/{entity_id}/runs`
+
+Returns the run history for a single entity — a paginated list of runs with their window, status, timestamps, and any error message. Useful for checking when an entity was last processed and whether previous runs succeeded.
+
+```bash
+curl http://localhost:8000/api/v1/entities/0157B1/runs
+```
+
+#### `DELETE /api/v1/entities/{entity_id}`
+
+Permanently removes all data for an entity from the database: run logs, bullet points, embeddings, and orchestration state. Returns a breakdown of how many rows were deleted per table.
+
+```bash
+curl -X DELETE http://localhost:8000/api/v1/entities/0157B1
+```
+
+### Universes
+
+#### `GET /api/v1/universes`
+
+Returns all registered universe names and their entity counts.
+
+```bash
+curl http://localhost:8000/api/v1/universes
+```
+
+#### `GET /api/v1/universes/{name}`
+
+Returns the full list of entity IDs in a named universe.
+
+```bash
+curl http://localhost:8000/api/v1/universes/dow_30
 ```
 
 ### Administration
@@ -251,13 +302,19 @@ Resets rows stuck in `running` status after a service crash. Rows older than the
 curl -X POST http://localhost:8000/api/v1/admin/clear-stale-runs
 ```
 
+#### `POST /api/v1/admin/delete-date`
+
+Deletes all pipeline runs whose window falls on a specific calendar date. Useful for reprocessing a date from scratch — call this first, then re-submit the same date via `run-parallel`.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/admin/delete-date \
+  -H "Content-Type: application/json" \
+  -d '{"date": "2026-04-22"}'
+```
+
 ## Window modes
 
 Every run covers a time window `[start, end)`. You can specify it explicitly with `force_window_start` / `force_window_end`, or let the pipeline compute it automatically via `window_mode`.
-
-### `update` (recommended for daily monitoring)
-
-Covers at most the 24 hours preceding the run time, extended to 72 hours on Mondays to bridge the weekend gap. If a previous run exists and its end timestamp falls within that lookback window, starts from there instead.
 
 ### `daily` (default)
 
@@ -266,6 +323,8 @@ Covers `[UTC midnight of today → now]`.
 - If the pipeline already ran **today**, it resumes from exactly where that run ended.
 - If the last run was **yesterday or earlier**, it always resets to midnight of today.
 
+This is the recommended mode for standard day-by-day monitoring. Each day's run is self-contained and deterministic: it always covers today's events, with no gaps but no overlap with prior days.
+
 ### `continuous`
 
 Covers `[end of last run → now]`.
@@ -273,14 +332,14 @@ Covers `[end of last run → now]`.
 - If the last run was yesterday at 18:00, today's run covers from 18:00 yesterday to now: no gap, no reset.
 - If no previous run exists, falls back to `[UTC midnight of today → now]`.
 
-| | `update` | `daily` | `continuous` |
-|---|---|---|---|
-| No previous run | `[now − 24h → now]` | `[today midnight → now]` | `[today midnight → now]` |
-| Last run was today at 09:00 | `[09:00 → now]` | `[09:00 → now]` | `[09:00 → now]` |
-| Last run was yesterday at 18:00 | `[yesterday 18:00 → now]` | `[today midnight → now]` | `[yesterday 18:00 → now]` |
-| Last run was 3 days ago | `[now − 24h → now]` | `[today midnight → now]` | `[3 days ago end → now]` |
+Use this mode when you need a guaranteed gap-free timeline across consecutive runs regardless of when they triggered.
 
-Use `update` for standard day-by-day monitoring. Use `daily` when you want a hard reset to midnight of today regardless of prior runs. Use `continuous` when you need a gap-free timeline across runs regardless of when they last triggered.
+| | `daily` | `continuous` |
+|---|---|---|
+| No previous run | `[today midnight → now]` | `[today midnight → now]` |
+| Last run was today at 09:00 | `[09:00 → now]` | `[09:00 → now]` |
+| Last run was yesterday at 18:00 | `[today midnight → now]` | `[yesterday 18:00 → now]` |
+| Last run was 3 days ago | `[today midnight → now]` | `[3 days ago end → now]` |
 
 > **Overlap protection**: if the requested window overlaps any already-completed run for the same entity, that entity's run is rejected immediately and marked as `failed`. No API or LLM calls are made.
 
@@ -306,6 +365,9 @@ Use `update` for standard day-by-day monitoring. Use `daily` when you want a har
 | `DB_STRING` | SQLite connection string | `sqlite:///briefs.db` |
 | `LLM_TIMEOUT_SECONDS` | LLM call timeout | `60` |
 | `NOVELTY_LOOKBACK_DAYS` | Days of history used for novelty checks | `30` |
+| `PIPELINE_API_KEY` | When set, all write endpoints require this key in the `X-API-Key` header | — |
+| `PUBLIC_MODE` | When `true`, hides sensitive data (raw citations, grounding details) from API responses — safe for shared or external access | `false` |
+| `ENABLE_DOCS` | When `true`, exposes `/docs`, `/redoc`, and `/openapi.json` | `true` |
 
 See `.env.example` for the full list with descriptions.
 
@@ -322,3 +384,6 @@ Call `POST /api/v1/admin/clear-stale-runs` to reset it, then re-submit the entit
 
 **All bullets discarded**  
 Expected when the entity has no materially new information in the requested window relative to prior runs. Try a different date range or run on a day with more news activity for that entity.
+
+**Need to reprocess a specific date**  
+Call `POST /api/v1/admin/delete-date` with the target date, then re-submit via `run-parallel` with `force_window_start` / `force_window_end` set to that day.
