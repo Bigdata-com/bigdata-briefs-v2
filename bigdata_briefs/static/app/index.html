@@ -177,7 +177,7 @@
               )}
               {view === "history"   && <ArchiveView tweaks={t} />}
               {view === "history-details" && <HistoryDetailsView tweaks={t} />}
-              {view === "portfolio" && <PortfolioView tweaks={t} appPortfolio={appPortfolio} />}
+              {view === "portfolio" && <PortfolioView tweaks={t} appPortfolio={appPortfolio} setView={setView} />}
               {view === "cost"      && <CostView tweaks={t} appCostData={appCostData} appEntityRuns={appEntityRuns} />}
             </div>
           </div>

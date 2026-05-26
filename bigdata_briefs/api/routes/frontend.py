@@ -18,9 +18,9 @@ from datetime import date as date_cls, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-import threading
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel as _BaseModel
+from bigdata_briefs.api.auth import require_api_key
 from sqlalchemy import desc
 from sqlmodel import Session, select
 
@@ -1449,154 +1449,6 @@ def get_entity_brief(entity_id: str, date: str | None = None) -> dict:
     }
 
 
-class FrontendRunRequest(_BaseModel):
-    entity_id: str
-    window: str = "24h"          # "24h" = incremental (today UTC / since last run); "custom" = explicit dates
-    custom_start: str | None = None  # YYYY-MM-DD
-    custom_end: str | None = None
-    source_categories: list[str] = ["news"]
-
-
-def _run_worker(
-    entity_id: str,
-    pipeline_config: dict,
-    force_start: datetime | None,
-    force_end: datetime | None,
-    run_id_override: uuid.UUID,
-    engine_str: str,
-) -> None:
-    """Background thread: run the pipeline then generate narrative."""
-    from sqlalchemy import create_engine as _ce
-    from bigdata_briefs.orchestration.entity_runner import run_entity_incremental
-    from bigdata_briefs.orchestration.db import ensure_orchestration_schema
-    from pathlib import Path
-
-    eng = _ce(engine_str, echo=False)
-    ensure_orchestration_schema(eng)
-
-    run_entity_incremental(
-        entity_id=entity_id,
-        pipeline_config=pipeline_config,
-        state_dir=Path(".brief_pipeline_state"),
-        force_window_start=force_start,
-        force_window_end=force_end,
-        force_run=True,
-        engine=eng,
-        run_id=run_id_override,
-    )
-
-
-@router.post("/run")
-def frontend_start_run(body: FrontendRunRequest) -> dict:
-    """Launch a single-entity pipeline run from the React Compose page.
-
-    Returns immediately with ``run_id`` — the caller should poll
-    ``GET /api/frontend/run/{run_id}`` for status.
-    """
-    engine = get_engine()
-
-    # Resolve window dates
-    now = datetime.now(timezone.utc)
-    force_start: datetime | None = None
-    force_end: datetime | None = now
-
-    if body.window == "custom" and body.custom_start and body.custom_end:
-        force_start = datetime.fromisoformat(body.custom_start).replace(
-            hour=0, minute=0, second=0, tzinfo=timezone.utc
-        )
-        force_end = datetime.fromisoformat(body.custom_end).replace(
-            hour=23, minute=59, second=59, tzinfo=timezone.utc
-        )
-    elif body.window == "24h":
-        force_start = None  # incremental default
-        force_end = None
-    # else "custom" without dates → incremental
-
-    # Build pipeline config — categories from source selection
-    from bigdata_briefs.orchestration.config_load import load_pipeline_config_dict, resolve_config_path
-    pipeline_config = load_pipeline_config_dict(resolve_config_path(None))
-    if body.source_categories:
-        pipeline_config["categories"] = body.source_categories
-
-    run_id = uuid.uuid4()
-
-    thread = threading.Thread(
-        target=_run_worker,
-        args=(
-            body.entity_id,
-            pipeline_config,
-            force_start,
-            force_end,
-            run_id,
-            settings.DB_STRING,
-        ),
-        daemon=True,
-    )
-    thread.start()
-
-    # Resolve entity name for the response
-    with Session(engine) as session:
-        orch = session.get(SQLEntityOrchestrationState, body.entity_id)
-    entity_name = (orch.kg_name if orch else None) or body.entity_id
-
-    return {
-        "run_id": str(run_id),
-        "entity_id": body.entity_id,
-        "entity_name": entity_name,
-        "status": "queued",
-    }
-
-
-@router.get("/run/{run_id}")
-def frontend_run_status(run_id: str) -> dict:
-    """Poll the status of a single pipeline run launched via POST /api/frontend/run."""
-    try:
-        rid = uuid.UUID(run_id)
-    except ValueError:
-        return {"error": "invalid run_id"}
-
-    engine = get_engine()
-    with Session(engine) as session:
-        run = session.get(SQLEntityPipelineRunLog, rid)
-        if not run:
-            return {"run_id": run_id, "status": "queued"}
-
-        orch = session.get(SQLEntityOrchestrationState, run.entity_id)
-        narrative = session.exec(
-            select(SQLRunNarrative).where(SQLRunNarrative.run_id == rid)
-        ).first()
-
-        bullets_active: list[dict] = []
-        bullets_discarded: list[dict] = []
-        if run.status in ("succeeded", "no_data"):
-            all_bullets = session.exec(
-                select(SQLBulletRunLog).where(SQLBulletRunLog.run_id == rid)
-            ).all()
-            bullets_active = [_bullet_to_dict(b) for b in all_bullets if b.is_active]
-            bullets_discarded = [_discarded_to_dict(b) for b in all_bullets if not b.is_active]
-
-        entity_name = (orch.kg_name if orch else None) or run.entity_id
-        duration = None
-        if run.process_completed_at_utc and run.process_started_at_utc:
-            duration = int((run.process_completed_at_utc - run.process_started_at_utc).total_seconds())
-
-    return {
-        "run_id": run_id,
-        "entity_id": run.entity_id,
-        "entity_name": entity_name,
-        "status": run.status,
-        "started_at": _iso(run.process_started_at_utc),
-        "completed_at": _iso(run.process_completed_at_utc),
-        "duration_sec": duration,
-        "window_start": _iso(run.report_window_start),
-        "window_end": _iso(run.report_window_end),
-        "bullets_saved": len(bullets_active),
-        "bullets_discarded": len(bullets_discarded),
-        "bullets": bullets_active,
-        "discarded": bullets_discarded,
-        "narrative": narrative.narrative_text if narrative else None,
-        "error": run.error_summary[:200] if run.error_summary else None,
-    }
 
 
 @router.get("/run-data.json")
@@ -2056,7 +1908,7 @@ def get_portfolio() -> dict:
     }
 
 
-@router.post("/portfolio")
+@router.post("/portfolio", dependencies=[Depends(require_api_key)])
 def add_to_portfolio(body: _PortfolioAddBody) -> dict:
     """Add an entity to the portfolio. Resolves name/ticker from SQLEntityOrchestrationState."""
     engine = get_engine()
@@ -2086,7 +1938,7 @@ def add_to_portfolio(body: _PortfolioAddBody) -> dict:
     return {"status": "added", "entity_id": body.entity_id, "entity_name": name, "kg_ticker": ticker}
 
 
-@router.delete("/portfolio/{entity_id}")
+@router.delete("/portfolio/{entity_id}", dependencies=[Depends(require_api_key)])
 def remove_from_portfolio(entity_id: str) -> dict:
     """Remove an entity from the portfolio."""
     engine = get_engine()
@@ -2100,26 +1952,6 @@ def remove_from_portfolio(entity_id: str) -> dict:
 
 
 # ── Admin ─────────────────────────────────────────────────────────────────────
-
-@router.post("/admin/reset")
-def frontend_admin_reset() -> dict:
-    """Reset the entire database (drops and recreates all tables)."""
-    from bigdata_briefs.orchestration.db import ensure_orchestration_schema
-    from sqlmodel import SQLModel
-    engine = get_engine()
-    SQLModel.metadata.drop_all(engine)
-    SQLModel.metadata.create_all(engine)
-    ensure_orchestration_schema(engine)
-    return {"status": "reset", "message": "Database reset successfully."}
-
-
-@router.delete("/admin/entity/{entity_id}")
-def frontend_admin_delete_entity(entity_id: str) -> dict:
-    """Delete all data for a single entity."""
-    from bigdata_briefs.api.routes.admin import _delete_entity_data
-    engine = get_engine()
-    _delete_entity_data(engine, entity_id)
-    return {"status": "deleted", "entity_id": entity_id}
 
 
 @router.get("/admin/stats")

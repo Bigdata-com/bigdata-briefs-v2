@@ -4,7 +4,7 @@
 
 const { useState: useStateP, useEffect: useEffectP, useRef: useRefP } = React;
 
-function PortfolioView({ tweaks, appPortfolio }) {
+function PortfolioView({ tweaks, appPortfolio, setView }) {
   const today = new Date().toISOString().slice(0, 10);
   const now = new Date();
   const hh = String(now.getHours()).padStart(2, "0");
@@ -19,6 +19,7 @@ function PortfolioView({ tweaks, appPortfolio }) {
   const [updateDate, setUpdateDate] = useStateP(today);
   const [updateTime, setUpdateTime] = useStateP(`${hh}:${mm}`);
   const [showSupport, setShowSupport] = useStateP(false);
+  const publicMode = window.DATA?.publicMode === true;
 
   const searchRef = useRefP(null);
 
@@ -65,13 +66,26 @@ function PortfolioView({ tweaks, appPortfolio }) {
   function addCompany(id) {
     setSearch("");
     setShowResults(false);
-    setShowSupport(true);
+    if (publicMode) { setShowSupport(true); return; }
+    const candidate = allCandidates.find(c => c.id === id);
+    fetch("/api/frontend/portfolio", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entity_id: id, entity_name: candidate?.name, kg_ticker: candidate?.ticker }),
+    })
+      .then(r => r.json())
+      .then(() => fetch("/api/frontend/portfolio").then(r => r.json()).then(d => setPortfolio(d.portfolio || [])))
+      .catch(() => {});
   }
   function removeCompany(id) {
-    setShowSupport(true);
+    if (publicMode) { setShowSupport(true); return; }
+    fetch(`/api/frontend/portfolio/${encodeURIComponent(id)}`, { method: "DELETE" })
+      .then(() => setPortfolio(prev => prev.filter(p => p.entity_id !== id)))
+      .catch(() => {});
   }
   function handleStart() {
-    setShowSupport(true);
+    if (publicMode) { setShowSupport(true); return; }
+    if (setView) setView("scan");
   }
 
   return (

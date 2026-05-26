@@ -169,30 +169,3 @@ def _build_entity_dict(entity_id: str, engine) -> dict:
     }
 
 
-@router.get(
-    "/report/html",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_api_key)],
-    summary="Generate HTML brief report",
-    description=(
-        "Returns a self-contained HTML page with all bullets for the given entity "
-        "(or all entities when ``entity_id`` is omitted). Active bullets show inline "
-        "citation markers with full headline and text; discarded bullets show the "
-        "discard stage and reasoning."
-    ),
-    include_in_schema=False,
-    deprecated=True,
-)
-def get_report_html(entity_id: str | None = None) -> HTMLResponse:
-    engine = get_engine()
-
-    if entity_id:
-        entity_ids = [entity_id]
-        title = f"Brief Report — {entity_id}"
-    else:
-        entity_ids = _all_entity_ids(engine)
-        title = "Brief Report — All Entities"
-
-    results = [_build_entity_dict(eid, engine) for eid in entity_ids]
-    data = {"results": results, "total_entities": len(results)}
-    return HTMLResponse(content=build_html(data, title))

@@ -25,7 +25,6 @@ from bigdata_briefs.api.routes.rate import router as rate_router
 from bigdata_briefs.api.routes.report import router as report_router
 from bigdata_briefs.api.routes.scan import router as scan_router
 from bigdata_briefs.api.routes.runs import router as runs_router
-from bigdata_briefs.api.routes.ui import router as ui_router
 from bigdata_briefs.api.routes.universes import router as universes_router
 from bigdata_briefs.query_service.rate_limit import RequestsPerMinuteController
 from bigdata_briefs.settings import settings
@@ -49,6 +48,7 @@ def _build_desk_html() -> str:
     summaries = get_companies_summaries()
     data["companySummaries"] = summaries.get("summaries", data.get("companySummaries", {}))
     data["lastRunDate"] = summaries.get("date")
+    data["publicMode"] = settings.PUBLIC_MODE
     d = json.dumps(data).replace("</", "<\\/")
     script = f"<script>window.DATA={d};window.RUN_DATA={{}};window.EXTRAS={{}};</script>"
     return html.replace("</head>", script + "\n</head>", 1)
@@ -187,15 +187,14 @@ def create_app() -> FastAPI:
     async def health() -> JSONResponse:
         return JSONResponse({"status": "ok"})
 
-    app.include_router(entities_router, prefix="/api/v1", include_in_schema=False)
-    app.include_router(runs_router, prefix="/api/v1", include_in_schema=False)
+    app.include_router(entities_router, prefix="/api/v1")
+    app.include_router(runs_router, prefix="/api/v1")
     app.include_router(batch_router, prefix="/api/v1")
     app.include_router(rate_router, prefix="/api/v1", include_in_schema=False)
     app.include_router(admin_router, prefix="/api/v1")
     app.include_router(universes_router, prefix="/api/v1")
     app.include_router(report_router, prefix="/api/v1")
     app.include_router(scan_router, prefix="/api/v1")
-    app.include_router(ui_router, prefix="/ui", include_in_schema=False)
     app.include_router(frontend_router, prefix="/api/frontend", include_in_schema=False)
 
     return app

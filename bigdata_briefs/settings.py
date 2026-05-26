@@ -134,6 +134,12 @@ class Settings(BaseSettings):
     # Default False: the app is read-only (safe for shared / Fly.io deployments).
     UI_SCAN_ENABLED: bool = False
 
+    # Public mode — set PUBLIC_MODE=1 for a shared/external deployment.
+    # Disables write actions in the UI (run, portfolio add/remove).
+    # API key is never sent to the browser. Direct API calls with a valid
+    # PIPELINE_API_KEY still work.
+    PUBLIC_MODE: bool = False
+
     # REST API key — set PIPELINE_API_KEY in env/secrets to protect write endpoints.
     # When empty (default) auth is skipped, safe for local dev.
     PIPELINE_API_KEY: str = ""
