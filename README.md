@@ -94,6 +94,13 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
 > `entity_ids` and `universe` are mutually exclusive. Omit both to run every entity tracked in the database.  
 > Omit `force_window_start` / `force_window_end` to use the automatic incremental window (see [Window modes](#window-modes) below).
 
+**What happens automatically after the run:**
+
+- **Per-entity narrative** — as the final step of each entity's pipeline, if at least one bullet was published the LLM generates a 2-3 sentence editorial summary of that entity's bullets for the day. Stored internally and surfaced by the frontend.
+- **Portfolio brief** — once all entities in the batch have finished, a cross-company narrative is generated for the top N companies ranked by the `ranking_metric` parameter (default: `media_attention_momentum`). Only produced if at least one run succeeded.
+
+Both steps are fire-and-forget: a failure in either does not affect the run results or the batch status response.
+
 ### Monitor a batch
 
 #### `GET /api/v1/batch/parallel/{batch_id}/status`
