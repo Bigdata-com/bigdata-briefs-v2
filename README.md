@@ -416,7 +416,7 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
 | `LLM_TIMEOUT_SECONDS` | LLM call timeout | `60` |
 | `NOVELTY_LOOKBACK_DAYS` | Days of history used for novelty checks | `30` |
 | `PIPELINE_API_KEY` | When set, all write endpoints require this key in the `X-API-Key` header | — |
-| `PUBLIC_MODE` | When `true`, hides sensitive data (raw citations, grounding details) from API responses — safe for shared or external access | `false` |
+| `PUBLIC_MODE` | When `true`, disables write actions in the UI (run, portfolio add/remove) and prevents the API key from being sent to the browser. Intended for shared or external deployments. Direct API calls with a valid `PIPELINE_API_KEY` still work. | `false` |
 | `ENABLE_DOCS` | When `true`, exposes `/docs`, `/redoc`, and `/openapi.json` | `true` |
 
 See `.env.example` for the full list with descriptions.
