@@ -1,6 +1,6 @@
 # Bigdata Briefs v2.0
 
-A LangGraph pipeline that generates structured, novelty-filtered brief reports for a universe of companies. For each entity and date window, the service retrieves news evidence from the Bigdata API, extracts material bullet points, and filters them for relevance and novelty before writing them to the database. Results are exposed through a REST API.
+A LangGraph pipeline that generates structured, novelty-filtered brief reports for a universe of companies. For each entity and date window, the service retrieves news evidence from the Bigdata API, extracts material bullet points, and filters them for relevance and novelty before writing them to the database. Results are exposed through a web app and a REST API.
 
 ## Architecture overview
 
@@ -13,25 +13,29 @@ For each entity, the pipeline moves through six sequential phases:
 3. **Grounding Check**: each bullet is validated against its cited source text
 4. **Novelty Check via Embedding**: embedding-based retrieval of past bullets, LLM coarse decision
 5. **Novelty Check via Search**: claim-level verification against current evidence
-6. **Narrative**: one-sentence editorial summary generated from all active bullets published that day
+6. **Narrative**: editorial summary generated from all active bullets published that day
 
 For a detailed description of each phase, see the [pipeline reference guide](https://docs.bigdata.com/use-cases/bigdata-briefs-pipeline).
 
-## Prerequisites
+---
+
+## Part 1 — The App
+
+The app is a read-and-run desk available at **`http://localhost:8000/app/desk`**. It is built around **My Portfolio**: a custom list of companies you configure once and then monitor daily. All views in the app — briefs, history, updates — operate on this portfolio. There are no other universes in the UI.
+
+### Prerequisites
 
 - A **Bigdata.com API key**
 - An **OpenAI API key**
 - **Docker** (option A) or **uv** (option B)
 
-## Quickstart
+### Quickstart
 
-### Option A: Docker
+#### Option A: Docker
 
 ```bash
-# Build
 docker build -t bigdata_briefs .
 
-# Run
 docker run -d \
   --name bigdata_briefs \
   -p 8000:8000 \
@@ -40,30 +44,78 @@ docker run -d \
   bigdata_briefs
 ```
 
-### Option B: uv (no Docker)
+#### Option B: uv (no Docker)
 
 ```bash
-# Install uv if needed: https://docs.astral.sh/uv/getting-started/installation/
-
 uv sync
-
 cp .env.example .env
 # Edit .env to set BIGDATA_API_KEY and OPENAI_API_KEY
-
 uv run uvicorn bigdata_briefs.api.app:app --host 0.0.0.0 --port 8000
 ```
 
-### Verify the service
+Open **`http://localhost:8000/app/desk`** in your browser.
 
-```bash
-curl http://localhost:8000/health
-```
+---
 
-> **Interactive API docs** are available at **`http://localhost:8000/docs`**: open it in your browser to explore and try all endpoints interactively.
+### Brief (default view)
 
-## Available endpoints
+The main view of the app. On the left rail you see **Today's Front Page**: the list of portfolio companies with a one-line summary for each, showing at a glance which companies had material news that day. Clicking a company loads its full brief on the right.
 
-For the full API reference with all parameters and examples, see the [pipeline reference guide](https://docs.bigdata.com/use-cases/bigdata-briefs-pipeline).
+The brief for a company shows:
+- **Narrative** — an LLM-generated editorial lede synthesising the day's bullets into 2-3 sentences
+- **Bullet points** — the published bullets, each grounded to source citations (headline + chunk text), colour-coded by novelty: fully novel bullets are shown normally; partially novel ones (where a known fact was updated) are flagged
+- **Editor's cut** — optionally visible: bullets that were discarded by the pipeline, grouped by the stage that eliminated them (relevance, grounding, novelty), useful for auditing what the pipeline filtered out
+- **Signals** — media attention and sentiment z-scores for the company, shown alongside the brief
+
+The date selector at the top lets you navigate to any past date that has briefs.
+
+---
+
+### Portfolio
+
+The Portfolio view is where you build and manage the list of companies the app tracks.
+
+**Adding a company**: use the search bar to find a company by name or ticker. The search covers all entities in the coverage universe — any company that has ever been processed by the pipeline appears here. Select one to add it to the portfolio.
+
+**Removing a company**: click the remove button next to any entry in the portfolio list.
+
+**Running an update**: once your portfolio is set up, the Portfolio view also has a **Start Update** button. This triggers a `run-parallel` call for all companies in `my_portfolio` using `window_mode: daily` — covering from UTC midnight of today to now (or resuming from the last run if it already ran today). After the run completes, briefs and narratives for all companies are available in the Brief view.
+
+> In `PUBLIC_MODE` the add/remove and run buttons are hidden. Portfolio management and pipeline runs must be done via the API (see Part 2).
+
+---
+
+### History
+
+The History view shows a calendar timeline of all past briefs for a selected company. Companies are listed in the left sidebar, sortable by most recent activity or alphabetically. Selecting a company shows its full run history grouped by month, with per-day stats: how many bullets were published and how many were discarded. Expanding a day shows the individual runs and their details.
+
+---
+
+### Cost
+
+Shows a cost breakdown for the most recent pipeline run: LLM token usage, embedding calls, and Bigdata API calls, grouped by pipeline phase. Useful for understanding which phases dominate cost for a given entity.
+
+---
+
+### Admin
+
+Provides destructive operations with explicit confirmation steps:
+- **Reset database** — drops and recreates all tables (requires typing "RESET DATABASE" to confirm)
+- **Delete entity** — purges all data for a selected company
+
+Current database statistics (run count, bullet count, entity count) are displayed at the top of the page.
+
+---
+
+## Part 2 — The API
+
+Use the API directly when you want to run the pipeline for entities or universes outside of `my_portfolio`, automate runs from a script or scheduler, backfill historical data, or query results programmatically.
+
+All endpoints live under **`http://localhost:8000/api/v1/`**.
+
+> **Interactive docs** are available at **`http://localhost:8000/docs`** when `ENABLE_DOCS=true` (default).
+
+---
 
 ### Run the pipeline
 
@@ -96,10 +148,12 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
 
 **What happens automatically after the run:**
 
-- **Per-entity narrative** — as the final step of each entity's pipeline, if at least one bullet was published the LLM generates a 2-3 sentence editorial summary of that entity's bullets for the day. Stored internally and surfaced by the frontend.
+- **Per-entity narrative** — as the final step of each entity's pipeline, if at least one bullet was published the LLM generates a 2-3 sentence editorial summary of that entity's bullets for the day. Stored internally and surfaced by the app.
 - **Portfolio brief** — once all entities in the batch have finished, a cross-company narrative is generated for the top N companies ranked by the `ranking_metric` parameter (default: `media_attention_momentum`). Only produced if at least one run succeeded.
 
 Both steps are fire-and-forget: a failure in either does not affect the run results or the batch status response.
+
+---
 
 ### Monitor a batch
 
@@ -119,29 +173,15 @@ Returns the status of a single pipeline run — its window, start/end timestamps
 curl http://localhost:8000/api/v1/runs/3f8a1c2d-...
 ```
 
-### Daily tracking
+---
 
-For recurring monitoring of a portfolio, two patterns are available: **daily update** and **scan**.
-
-#### `POST /api/v1/batch/run-parallel` with `window_mode: daily`
-
-`daily` is the standard pattern for keeping coverage current. Each run covers `[UTC midnight of today → now]`. If the pipeline already ran today, it resumes from exactly where that run ended. If the last run was yesterday or earlier, it always resets to midnight of today.
-
-```bash
-curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
-  -H "Content-Type: application/json" \
-  -d '{
-    "universe": "dow_30",
-    "window_mode": "daily",
-    "categories": ["news"]
-  }'
-```
+### Backfill historical data
 
 #### `POST /api/v1/scan`
 
 Use `scan` when you need to build or backfill a historical record for a portfolio. It takes an explicit date range, splits it into windows, and processes them sequentially.
 
-By default each window spans one UTC calendar day (midnight to midnight). Set `boundary_time` (`HH:MM` UTC) to shift the daily split point — `12:30` gives market-open to market-open windows (08:30 ET; `13:30` UTC in winter EST). When `boundary_time` is set, Friday windows automatically extend through the weekend to Monday, so each week produces exactly five windows with no weekend gaps. `start_time` (optional) sets the clock on `start_date` only; `end_time` (optional) sets the clock on `end_date` only. Set all three to the same value for a fully aligned range.
+By default each window spans one UTC calendar day (midnight to midnight). Set `boundary_time` (`HH:MM` UTC) to shift the daily split point — `12:30` gives market-open to market-open windows (08:30 ET). When `boundary_time` is set, Friday windows automatically extend through the weekend to Monday, so each week produces exactly five windows with no weekend gaps.
 
 ```bash
 # Midnight-to-midnight (default)
@@ -164,7 +204,7 @@ curl -X POST http://localhost:8000/api/v1/scan \
   }'
 ```
 
-Poll per-entity, per-day progress:
+Poll progress:
 
 ```bash
 curl "http://localhost:8000/api/v1/scan/status?entity_ids=D8442A,0157B1&start_date=2026-04-01&end_date=2026-04-30"
@@ -176,22 +216,15 @@ curl "http://localhost:8000/api/v1/scan/status?entity_ids=D8442A,0157B1&start_da
 # Step 1: build history (optional)
 curl -X POST http://localhost:8000/api/v1/scan \
   -H "Content-Type: application/json" \
-  -d '{
-    "universe": "dow_30",
-    "start_date": "2026-04-01",
-    "end_date": "2026-04-30",
-    "source_categories": ["news"]
-  }'
+  -d '{"universe": "my_portfolio", "start_date": "2026-04-01", "end_date": "2026-04-30"}'
 
 # Step 2: daily update (run once per day from here on)
 curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
   -H "Content-Type: application/json" \
-  -d '{
-    "universe": "dow_30",
-    "window_mode": "daily",
-    "categories": ["news"]
-  }'
+  -d '{"universe": "my_portfolio", "window_mode": "daily"}'
 ```
+
+---
 
 ### Retrieve results
 
@@ -220,7 +253,7 @@ curl -X POST http://localhost:8000/api/v1/reports/bullets \
 
 #### `POST /api/v1/reports/bullets/detail`
 
-Returns **every bullet considered** by the pipeline — both published and discarded — for one or more entities. For discarded bullets, includes the stage that eliminated them and the specific reason for that decision:
+Returns **every bullet considered** by the pipeline — both published and discarded — for one or more entities. For discarded bullets, includes the stage that eliminated them and the specific reason:
 
 - `relevance_score`: scored too low on financial materiality
 - `grounding`: text not verifiable against cited sources
@@ -255,6 +288,8 @@ This is the most granular view of what the pipeline did and why. Useful for debu
 curl http://localhost:8000/api/v1/reports/runs/3f8a1c2d-.../trace
 ```
 
+---
+
 ### Entity history
 
 #### `GET /api/v1/entities/{entity_id}/runs`
@@ -273,11 +308,13 @@ Permanently removes all data for an entity from the database: run logs, bullet p
 curl -X DELETE http://localhost:8000/api/v1/entities/0157B1
 ```
 
+---
+
 ### Universes
 
 #### `GET /api/v1/universes`
 
-Returns all registered universe names and their entity counts.
+Returns all available universe names and their entity counts, including `my_portfolio`.
 
 ```bash
 curl http://localhost:8000/api/v1/universes
@@ -290,6 +327,45 @@ Returns the full list of entity IDs in a named universe.
 ```bash
 curl http://localhost:8000/api/v1/universes/dow_30
 ```
+
+---
+
+### My portfolio (API)
+
+`my_portfolio` is a special universe stored in the database. Unlike the pre-defined universes (static CSV files), it reflects live state: changes take effect immediately on the next `run-parallel` call. It can be used anywhere a universe name is accepted.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
+  -H "Content-Type: application/json" \
+  -d '{"universe": "my_portfolio", "window_mode": "daily"}'
+```
+
+**View the current portfolio:**
+
+```bash
+curl http://localhost:8000/api/frontend/portfolio
+```
+
+**Add an entity** (name and ticker are resolved automatically from the database if the entity has already been processed):
+
+```bash
+curl -X POST http://localhost:8000/api/frontend/portfolio \
+  -H "Content-Type: application/json" \
+  -d '{"entity_id": "0157B1"}'
+
+# Or supply metadata explicitly:
+curl -X POST http://localhost:8000/api/frontend/portfolio \
+  -H "Content-Type: application/json" \
+  -d '{"entity_id": "0157B1", "entity_name": "Apple Inc.", "kg_ticker": "AAPL"}'
+```
+
+**Remove an entity:**
+
+```bash
+curl -X DELETE http://localhost:8000/api/frontend/portfolio/0157B1
+```
+
+---
 
 ### Administration
 
@@ -319,6 +395,8 @@ curl -X POST http://localhost:8000/api/v1/admin/delete-date \
   -d '{"date": "2026-04-22"}'
 ```
 
+---
+
 ## Window modes
 
 Every run covers a time window `[start, end)`. You can specify it explicitly with `force_window_start` / `force_window_end`, or let the pipeline compute it automatically via `window_mode`.
@@ -330,7 +408,7 @@ Covers `[UTC midnight of today → now]`.
 - If the pipeline already ran **today**, it resumes from exactly where that run ended.
 - If the last run was **yesterday or earlier**, it always resets to midnight of today.
 
-This is the recommended mode for standard day-by-day monitoring. Each day's run is self-contained and deterministic: it always covers today's events, with no gaps but no overlap with prior days.
+This is the recommended mode for standard day-by-day monitoring. Each day's run is self-contained and deterministic.
 
 ### `continuous`
 
@@ -350,6 +428,8 @@ Use this mode when you need a guaranteed gap-free timeline across consecutive ru
 
 > **Overlap protection**: if the requested window overlaps any already-completed run for the same entity, that entity's run is rejected immediately and marked as `failed`. No API or LLM calls are made.
 
+---
+
 ## Pre-defined universes
 
 | Universe | Entities | Description |
@@ -361,56 +441,9 @@ Use this mode when you need a guaranteed gap-free timeline across consecutive ru
 | `top_us_500` | 500 | Top 500 US companies by market cap |
 | `top_eu_100` | 100 | Top 100 European companies by market cap |
 | `top_eu_500` | 500 | Top 500 European companies by market cap |
-| `my_portfolio` | dynamic | Your custom portfolio — managed via the API, stored in the database |
+| `my_portfolio` | dynamic | Your custom portfolio — managed via the app or API, stored in the database |
 
-## My portfolio
-
-`my_portfolio` is a special universe that is stored in the database and can be freely customized at any time. Unlike the pre-defined universes (which are static CSV files loaded at startup), `my_portfolio` reflects live database state: changes made via the API take effect immediately on the next `run-parallel` call.
-
-### View the current portfolio
-
-```bash
-curl http://localhost:8000/api/frontend/portfolio
-```
-
-Returns the list of entities currently in the portfolio, with their name, ticker, and the date they were added.
-
-### Add an entity
-
-```bash
-curl -X POST http://localhost:8000/api/frontend/portfolio \
-  -H "Content-Type: application/json" \
-  -d '{"entity_id": "0157B1"}'
-```
-
-The entity name and ticker are resolved automatically from the database if the entity has already been processed by the pipeline. You can also supply them explicitly:
-
-```bash
-curl -X POST http://localhost:8000/api/frontend/portfolio \
-  -H "Content-Type: application/json" \
-  -d '{"entity_id": "0157B1", "entity_name": "Apple Inc.", "kg_ticker": "AAPL"}'
-```
-
-Adding an entity that is already in the portfolio returns `"status": "already_exists"` without error.
-
-### Remove an entity
-
-```bash
-curl -X DELETE http://localhost:8000/api/frontend/portfolio/0157B1
-```
-
-### Run the pipeline for your portfolio
-
-Once populated, `my_portfolio` can be used anywhere a universe name is accepted:
-
-```bash
-curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
-  -H "Content-Type: application/json" \
-  -d '{
-    "universe": "my_portfolio",
-    "window_mode": "daily"
-  }'
-```
+---
 
 ## Configuration reference
 
@@ -427,6 +460,8 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
 | `ENABLE_DOCS` | When `true`, exposes `/docs`, `/redoc`, and `/openapi.json` | `true` |
 
 See `.env.example` for the full list with descriptions.
+
+---
 
 ## Troubleshooting
 
