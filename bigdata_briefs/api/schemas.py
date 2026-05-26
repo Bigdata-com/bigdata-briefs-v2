@@ -240,44 +240,6 @@ class BatchRunRequest(BaseModel):
     )
 
 
-class BatchRunResponse(BaseModel):
-    """One submission entry per entity."""
-
-    submitted: list[RunSubmittedResponse]
-    total: int
-
-
-# ── Batch status ─────────────────────────────────────────────────────────────
-
-
-class BatchStatusRequest(BaseModel):
-    """Body for POST /batch/status."""
-
-    run_ids: list[str]
-
-
-class BatchRunStatusItem(BaseModel):
-    """Status of a single run within a batch."""
-
-    run_id: str
-    entity_id: str | None = None
-    status: str              # running | succeeded | failed | not_found
-    error_message: str | None = None
-    started_at: datetime | None = None
-    completed_at: datetime | None = None
-
-
-class BatchStatusResponse(BaseModel):
-    """Aggregated progress of a batch run."""
-
-    total: int
-    succeeded: int
-    failed: int
-    running: int
-    not_found: int
-    runs: list[BatchRunStatusItem]
-
-
 # ── Batch bullets ─────────────────────────────────────────────────────────────
 
 

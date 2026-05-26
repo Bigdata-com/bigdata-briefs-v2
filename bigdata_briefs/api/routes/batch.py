@@ -1,9 +1,8 @@
 """
 Routes: batch operations
 
-    POST /api/v1/batch/run      → run pipeline sequentially for a list of entities
-    POST /api/v1/batch/status   → health-check on a batch: how many done, errors, etc.
-    POST /api/v1/batch/bullets  → return latest-run bullets for a list of entities
+    POST /api/v1/batch/run-parallel → run pipeline in parallel for a list of entities
+    POST /api/v1/batch/bullets      → return latest-run bullets for a list of entities
 """
 
 from __future__ import annotations
@@ -16,7 +15,7 @@ from pathlib import Path
 from threading import Lock, Semaphore
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import desc
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, select
@@ -40,10 +39,6 @@ from bigdata_briefs.api.schemas import (
     BatchParallelRunStatusItem,
     BatchParallelRunStatusResponse,
     BatchRunRequest,
-    BatchRunResponse,
-    BatchRunStatusItem,
-    BatchStatusRequest,
-    BatchStatusResponse,
     BulletDetailItem,
     BulletDiscardDetail,
     BulletPassedDetail,
@@ -55,7 +50,6 @@ from bigdata_briefs.api.schemas import (
     EntityDetailResult,
     RunBulletsResult,
     RunDetailResult,
-    RunSubmittedResponse,
 )
 from bigdata_briefs.novelty.sql_models import SQLGeneratedBulletPoint
 from bigdata_briefs.novelty.storage import SQLiteGeneratedBulletPointStorage
@@ -233,101 +227,6 @@ def _assert_no_running_entities(entity_ids: list[str]) -> None:
             },
         )
 
-
-def _run_entities_sequentially(
-    *,
-    run_ids: list[uuid.UUID],
-    entity_ids: list[str],
-    pipeline_config: dict,
-    state_dir: Path,
-    force_run: bool,
-    force_window_start,
-    force_window_end,
-    window_mode,
-    rate_limiter: RequestsPerMinuteController,
-    connection_sem: Semaphore,
-    http_client: httpx.Client,
-) -> None:
-    """Background task: invoke pipeline for each entity one at a time.
-
-    The three singletons are passed through so that this endpoint shares the
-    same 450 QPM budget / connection pool as the parallel endpoint — important
-    because operators often mix the two in the same deployment.
-    """
-    engine = get_engine()
-    for run_id, entity_id in zip(run_ids, entity_ids):
-        run_entity_incremental(
-            run_id=run_id,
-            entity_id=entity_id,
-            pipeline_config=pipeline_config,
-            state_dir=state_dir,
-            force_run=force_run,
-            force_window_start=force_window_start,
-            force_window_end=force_window_end,
-            window_mode=window_mode,
-            engine=engine,
-            rate_limiter=rate_limiter,
-            connection_sem=connection_sem,
-            http_client=http_client,
-        )
-
-
-@router.post(
-    "/batch/run",
-    response_model=BatchRunResponse,
-    dependencies=[Depends(require_api_key)],
-    include_in_schema=False,
-    summary="Run pipeline sequentially for multiple entities",
-    description=(
-        "Submits a list of entities to the pipeline and processes them **one at a time**, "
-        "in order. Useful for controlled, lower-concurrency runs or when you want to avoid "
-        "saturating the Bigdata API budget.\n\n"
-        "**Date window** — omit `force_window_start` / `force_window_end` to use the automatic "
-        "incremental window (see `window_mode`). Pass explicit ISO 8601 dates to target a specific "
-        "period. One day at a time is recommended for best results.\n\n"
-        "**Overlap protection** — if the requested window overlaps an already-completed run for "
-        "the same entity, that entity is rejected immediately with an error."
-    ),
-)
-def batch_run(
-    body: BatchRunRequest,
-    background_tasks: BackgroundTasks,
-    rate_limiter: RequestsPerMinuteController = Depends(get_rate_limiter),
-    connection_sem: Semaphore = Depends(get_connection_sem),
-    http_client: httpx.Client = Depends(get_http_client),
-) -> BatchRunResponse:
-    if not body.entity_ids:
-        return BatchRunResponse(submitted=[], total=0)
-
-    _assert_no_running_entities(body.entity_ids)
-
-    cfg_path = resolve_config_path(None)
-    pipeline_config = load_pipeline_config_dict(cfg_path)
-    if body.categories:
-        pipeline_config["categories"] = body.categories
-    state_dir = _resolve_state_dir(None)
-    run_ids = [uuid.uuid4() for _ in body.entity_ids]
-
-    background_tasks.add_task(
-        _run_entities_sequentially,
-        run_ids=run_ids,
-        entity_ids=body.entity_ids,
-        pipeline_config=pipeline_config,
-        state_dir=state_dir,
-        force_run=False,
-        force_window_start=body.force_window_start,
-        force_window_end=body.force_window_end,
-        window_mode=body.window_mode,
-        rate_limiter=rate_limiter,
-        connection_sem=connection_sem,
-        http_client=http_client,
-    )
-
-    submitted = [
-        RunSubmittedResponse(run_id=str(rid), entity_id=eid)
-        for rid, eid in zip(run_ids, body.entity_ids)
-    ]
-    return BatchRunResponse(submitted=submitted, total=len(submitted))
 
 
 def _run_one_entity_safely(
@@ -638,76 +537,6 @@ def batch_parallel_status(batch_id: uuid.UUID) -> BatchParallelRunStatusResponse
         runs=runs,
     )
 
-
-@router.post(
-    "/batch/status",
-    response_model=BatchStatusResponse,
-    dependencies=[Depends(require_api_key)],
-    include_in_schema=False,
-    summary="Health-check on a batch run",
-    description=(
-        "Given the list of `run_id`s returned by **POST /api/v1/batch/run**, "
-        "returns how many runs have succeeded, are still running, or failed. "
-        "Runs whose ID is not yet in the DB are counted as `running` "
-        "(the background worker hasn't started them yet)."
-    ),
-)
-def batch_status(body: BatchStatusRequest) -> BatchStatusResponse:
-    items: list[BatchRunStatusItem] = []
-    succeeded = failed = running = not_found = 0
-
-    with Session(get_engine()) as session:
-        for run_id_str in body.run_ids:
-            try:
-                run_uuid = uuid.UUID(run_id_str)
-            except ValueError:
-                not_found += 1
-                items.append(BatchRunStatusItem(
-                    run_id=run_id_str,
-                    status="not_found",
-                    error_message="Invalid UUID format",
-                ))
-                continue
-
-            row = session.get(SQLEntityPipelineRunLog, run_uuid)
-
-            if row is None:
-                # Not yet written — the background task hasn't started it yet
-                running += 1
-                items.append(BatchRunStatusItem(
-                    run_id=run_id_str,
-                    status="running",
-                ))
-                continue
-
-            error_message: str | None = None
-            if row.error_summary:
-                error_message = row.error_summary.split("\n\n", 1)[0]
-
-            if row.status == "succeeded":
-                succeeded += 1
-            elif row.status == "failed":
-                failed += 1
-            else:
-                running += 1
-
-            items.append(BatchRunStatusItem(
-                run_id=run_id_str,
-                entity_id=row.entity_id,
-                status=row.status,
-                error_message=error_message,
-                started_at=row.process_started_at_utc,
-                completed_at=row.process_completed_at_utc,
-            ))
-
-    return BatchStatusResponse(
-        total=len(body.run_ids),
-        succeeded=succeeded,
-        failed=failed,
-        running=running,
-        not_found=not_found,
-        runs=items,
-    )
 
 
 def _build_entity_result_from_run_log(
