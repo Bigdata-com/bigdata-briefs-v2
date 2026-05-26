@@ -59,15 +59,13 @@ Open **`http://localhost:8000/app/desk`** in your browser.
 
 ### The Brief (default view)
 
-The main reading view of the app. The landing shows the list of portfolio companies sorted by activity: each row displays the company ticker, today's bullet count, and a 7-day mini sparkline of daily output. Clicking a company loads its full brief.
+The main reading view of the app. The landing is laid out as follows:
 
-Once a company is selected, a sub-navigation appears with three tabs:
+- **Left — Company picker**: a table listing all portfolio companies with three columns: ticker, company name, and today's bullet count ("Items"). Clicking a row loads that company's brief.
+- **Right — Portfolio Brief**: shows the top 5 companies ranked by media attention momentum. A toggle switches between two views: **Bullet Points** shows the first 3 published bullets per company; **Summary** shows the LLM-generated narrative per company. A stats strip shows companies run, total material developments, and active names.
+- **Below — Upcoming events**: a calendar strip of upcoming earnings calls and conferences for portfolio companies, grouped by day.
 
-- **Tearsheet** — the full brief for the selected day: narrative, bullets, and right-rail metadata
-- **Audit** — every bullet the pipeline considered, both published and discarded, with the reason for each decision
-- **Archive** — a calendar of all past brief dates for that company; clicking a date loads that day's tearsheet
-
-**The Tearsheet** contains:
+Clicking a company opens the **Tearsheet**, which contains:
 - **Narrative** — an LLM-generated editorial summary of the day's active bullets, shown as the leading paragraph
 - **Bullet points** — published bullets grouped by theme, each with inline source citations (publisher + headline + excerpt). Bullets rewritten by the novelty step show a collapsible "Editor's note" explaining what changed.
 - **Editor's cut** — visible when enabled via the tweaks panel: discarded bullets grouped by the filter stage that eliminated them (relevance, grounding, novelty), each with the rejection reason
@@ -79,6 +77,10 @@ The **right rail** shows:
 - **14-day pulse** — sparkline of bullets published per day over the past 14 days, with current/average/peak counts
 - **Signal history** — media attention sparkline with momentum and z-score metrics vs. 1-month and 1-quarter baselines; sentiment diverging sparkline with its own momentum and z-score metrics
 - **Read also** — up to 3 related company briefs from the same date
+
+Two additional tabs are accessible from the top sub-navigation:
+- **Audit** — every bullet the pipeline considered, both published and discarded, with the reason for each decision
+- **Archive** — a calendar of all past brief dates for that company; clicking a date loads that day's tearsheet
 
 ---
 
@@ -92,31 +94,42 @@ The Portfolio view is where you build and manage the list of companies the app t
 
 **Running an update**: once your portfolio is set up, click **Start Update** to open the scan/update configuration screen. From there you can select the scope, news sources, and date mode before launching the run. The run uses `window_mode: update` by default — covering at most the last 24 hours from the previous run (72 hours on Mondays to bridge the weekend gap). After the run completes, briefs and narratives for all companies are available in The Brief.
 
-> In `PUBLIC_MODE` the add/remove and run buttons are disabled and show a support contact message instead. Portfolio management and pipeline runs must be done via the API (see Part 2).
+> In `PUBLIC_MODE` the add/remove and run buttons are disabled. Portfolio management and pipeline runs must be done via the API (see Part 2).
 
 ---
 
-### History
+### Costs
 
-The History view shows a calendar timeline of all past briefs for any company in the database (not filtered to the portfolio). Companies are listed in the left sidebar, searchable and sortable by most recent activity or alphabetically. Selecting a company shows its full run history grouped by month, with per-day stats: how many bullets were published and how many were discarded. Expanding a day shows the individual runs and their details.
-
-> This view is accessible via the developer tweaks panel at the bottom of the page, not from the main navigation.
+A **Cost forensics** view for a single pipeline run. Select a company and run from the left sidebar to see a breakdown of four cost tiles: **Compute tokens cost**, **Embeddings cost**, **Grounding tokens cost**, and **Total**. Below the tiles, costs are broken down by pipeline phase, showing the relative weight of LLM calls, embeddings, and grounding tokens at each stage.
 
 ---
 
-### Cost
+### Scheduled runs (cron job)
 
-Shows a cost breakdown for the most recent pipeline run: LLM token usage, embedding calls, and Bigdata API calls, grouped by pipeline phase. Useful for understanding which phases dominate cost for a given entity.
+When the app runs inside Docker, a cron job starts automatically alongside the server. It is managed by [supercronic](https://github.com/aptible/supercronic) and defined in `crontab`:
 
----
+```
+1 12 * * 1-5  /code/run_daily.sh
+```
 
-### Admin
+This triggers `run_daily.sh` every weekday (Monday–Friday) at **12:01 UTC (08:01 ET)**, which calls the `run-parallel` endpoint for the `my_portfolio` universe. No manual action is needed — the pipeline runs on its own and the app updates automatically when you open it.
 
-Provides destructive operations with explicit confirmation steps:
-- **Reset database** — drops and recreates all tables (requires typing "RESET DATABASE" to confirm)
-- **Delete entity** — purges all data for a selected company
+`run_daily.sh` computes the window automatically:
 
-Current database statistics (run count, bullet count, entity count) are displayed at the top of the page.
+- On **Monday** the window covers **Friday 12:00 → Monday 12:00 UTC (08:00 ET)** (72 h) to bridge the weekend gap.
+- On all other weekdays the window covers **yesterday 12:00 → today 12:00 UTC (08:00 ET)** (24 h).
+
+To change the schedule, edit `crontab` (standard cron expression). To change the universe, window, or whether a portfolio brief is generated, edit `run_daily.sh`. The current payload:
+
+```json
+{
+  "universe": "my_portfolio",
+  "force_window_start": "<computed>",
+  "force_window_end": "<computed>",
+  "categories": ["news"],
+  "ranking_metric": "media_attention_momentum"
+}
+```
 
 ---
 
@@ -146,13 +159,14 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
     "force_window_end": "2026-04-22T23:59:59"
   }'
 
-# Run an entire pre-defined universe
+# Run an entire pre-defined universe and with the portfolio brief
 curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
   -H "Content-Type: application/json" \
   -d '{
     "universe": "dow_30",
     "force_window_start": "2026-04-22T00:00:00",
-    "force_window_end": "2026-04-22T23:59:59"
+    "force_window_end": "2026-04-22T23:59:59",
+    "ranking_metric": "media_attention_momentum"
   }'
 ```
 
@@ -162,7 +176,10 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
 **What happens automatically after the run:**
 
 - **Per-entity narrative** — as the final step of each entity's pipeline, if at least one bullet was published the LLM generates a 2-3 sentence editorial summary of that entity's bullets for the day. Stored internally and surfaced by the app.
-- **Portfolio brief** — once all entities in the batch have finished, a cross-company narrative is generated for the top N companies ranked by the `ranking_metric` parameter (default: `media_attention_momentum`). Only produced if at least one run succeeded.
+- **Portfolio brief** — once all entities in the batch have finished, a portfolio brief is generated for the top 5 companies ranked by the chosen metric. This step is **opt-in**: it only runs when `ranking_metric` is explicitly set in the request body (default is `null` — no brief generated). Available metrics:
+  - `media_attention_momentum` — latest `chunks_momentum_pct` (media volume acceleration; higher = more acceleration)
+  - `media_attention` — |Δ `chunks_zscore_mo`| (day-over-day change in normalised media volume z-score)
+  - `sentiment` — |Δ `sent_zscore_mo`| (day-over-day change in sentiment z-score)
 
 Both steps are fire-and-forget: a failure in either does not affect the run results or the batch status response.
 
@@ -184,57 +201,6 @@ Returns the status of a single pipeline run — its window, start/end timestamps
 
 ```bash
 curl http://localhost:8000/api/v1/runs/3f8a1c2d-...
-```
-
----
-
-### Backfill historical data
-
-#### `POST /api/v1/scan`
-
-Use `scan` when you need to build or backfill a historical record for a portfolio. It takes an explicit date range, splits it into windows, and processes them sequentially.
-
-By default each window spans one UTC calendar day (midnight to midnight). Set `boundary_time` (`HH:MM` UTC) to shift the daily split point — `12:30` gives market-open to market-open windows (08:30 ET). When `boundary_time` is set, Friday windows automatically extend through the weekend to Monday, so each week produces exactly five windows with no weekend gaps.
-
-```bash
-# Midnight-to-midnight (default)
-curl -X POST http://localhost:8000/api/v1/scan \
-  -H "Content-Type: application/json" \
-  -d '{
-    "universe": "dow_30",
-    "start_date": "2026-04-01",
-    "end_date": "2026-04-30"
-  }'
-
-# Market-open to market-open (09:30 ET = 13:30 UTC)
-curl -X POST http://localhost:8000/api/v1/scan \
-  -H "Content-Type: application/json" \
-  -d '{
-    "universe": "dow_30",
-    "start_date": "2026-04-01",
-    "end_date": "2026-04-30",
-    "boundary_time": "12:30"
-  }'
-```
-
-Poll progress:
-
-```bash
-curl "http://localhost:8000/api/v1/scan/status?entity_ids=D8442A,0157B1&start_date=2026-04-01&end_date=2026-04-30"
-```
-
-**Recommended workflow for a new portfolio:**
-
-```bash
-# Step 1: build history (optional)
-curl -X POST http://localhost:8000/api/v1/scan \
-  -H "Content-Type: application/json" \
-  -d '{"universe": "my_portfolio", "start_date": "2026-04-01", "end_date": "2026-04-30"}'
-
-# Step 2: daily update (run once per day from here on)
-curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
-  -H "Content-Type: application/json" \
-  -d '{"universe": "my_portfolio", "window_mode": "daily"}'
 ```
 
 ---

@@ -195,13 +195,15 @@ class BatchRunRequest(BaseModel):
             "When null, the default pipeline config categories are used (news)."
         ),
     )
-    ranking_metric: str = Field(
-        default="media_attention_momentum",
+    ranking_metric: str | None = Field(
+        default=None,
         description=(
-            "Metric used to rank companies for the portfolio brief generated after this batch. "
-            "'media_attention' (default): ranks by |Δ chunks_zscore_mo| (day-over-day change in "
-            "normalised media volume z-score). "
-            "'sentiment': ranks by |Δ sent_zscore_mo| (day-over-day change in sentiment z-score)."
+            "When provided, generates a portfolio brief after the batch completes, ranking the "
+            "top 5 companies by the chosen metric. When null (default), no portfolio brief is generated. "
+            "Available metrics: "
+            "'media_attention_momentum': latest chunks_momentum_pct (media volume acceleration — higher means more acceleration); "
+            "'media_attention': |Δ chunks_zscore_mo| (day-over-day change in normalised media volume z-score); "
+            "'sentiment': |Δ sent_zscore_mo| (day-over-day change in sentiment z-score)."
         ),
     )
 

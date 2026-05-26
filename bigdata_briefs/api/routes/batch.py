@@ -279,7 +279,7 @@ def batch_run_parallel(
                                 .where(_RunLog.status.in_(["succeeded", "no_data"]))
                                 .order_by(_desc(_RunLog.report_window_end))
                             ).first()
-                        if latest and latest.report_window_end:
+                        if latest and latest.report_window_end and _ranking_metric is not None:
                             date_iso = latest.report_window_end.date().isoformat()
                             generate_and_store_portfolio_brief(
                                 engine, date_iso, top_n=5,
