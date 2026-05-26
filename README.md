@@ -354,6 +354,56 @@ Use this mode when you need a guaranteed gap-free timeline across consecutive ru
 | `top_us_500` | 500 | Top 500 US companies by market cap |
 | `top_eu_100` | 100 | Top 100 European companies by market cap |
 | `top_eu_500` | 500 | Top 500 European companies by market cap |
+| `my_portfolio` | dynamic | Your custom portfolio — managed via the API, stored in the database |
+
+## My portfolio
+
+`my_portfolio` is a special universe that is stored in the database and can be freely customized at any time. Unlike the pre-defined universes (which are static CSV files loaded at startup), `my_portfolio` reflects live database state: changes made via the API take effect immediately on the next `run-parallel` call.
+
+### View the current portfolio
+
+```bash
+curl http://localhost:8000/api/frontend/portfolio
+```
+
+Returns the list of entities currently in the portfolio, with their name, ticker, and the date they were added.
+
+### Add an entity
+
+```bash
+curl -X POST http://localhost:8000/api/frontend/portfolio \
+  -H "Content-Type: application/json" \
+  -d '{"entity_id": "0157B1"}'
+```
+
+The entity name and ticker are resolved automatically from the database if the entity has already been processed by the pipeline. You can also supply them explicitly:
+
+```bash
+curl -X POST http://localhost:8000/api/frontend/portfolio \
+  -H "Content-Type: application/json" \
+  -d '{"entity_id": "0157B1", "entity_name": "Apple Inc.", "kg_ticker": "AAPL"}'
+```
+
+Adding an entity that is already in the portfolio returns `"status": "already_exists"` without error.
+
+### Remove an entity
+
+```bash
+curl -X DELETE http://localhost:8000/api/frontend/portfolio/0157B1
+```
+
+### Run the pipeline for your portfolio
+
+Once populated, `my_portfolio` can be used anywhere a universe name is accepted:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
+  -H "Content-Type: application/json" \
+  -d '{
+    "universe": "my_portfolio",
+    "window_mode": "daily"
+  }'
+```
 
 ## Configuration reference
 
