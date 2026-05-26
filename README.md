@@ -13,7 +13,7 @@ For each entity, the pipeline moves through six sequential phases:
 3. **Grounding Check**: each bullet is validated against its cited source text
 4. **Novelty Check via Embedding**: embedding-based retrieval of past bullets, LLM coarse decision
 5. **Novelty Check via Search**: claim-level verification against current evidence
-6. **Narrative**: editorial summary generated from all active bullets published that day
+6. **Narrative**: multi-sentence editorial summary synthesising all active bullets published that day
 
 For a detailed description of each phase, see the [pipeline reference guide](https://docs.bigdata.com/use-cases/bigdata-briefs-pipeline).
 
@@ -21,7 +21,7 @@ For a detailed description of each phase, see the [pipeline reference guide](htt
 
 ## Part 1 — The App
 
-The app is a read-and-run desk available at **`http://localhost:8000/app/desk`**. It is built around **My Portfolio**: a custom list of companies you configure once and then monitor daily. All views in the app — briefs, history, updates — operate on this portfolio. There are no other universes in the UI.
+The app is a read-and-run desk available at **`http://localhost:8000/app/desk`**. It is built around **My Portfolio**: a custom list of companies you configure once and then monitor daily. The main navigation has three sections: **The Brief**, **My Portfolio**, and **Costs**.
 
 ### Prerequisites
 
@@ -57,17 +57,28 @@ Open **`http://localhost:8000/app/desk`** in your browser.
 
 ---
 
-### Brief (default view)
+### The Brief (default view)
 
-The main view of the app. On the left rail you see **Today's Front Page**: the list of portfolio companies with a one-line summary for each, showing at a glance which companies had material news that day. Clicking a company loads its full brief on the right.
+The main reading view of the app. The landing shows the list of portfolio companies sorted by activity: each row displays the company ticker, today's bullet count, and a 7-day mini sparkline of daily output. Clicking a company loads its full brief.
 
-The brief for a company shows:
-- **Narrative** — an LLM-generated editorial lede synthesising the day's bullets into 2-3 sentences
-- **Bullet points** — the published bullets, each grounded to source citations (headline + chunk text), colour-coded by novelty: fully novel bullets are shown normally; partially novel ones (where a known fact was updated) are flagged
-- **Editor's cut** — optionally visible: bullets that were discarded by the pipeline, grouped by the stage that eliminated them (relevance, grounding, novelty), useful for auditing what the pipeline filtered out
-- **Signals** — media attention and sentiment z-scores for the company, shown alongside the brief
+Once a company is selected, a sub-navigation appears with three tabs:
 
-The date selector at the top lets you navigate to any past date that has briefs.
+- **Tearsheet** — the full brief for the selected day: narrative, bullets, and right-rail metadata
+- **Audit** — every bullet the pipeline considered, both published and discarded, with the reason for each decision
+- **Archive** — a calendar of all past brief dates for that company; clicking a date loads that day's tearsheet
+
+**The Tearsheet** contains:
+- **Narrative** — an LLM-generated editorial summary of the day's active bullets, shown as the leading paragraph
+- **Bullet points** — published bullets grouped by theme, each with inline source citations (publisher + headline + excerpt). Bullets rewritten by the novelty step show a collapsible "Editor's note" explaining what changed.
+- **Editor's cut** — visible when enabled via the tweaks panel: discarded bullets grouped by the filter stage that eliminated them (relevance, grounding, novelty), each with the rejection reason
+- **Stats bar** — material developments (published bullets), sources scanned, excerpts reviewed, bullets filtered out, and pipeline runtime
+- **Date navigation** — prev/next arrows to move between available brief dates
+
+The **right rail** shows:
+- **About this brief** — entity metadata: name, ticker, sector, industry, country, entity ID, website
+- **14-day pulse** — sparkline of bullets published per day over the past 14 days, with current/average/peak counts
+- **Signal history** — media attention sparkline with momentum and z-score metrics vs. 1-month and 1-quarter baselines; sentiment diverging sparkline with its own momentum and z-score metrics
+- **Read also** — up to 3 related company briefs from the same date
 
 ---
 
@@ -79,15 +90,17 @@ The Portfolio view is where you build and manage the list of companies the app t
 
 **Removing a company**: click the remove button next to any entry in the portfolio list.
 
-**Running an update**: once your portfolio is set up, the Portfolio view also has a **Start Update** button. This triggers a `run-parallel` call for all companies in `my_portfolio` using `window_mode: daily` — covering from UTC midnight of today to now (or resuming from the last run if it already ran today). After the run completes, briefs and narratives for all companies are available in the Brief view.
+**Running an update**: once your portfolio is set up, click **Start Update** to open the scan/update configuration screen. From there you can select the scope, news sources, and date mode before launching the run. The run uses `window_mode: update` by default — covering at most the last 24 hours from the previous run (72 hours on Mondays to bridge the weekend gap). After the run completes, briefs and narratives for all companies are available in The Brief.
 
-> In `PUBLIC_MODE` the add/remove and run buttons are hidden. Portfolio management and pipeline runs must be done via the API (see Part 2).
+> In `PUBLIC_MODE` the add/remove and run buttons are disabled and show a support contact message instead. Portfolio management and pipeline runs must be done via the API (see Part 2).
 
 ---
 
 ### History
 
-The History view shows a calendar timeline of all past briefs for a selected company. Companies are listed in the left sidebar, sortable by most recent activity or alphabetically. Selecting a company shows its full run history grouped by month, with per-day stats: how many bullets were published and how many were discarded. Expanding a day shows the individual runs and their details.
+The History view shows a calendar timeline of all past briefs for any company in the database (not filtered to the portfolio). Companies are listed in the left sidebar, searchable and sortable by most recent activity or alphabetically. Selecting a company shows its full run history grouped by month, with per-day stats: how many bullets were published and how many were discarded. Expanding a day shows the individual runs and their details.
+
+> This view is accessible via the developer tweaks panel at the bottom of the page, not from the main navigation.
 
 ---
 
@@ -408,7 +421,7 @@ Covers `[UTC midnight of today → now]`.
 - If the pipeline already ran **today**, it resumes from exactly where that run ended.
 - If the last run was **yesterday or earlier**, it always resets to midnight of today.
 
-This is the recommended mode for standard day-by-day monitoring. Each day's run is self-contained and deterministic.
+Each day's run is self-contained and deterministic.
 
 ### `continuous`
 
@@ -419,12 +432,18 @@ Covers `[end of last run → now]`.
 
 Use this mode when you need a guaranteed gap-free timeline across consecutive runs regardless of when they triggered.
 
-| | `daily` | `continuous` |
-|---|---|---|
-| No previous run | `[today midnight → now]` | `[today midnight → now]` |
-| Last run was today at 09:00 | `[09:00 → now]` | `[09:00 → now]` |
-| Last run was yesterday at 18:00 | `[today midnight → now]` | `[yesterday 18:00 → now]` |
-| Last run was 3 days ago | `[today midnight → now]` | `[3 days ago end → now]` |
+### `update`
+
+Covers at most the **last 24 hours** from the end of the previous run, extended to **72 hours on Mondays** (UTC) to bridge the weekend gap. If no previous run exists, covers the full lookback window from now.
+
+This is the mode used by the app's built-in update button. It is well suited for daily monitoring where you always want to capture the most recent 24 hours without worrying about gaps or resets.
+
+| | `daily` | `continuous` | `update` |
+|---|---|---|---|
+| No previous run | `[today midnight → now]` | `[today midnight → now]` | `[now − 24h → now]` |
+| Last run was today at 09:00 | `[09:00 → now]` | `[09:00 → now]` | `[09:00 → now]` |
+| Last run was yesterday at 18:00 | `[today midnight → now]` | `[yesterday 18:00 → now]` | `[yesterday 18:00 → now]` |
+| Last run was 3 days ago | `[today midnight → now]` | `[3 days ago end → now]` | `[now − 24h → now]` |
 
 > **Overlap protection**: if the requested window overlaps any already-completed run for the same entity, that entity's run is rejected immediately and marked as `failed`. No API or LLM calls are made.
 
