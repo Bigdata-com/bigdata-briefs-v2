@@ -37,7 +37,6 @@ from bigdata_briefs.api.schemas import (
     EntityDetailResult,
     EvidenceDetail,
     GroundingTrace,
-    LatestBulletsResponse,
     RelevanceScoringTrace,
     RunBulletsResult,
     RunDetailResult,
@@ -450,51 +449,6 @@ def _parse_bullet_trace(bp: dict) -> BulletTrace:
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 
-@router.get(
-    "/reports/{entity_id}/bullets",
-    response_model=LatestBulletsResponse,
-    dependencies=[Depends(require_api_key)],
-    summary="Get bullet points from the latest run for an entity",
-    description=(
-        "Returns all bullet points saved during the most recent successful run "
-        "for the entity, along with run-level temporal details and per-bullet citations."
-    ),
-)
-def get_latest_bullets(entity_id: str) -> LatestBulletsResponse:
-    storage = SQLiteGeneratedBulletPointStorage(get_engine())
-    rows = storage.get_latest_run_bullets(entity_id)
-
-    if not rows:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No bullets found for entity '{entity_id}'.",
-        )
-
-    first = rows[0]
-    return LatestBulletsResponse(
-        entity_id=first.entity_id,
-        entity_name=first.entity_name,
-        run_id=first.run_id,
-        report_window_start=first.report_window_start,
-        report_window_end=first.report_window_end,
-        run_created_at=first.created_at,
-        bullet_count=len(rows),
-        bullets=[
-            BulletPointItem(
-                trace_id=row.trace_id,
-                text=row.text,
-                citations=[
-                    CitationDetail(id=c["id"], headline=c["headline"], text=c["text"])
-                    for c in (row.citations or [])
-                ],
-                embedding_decision=row.embedding_decision,
-                search_action=row.search_action,
-            )
-            for row in rows
-        ],
-    )
-
-
 @router.post(
     "/reports/bullets",
     response_model=BatchBulletsResponse,
@@ -503,6 +457,8 @@ def get_latest_bullets(entity_id: str) -> LatestBulletsResponse:
     description=(
         "Returns the published bullet points for one or more entities, grouped by run and ordered "
         "newest-first. Pass an empty `entity_ids` list to retrieve all entities in the database.\n\n"
+        "Use `max_runs` to limit how many runs are returned per entity: "
+        "`1` for the latest run only, `N` for the last N runs, omit for all runs.\n\n"
         "Each bullet includes the final text, source citations, and novelty metadata "
         "(`search_action`, `not_fully_novel`). Discarded bullets are returned as counts "
         "grouped by stage (`discarded_by_relevance`, `discarded_by_grounding`, `discarded_by_novelty`)."
@@ -521,16 +477,22 @@ def get_bullets(body: BatchBulletsRequest) -> BatchBulletsResponse:
             results.append(_build_entity_result_from_run_log(entity_id, engine))
             continue
 
+        # Apply max_runs limit (grouped is already ordered newest-first)
+        run_ids_ordered = list(grouped.keys())
+        if body.max_runs is not None:
+            run_ids_ordered = run_ids_ordered[:body.max_runs]
+
         run_info: dict[str, tuple[str, datetime, datetime]] = {
-            run_id: (rows[0].entity_id, rows[0].report_window_start, rows[0].report_window_end)
-            for run_id, rows in grouped.items()
+            run_id: (grouped[run_id][0].entity_id, grouped[run_id][0].report_window_start, grouped[run_id][0].report_window_end)
+            for run_id in run_ids_ordered
         }
         discarded_map = _load_discarded_for_runs(run_info)
 
         entity_name: str | None = None
         runs: list[RunBulletsResult] = []
 
-        for run_id, rows in grouped.items():
+        for run_id in run_ids_ordered:
+            rows = grouped[run_id]
             first = rows[0]
             if entity_name is None:
                 entity_name = first.entity_name

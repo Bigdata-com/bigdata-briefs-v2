@@ -72,19 +72,6 @@ class BulletPointItem(BaseModel):
     not_fully_novel: bool = False
 
 
-class LatestBulletsResponse(BaseModel):
-    """Bullet points from the latest successful run for an entity."""
-
-    entity_id: str
-    entity_name: str
-    run_id: str
-    report_window_start: datetime
-    report_window_end: datetime
-    run_created_at: datetime
-    bullet_count: int
-    bullets: list[BulletPointItem]
-
-
 # ── Delete entity ─────────────────────────────────────────────────────────────
 
 
@@ -253,12 +240,24 @@ class EntityBulletsResult(BaseModel):
 
 
 class BatchBulletsRequest(BaseModel):
-    """Body for POST /batch/bullets.
+    """Body for POST /reports/bullets.
 
     If ``entity_ids`` is empty, all entities in the DB are returned.
+    ``max_runs`` controls how many runs per entity are returned:
+      - ``None`` (default) → all runs
+      - ``1``              → latest run only
+      - ``N``              → last N runs (newest first)
     """
 
     entity_ids: list[str] = []
+    max_runs: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Maximum number of runs to return per entity, newest first. "
+            "Omit (or pass null) to return all runs."
+        ),
+    )
 
 
 class BatchBulletsResponse(BaseModel):
