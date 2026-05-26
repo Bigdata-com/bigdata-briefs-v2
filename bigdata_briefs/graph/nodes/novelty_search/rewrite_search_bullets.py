@@ -103,6 +103,8 @@ def rewrite_search_bullets(
             ],
         }
 
+    updated = list(bullet_points)
+
     # Collect entries that have verdict data in the cache
     active_entries: list[tuple[int, str, str]] = []
     for i in active_indices:
@@ -121,8 +123,6 @@ def rewrite_search_bullets(
             updated[i] = record_to_bullet(record)
             continue
         active_entries.append((i, record.trace_id, record.text or ""))
-
-    updated = list(bullet_points)
     results: dict[int, dict | Exception] = {}
     max_workers = max(1, settings.NOVELTY_SEARCH_MAX_CONCURRENT)
 

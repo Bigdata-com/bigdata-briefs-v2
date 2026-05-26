@@ -15,7 +15,7 @@ from bigdata_briefs.orchestration.models import (
     SQLEntityOrchestrationState,
     SQLEntityPipelineRunLog,
 )
-from bigdata_briefs.api.routes.batch import (
+from bigdata_briefs.api.routes.reports import (
     _load_discarded_for_runs,
     _build_entity_result_from_run_log,
     _stage_to_category,
@@ -102,7 +102,7 @@ def test_load_discarded_reads_from_bullet_run_log(engine):
 
     run_info = {"gen-run-1": ("E1", ws, we)}
 
-    with patch("bigdata_briefs.api.routes.batch.get_engine", return_value=engine):
+    with patch("bigdata_briefs.api.routes.reports.get_engine", return_value=engine):
         result = _load_discarded_for_runs(run_info)
 
     assert result["gen-run-1"]["relevance"] == ["off-topic bullet"]
@@ -115,7 +115,7 @@ def test_load_discarded_empty_when_no_run_log(engine):
     we = datetime(2025, 2, 1, 23, 59, 59, tzinfo=timezone.utc)
     run_info = {"gen-run-x": ("MISSING", ws, we)}
 
-    with patch("bigdata_briefs.api.routes.batch.get_engine", return_value=engine):
+    with patch("bigdata_briefs.api.routes.reports.get_engine", return_value=engine):
         result = _load_discarded_for_runs(run_info)
 
     assert result["gen-run-x"] == {"relevance": [], "grounding": [], "novelty": []}
@@ -138,7 +138,7 @@ def test_load_discarded_does_not_read_output_json(engine):
 
     run_info = {"gen-run-2": ("E2", ws, we)}
 
-    with patch("bigdata_briefs.api.routes.batch.get_engine", return_value=engine):
+    with patch("bigdata_briefs.api.routes.reports.get_engine", return_value=engine):
         result = _load_discarded_for_runs(run_info)
 
     assert result["gen-run-2"]["novelty"] == ["stale news"]
@@ -154,7 +154,7 @@ def test_load_discarded_unknown_stage_not_categorised(engine):
 
     run_info = {"gen-run-3": ("E3", ws, we)}
 
-    with patch("bigdata_briefs.api.routes.batch.get_engine", return_value=engine):
+    with patch("bigdata_briefs.api.routes.reports.get_engine", return_value=engine):
         result = _load_discarded_for_runs(run_info)
 
     assert result["gen-run-3"]["relevance"] == []

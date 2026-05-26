@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse
 
 from bigdata_briefs.api.auth import require_api_key
 from bigdata_briefs.api.dependencies import get_engine
-from bigdata_briefs.api.routes.batch import _all_entity_ids, _build_bullet_detail
+from bigdata_briefs.api.routes.reports import _all_entity_ids, _build_bullet_detail
 from bigdata_briefs.orchestration.models import (
     SQLEntityOrchestrationState,
     SQLEntityPipelineRunLog,

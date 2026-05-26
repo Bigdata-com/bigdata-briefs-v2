@@ -866,8 +866,8 @@ class TestRewriteSearchBullets:
         assert result["node_metrics"][0]["extra"]["skipped"] is True
         assert deps._search_cache == {}
 
-    def test_no_verdict_in_cache_bullet_not_modified(self):
-        """Bullets with no verdict data in cache are silently skipped."""
+    def test_no_verdict_in_cache_bullet_discarded(self):
+        """Bullets with no verdict data in cache are discarded as unverified."""
         deps = make_deps()
         bp = make_bullet()
         # No cache seeded → claim_verdicts is None
@@ -885,8 +885,9 @@ class TestRewriteSearchBullets:
 
         # No LLM call since no cache entries
         deps.llm_client.call_with_response_format.assert_not_called()
-        # Bullet should be unchanged (still active)
-        assert result["bullet_points"][0]["is_active"] is True
+        # Bullet should be discarded — novelty check did not complete
+        assert result["bullet_points"][0]["is_active"] is False
+        assert result["bullet_points"][0]["failure"]["error_type"] == "MissingVerdictData"
 
     def test_keep_action_preserves_text_and_active(self):
         deps = make_deps()

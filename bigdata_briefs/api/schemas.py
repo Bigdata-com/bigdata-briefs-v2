@@ -2,33 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from bigdata_briefs.orchestration.windows import WindowMode
-
-
-# ── Trigger run ───────────────────────────────────────────────────────────────
-
-
-class RunRequest(BaseModel):
-    """Body for POST /entities/{entity_id}/run."""
-
-    pipeline_config: dict[str, Any] | None = None  # None → load default from disk
-    state_dir: str | None = None
-    refresh_entity: bool = False
-    force_run: bool = False
-    force_window_start: datetime | None = None
-    force_window_end: datetime | None = None
-    window_mode: WindowMode = WindowMode.DAILY
-
-
-class RunSubmittedResponse(BaseModel):
-    run_id: str
-    entity_id: str
-    status: str = "accepted"
 
 
 # ── Run status ────────────────────────────────────────────────────────────────
@@ -473,51 +452,6 @@ class DeleteDateResponse(BaseModel):
     """Calendar date that was deleted (YYYY-MM-DD)."""
     runs_deleted: int
     """Number of pipeline runs removed."""
-
-
-# ── Date-range run ───────────────────────────────────────────────────────────
-
-
-class DateRangeRunRequest(BaseModel):
-    """Body for POST /entities/{entity_id}/run-range."""
-
-    start_date: date
-    end_date: date
-    pipeline_config: dict[str, Any] | None = None
-    state_dir: str | None = None
-    refresh_entity: bool = False
-    force_run: bool = False
-    window_mode: WindowMode = WindowMode.DAILY
-
-
-class DateRangeRunSubmittedItem(BaseModel):
-    date: str        # YYYY-MM-DD
-    run_id: str
-    entity_id: str
-
-
-class DateRangeRunResponse(BaseModel):
-    entity_id: str
-    total_days: int
-    submitted: list[DateRangeRunSubmittedItem]
-
-
-# ── Dry run ───────────────────────────────────────────────────────────────────
-
-
-class DryRunRequest(BaseModel):
-    """Body for POST /entities/{entity_id}/dry-run."""
-
-    force_window_start: datetime | None = None
-    force_window_end: datetime | None = None
-    window_mode: WindowMode = WindowMode.DAILY
-
-
-class DryRunResponse(BaseModel):
-    entity_id: str
-    window_start: datetime
-    window_end: datetime
-    previous_bullets: list[dict[str, Any]]
 
 
 # ── Rate limiter observability ────────────────────────────────────────────────
