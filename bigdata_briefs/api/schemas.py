@@ -452,30 +452,3 @@ class DeleteDateResponse(BaseModel):
     """Calendar date that was deleted (YYYY-MM-DD)."""
     runs_deleted: int
     """Number of pipeline runs removed."""
-
-
-# ── Rate limiter observability ────────────────────────────────────────────────
-
-
-class RateStatusResponse(BaseModel):
-    """Snapshot of the process-global Bigdata rate-limit budget and worker pool.
-
-    Use this to size ``MAX_CONCURRENT_ENTITIES`` empirically: run a parallel
-    batch and watch whether ``queries_in_recent_window`` pegs at
-    ``window_capacity`` (you're saturating the 450 QPM cap and should lower
-    concurrency or accept queuing).
-    """
-
-    # ── Bigdata 450 QPM window ──
-    queries_in_recent_window: int
-    window_capacity: int
-    window_seconds: float
-
-    # ── Connection pool ──
-    connection_sem_capacity: int
-    connection_sem_available: int | None  # None if the platform doesn't expose it
-
-    # ── Entity worker pool ──
-    max_concurrent_entities: int
-    entities_in_flight: int  # futures submitted and not yet done
-    entity_queue_depth: int  # futures waiting for a worker slot
