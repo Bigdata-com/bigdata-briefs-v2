@@ -2,6 +2,31 @@
 
 A LangGraph pipeline that generates structured, novelty-filtered brief reports for a universe of companies. For each entity and date window, the service retrieves news evidence from the Bigdata API, extracts material bullet points, and filters them for relevance and novelty before writing them to the database. Results are exposed through a web app and a REST API.
 
+## Contents
+
+- [Architecture overview](#architecture-overview)
+- [Part 1: The App](#part-1-the-app)
+  - [Prerequisites](#prerequisites)
+  - [Quickstart](#quickstart)
+  - [The Brief](#the-brief-default-view)
+  - [Portfolio](#portfolio)
+  - [Costs](#costs)
+  - [Scheduled runs (cron job)](#scheduled-runs-cron-job)
+- [Part 2: The API](#part-2-the-api)
+  - [Run the pipeline](#run-the-pipeline)
+  - [Monitor a batch](#monitor-a-batch)
+  - [Retrieve results](#retrieve-results)
+  - [Entity history](#entity-history)
+  - [Universes](#universes)
+  - [My portfolio (API)](#my-portfolio-api)
+  - [Administration](#administration)
+- [Window modes](#window-modes)
+- [Pre-defined universes](#pre-defined-universes)
+- [Configuration reference](#configuration-reference)
+- [Troubleshooting](#troubleshooting)
+
+---
+
 ## Architecture overview
 
 ![Pipeline diagram](assets/bigdata_briefs_overview.png)
@@ -19,7 +44,7 @@ For a detailed description of each phase, see the [pipeline reference guide](htt
 
 ---
 
-## Part 1 — The App
+## Part 1: The App
 
 The app is a read-and-run desk available at **`http://localhost:8000/app/desk`**. It is built around **My Portfolio**: a custom list of companies you configure once and then monitor daily. The main navigation has three sections: **The Brief**, **My Portfolio**, and **Costs**.
 
@@ -61,24 +86,24 @@ Open **`http://localhost:8000/app/desk`** in your browser.
 
 The main reading view of the app. The landing is laid out as follows:
 
-- **Left — Company picker**: a table listing all portfolio companies with three columns: ticker, company name, and today's bullet count ("Items"). Clicking a row loads that company's brief.
-- **Right — Portfolio Brief**: shows the top 5 companies ranked by media attention momentum. A toggle switches between two views: **Bullet Points** shows the first 3 published bullets per company; **Summary** shows the LLM-generated narrative per company. A stats strip shows companies run, total material developments, and active names.
-- **Below — Upcoming events**: a calendar strip of upcoming earnings calls and conferences for portfolio companies, grouped by day.
+- **Left (Company picker)**: a table listing all portfolio companies with three columns: ticker, company name, and today's bullet count ("Items"). Clicking a row loads that company's brief.
+- **Right (Portfolio Brief)**: shows the top 5 companies ranked by media attention momentum. A toggle switches between two views: **Bullet Points** shows the first 3 published bullets per company; **Summary** shows the LLM-generated narrative per company. A stats strip shows companies run, total material developments, and active names.
+- **Below (Upcoming events)**: a calendar strip of upcoming earnings calls and conferences for portfolio companies, grouped by day.
 
 Clicking a company opens the **Tearsheet**, which contains:
-- **Narrative** — an LLM-generated editorial summary of the day's active bullets, shown as the leading paragraph
-- **Bullet points** — published bullets grouped by theme, each with inline source citations (publisher + headline + excerpt). Bullets rewritten by the novelty step show a collapsible "Editor's note" explaining what changed.
-- **Stats bar** — material developments (published bullets), sources scanned, excerpts reviewed, bullets filtered out, and pipeline runtime
-- **Date navigation** — prev/next arrows to move between available brief dates
+- **Narrative**: an LLM-generated editorial summary of the day's active bullets, shown as the leading paragraph
+- **Bullet points**: published bullets grouped by theme, each with inline source citations (publisher + headline + excerpt). Bullets rewritten by the novelty step show a collapsible "Editor's note" explaining what changed.
+- **Stats bar**: material developments (published bullets), sources scanned, excerpts reviewed, bullets filtered out, and pipeline runtime
+- **Date navigation**: prev/next arrows to move between available brief dates
 
 The **right rail** shows:
-- **About this brief** — entity metadata: name, ticker, sector, industry, country, entity ID, website
-- **14-day pulse** — sparkline of bullets published per day over the past 14 days, with current/average/peak counts
-- **Signal history** — media attention sparkline with momentum and z-score metrics vs. 1-month and 1-quarter baselines; sentiment diverging sparkline with its own momentum and z-score metrics
+- **About this brief**: entity metadata: name, ticker, sector, industry, country, entity ID, website
+- **14-day pulse**: sparkline of bullets published per day over the past 14 days, with current/average/peak counts
+- **Signal history**: media attention sparkline with momentum and z-score metrics vs. 1-month and 1-quarter baselines; sentiment diverging sparkline with its own momentum and z-score metrics
 
 Two additional tabs are accessible from the top sub-navigation:
-- **Audit** — every bullet the pipeline considered, both published and discarded, with the reason for each decision
-- **Archive** — a calendar of all past brief dates for that company; clicking a date loads that day's tearsheet
+- **Audit**: every bullet the pipeline considered, both published and discarded, with the reason for each decision
+- **Archive**: a calendar of all past brief dates for that company; clicking a date loads that day's tearsheet
 
 ---
 
@@ -86,11 +111,11 @@ Two additional tabs are accessible from the top sub-navigation:
 
 The Portfolio view is where you build and manage the list of companies the app tracks.
 
-**Adding a company**: use the search bar to find a company by name or ticker. The search covers all entities in the coverage universe — any company that has ever been processed by the pipeline appears here. Select one to add it to the portfolio.
+**Adding a company**: use the search bar to find a company by name or ticker. The search covers all entities in the coverage universe; any company that has ever been processed by the pipeline appears here. Select one to add it to the portfolio.
 
 **Removing a company**: click the remove button next to any entry in the portfolio list.
 
-**Running an update**: once your portfolio is set up, click **Start Update** to open the scan/update configuration screen. From there you can select the scope, news sources, and date mode before launching the run. The run uses `window_mode: update` by default — covering at most the last 24 hours from the previous run (72 hours on Mondays to bridge the weekend gap). After the run completes, briefs and narratives for all companies are available in The Brief.
+**Running an update**: once your portfolio is set up, click **Start Update** to open the scan/update configuration screen. From there you can select the scope, news sources, and date mode before launching the run. The run uses `window_mode: update` by default, covering at most the last 24 hours from the previous run (72 hours on Mondays to bridge the weekend gap). After the run completes, briefs and narratives for all companies are available in The Brief.
 
 > In `PUBLIC_MODE` the add/remove and run buttons are disabled. Portfolio management and pipeline runs must be done via the API (see Part 2).
 
@@ -110,7 +135,7 @@ When the app runs inside Docker, a cron job starts automatically alongside the s
 1 12 * * 1-5  /code/run_daily.sh
 ```
 
-This triggers `run_daily.sh` every weekday (Monday–Friday) at **12:01 UTC (08:01 ET)**, which calls the `run-parallel` endpoint for the `my_portfolio` universe. No manual action is needed — the pipeline runs on its own and the app updates automatically when you open it.
+This triggers `run_daily.sh` every weekday (Monday–Friday) at **12:01 UTC (08:01 ET)**, which calls the `run-parallel` endpoint for the `my_portfolio` universe. No manual action is needed; the pipeline runs on its own and the app updates automatically when you open it.
 
 `run_daily.sh` computes the window automatically:
 
@@ -132,7 +157,7 @@ To change the schedule, edit `crontab` (standard cron expression). To change the
 
 ---
 
-## Part 2 — The API
+## Part 2: The API
 
 Use the API directly when you want to run the pipeline for entities or universes outside of `my_portfolio`.
 
@@ -158,7 +183,7 @@ Submits a list of entity IDs (or a named universe) to the pipeline. All entities
 | `force_window_end` | `null` | Override window end (ISO 8601 UTC). Must be paired with `force_window_start`. |
 | `window_mode` | `daily` | How to compute the window when no forced dates are provided. See [Window modes](#window-modes). |
 | `categories` | `null` | Source categories to search: `news`, `news_premium`, `filings`, `transcripts`. Defaults to pipeline config (`news`). |
-| `generate_narrative` | `false` | When `true`, generates a 2-3 sentence editorial summary per entity after each run. The summary covers **all active bullets for that entity on the same UTC calendar day** — not just bullets from the current run. Retrievable via `POST /api/v1/reports/narratives`. |
+| `generate_narrative` | `false` | When `true`, generates a 2-3 sentence editorial summary per entity after each run. The summary covers **all active bullets for that entity on the same UTC calendar day** (not just bullets from the current run). Retrievable via `POST /api/v1/reports/narratives`. |
 | `ranking_metric` | `null` | When set, generates a portfolio brief for the top 5 companies after all entities finish. Available values: `media_attention_momentum` (latest `chunks_momentum_pct`), `media_attention` (\|Δ `chunks_zscore_mo`\|), `sentiment` (\|Δ `sent_zscore_mo`\|). |
 
 ```bash
@@ -197,7 +222,7 @@ curl http://localhost:8000/api/v1/batch/parallel/3f8a1c2d-.../status
 
 #### `GET /api/v1/runs/{run_id}`
 
-Returns the status of a single pipeline run — its window, start/end timestamps, and any error message or exit code if the run failed.
+Returns the status of a single pipeline run: window, start/end timestamps, and any error message or exit code if the run failed.
 
 ```bash
 curl http://localhost:8000/api/v1/runs/3f8a1c2d-...
@@ -207,7 +232,7 @@ curl http://localhost:8000/api/v1/runs/3f8a1c2d-...
 
 ### Retrieve results
 
-The `/reports/` namespace groups all read-only endpoints that query bullet data from the database. These endpoints never trigger any pipeline work — they only read what has already been stored.
+The `/reports/` namespace groups all read-only endpoints that query bullet data from the database. These endpoints never trigger any pipeline work; they only read what has already been stored.
 
 #### `POST /api/v1/reports/bullets`
 
@@ -232,7 +257,7 @@ curl -X POST http://localhost:8000/api/v1/reports/bullets \
 
 #### `POST /api/v1/reports/bullets/detail`
 
-Returns **every bullet considered** by the pipeline — both published and discarded — for one or more entities. For discarded bullets, includes the stage that eliminated them and the specific reason:
+Returns **every bullet considered** by the pipeline (both published and discarded) for one or more entities. For discarded bullets, includes the stage that eliminated them and the specific reason:
 
 - `relevance_score`: scored too low on financial materiality
 - `grounding`: text not verifiable against cited sources
@@ -255,7 +280,7 @@ curl -X POST http://localhost:8000/api/v1/reports/bullets/detail \
 
 Returns the per-entity editorial narratives generated after pipeline runs. Each narrative is a 2-3 sentence summary of all active bullets published for that entity on the same UTC calendar day. Only available when `generate_narrative: true` was passed to `run-parallel`.
 
-Results are sorted newest first. If an entity was run multiple times on the same day, each run produces its own row — the first entry for a given date is the most up-to-date summary (it accumulates all bullets published so far that day).
+Results are sorted newest first. If an entity was run multiple times on the same day, each run produces its own row; the first entry for a given date is the most up-to-date summary (it accumulates all bullets published so far that day).
 
 ```bash
 # All entities, last 30 days
@@ -298,7 +323,7 @@ curl http://localhost:8000/api/v1/reports/runs/3f8a1c2d-.../trace
 
 #### `GET /api/v1/entities/{entity_id}/runs`
 
-Returns the run history for a single entity — a paginated list of runs with their window, status, timestamps, and any error message. Useful for checking when an entity was last processed and whether previous runs succeeded.
+Returns the run history for a single entity: a paginated list of runs with their window, status, timestamps, and any error message. Useful for checking when an entity was last processed and whether previous runs succeeded.
 
 ```bash
 curl http://localhost:8000/api/v1/entities/0157B1/runs
@@ -391,7 +416,7 @@ curl -X POST http://localhost:8000/api/v1/admin/clear-stale-runs
 
 #### `POST /api/v1/admin/delete-date`
 
-Deletes all pipeline runs whose window falls on a specific calendar date. Useful for reprocessing a date from scratch — call this first, then re-submit the same date via `run-parallel`.
+Deletes all pipeline runs whose window falls on a specific calendar date. Useful for reprocessing a date from scratch: call this first, then re-submit the same date via `run-parallel`.
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/admin/delete-date \
@@ -451,7 +476,7 @@ This is the mode used by the app's built-in update button. It is well suited for
 | `top_us_500` | 500 | Top 500 US companies by market cap |
 | `top_eu_100` | 100 | Top 100 European companies by market cap |
 | `top_eu_500` | 500 | Top 500 European companies by market cap |
-| `my_portfolio` | dynamic | Your custom portfolio — managed via the app or API, stored in the database |
+| `my_portfolio` | dynamic | Your custom portfolio, managed via the app or API, stored in the database |
 
 ---
 
@@ -459,13 +484,13 @@ This is the mode used by the app's built-in update button. It is well suited for
 
 | Environment variable | Description | Default |
 |---|---|---|
-| `BIGDATA_API_KEY` | Bigdata.com API key **(required)** | — |
-| `OPENAI_API_KEY` | OpenAI API key **(required)** | — |
+| `BIGDATA_API_KEY` | Bigdata.com API key **(required)** | |
+| `OPENAI_API_KEY` | OpenAI API key **(required)** | |
 | `MAX_CONCURRENT_ENTITIES` | Max entities running in parallel | `10` |
 | `DB_STRING` | SQLite connection string | `sqlite:///briefs.db` |
 | `LLM_TIMEOUT_SECONDS` | LLM call timeout | `60` |
 | `NOVELTY_LOOKBACK_DAYS` | Days of history used for novelty checks | `30` |
-| `PIPELINE_API_KEY` | When set, all write endpoints require this key in the `X-API-Key` header | — |
+| `PIPELINE_API_KEY` | When set, all write endpoints require this key in the `X-API-Key` header | |
 | `PUBLIC_MODE` | When `true`, disables write actions in the UI (run, portfolio add/remove) and prevents the API key from being sent to the browser. Intended for shared or external deployments. Direct API calls with a valid `PIPELINE_API_KEY` still work. | `false` |
 | `ENABLE_DOCS` | When `true`, exposes `/docs`, `/redoc`, and `/openapi.json` | `true` |
 
