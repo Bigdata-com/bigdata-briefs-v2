@@ -475,11 +475,13 @@ class EntityNarrativesResult(BaseModel):
 class BatchNarrativesRequest(BaseModel):
     """Body for POST /reports/narratives.
 
-    If ``entity_ids`` is empty, all entities in the DB are returned.
+    ``entity_ids``, ``universe``, or neither may be provided (not both).
+    When neither is set, all entities in the DB are returned.
     ``from_date`` / ``to_date`` filter by ``report_date``.
     """
 
     entity_ids: list[str] = []
+    universe: str | None = None
     from_date: datetime | None = None
     to_date: datetime | None = None
 

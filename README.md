@@ -134,7 +134,7 @@ To change the schedule, edit `crontab` (standard cron expression). To change the
 
 ## Part 2 — The API
 
-Use the API directly when you want to run the pipeline for entities or universes outside of `my_portfolio`, automate runs from a script or scheduler, backfill historical data, or query results programmatically.
+Use the API directly when you want to run the pipeline for entities or universes outside of `my_portfolio`.
 
 All endpoints live under **`http://localhost:8000/api/v1/`**.
 
@@ -148,8 +148,21 @@ All endpoints live under **`http://localhost:8000/api/v1/`**.
 
 Submits a list of entity IDs (or a named universe) to the pipeline. All entities run concurrently up to the configured worker pool size. Returns a single **batch_id** to monitor progress.
 
+**Request body parameters:**
+
+| Parameter | Default | Description |
+|---|---|---|
+| `entity_ids` | `[]` | List of entity IDs to run. Mutually exclusive with `universe`. Omit both to run all entities in the database. |
+| `universe` | `null` | Named universe to run (e.g. `dow_30`, `my_portfolio`). Mutually exclusive with `entity_ids`. |
+| `force_window_start` | `null` | Override window start (ISO 8601 UTC). Must be paired with `force_window_end`. |
+| `force_window_end` | `null` | Override window end (ISO 8601 UTC). Must be paired with `force_window_start`. |
+| `window_mode` | `daily` | How to compute the window when no forced dates are provided. See [Window modes](#window-modes). |
+| `categories` | `null` | Source categories to search: `news`, `news_premium`, `filings`, `transcripts`. Defaults to pipeline config (`news`). |
+| `generate_narrative` | `false` | When `true`, generates a 2-3 sentence editorial summary per entity after each run. The summary covers **all active bullets for that entity on the same UTC calendar day** — not just bullets from the current run. Retrievable via `POST /api/v1/reports/narratives`. |
+| `ranking_metric` | `null` | When set, generates a portfolio brief for the top 5 companies after all entities finish. Available values: `media_attention_momentum` (latest `chunks_momentum_pct`), `media_attention` (\|Δ `chunks_zscore_mo`\|), `sentiment` (\|Δ `sent_zscore_mo`\|). |
+
 ```bash
-# Run a list of entities
+# Minimal: run a list of entities for a specific day
 curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
   -H "Content-Type: application/json" \
   -d '{
@@ -158,27 +171,17 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
     "force_window_end": "2026-04-22T23:59:59"
   }'
 
-# Run an entire pre-defined universe and with the portfolio brief
+# Full: run a universe with narrative and portfolio brief
 curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
   -H "Content-Type: application/json" \
   -d '{
     "universe": "dow_30",
     "force_window_start": "2026-04-22T00:00:00",
     "force_window_end": "2026-04-22T23:59:59",
+    "generate_narrative": true,
     "ranking_metric": "media_attention_momentum"
   }'
 ```
-
-> `entity_ids` and `universe` are mutually exclusive. Omit both to run every entity tracked in the database.  
-> Omit `force_window_start` / `force_window_end` to use the automatic incremental window (see [Window modes](#window-modes) below).
-
-**What happens automatically after the run:**
-
-- **Per-entity narrative** — if `generate_narrative: true` is set (default is `false`), and the run produced at least one active bullet, the LLM generates a 2-3 sentence editorial summary for that entity. The summary covers **all active bullets for that entity whose `report_window_end` falls on the same UTC calendar day** — not just bullets from the current run. This means that if an entity is run multiple times in the same day, each narrative will accumulate all bullets published so far that day. Enabled by default on the app update button and the cron job.
-- **Portfolio brief** — once all entities in the batch have finished, a portfolio brief is generated for the top 5 companies ranked by the chosen metric. This step is **opt-in**: it only runs when `ranking_metric` is explicitly set in the request body (default is `null` — no brief generated). Available metrics:
-  - `media_attention_momentum` — latest `chunks_momentum_pct` (media volume acceleration; higher = more acceleration)
-  - `media_attention` — |Δ `chunks_zscore_mo`| (day-over-day change in normalised media volume z-score)
-  - `sentiment` — |Δ `sent_zscore_mo`| (day-over-day change in sentiment z-score)
 
 ---
 
@@ -264,6 +267,11 @@ curl -X POST http://localhost:8000/api/v1/reports/narratives \
 curl -X POST http://localhost:8000/api/v1/reports/narratives \
   -H "Content-Type: application/json" \
   -d '{"entity_ids": ["0157B1", "D64C6D"], "from_date": "2026-04-27T00:00:00"}'
+
+# By universe
+curl -X POST http://localhost:8000/api/v1/reports/narratives \
+  -H "Content-Type: application/json" \
+  -d '{"universe": "my_portfolio", "from_date": "2026-04-27T00:00:00"}'
 ```
 
 ---

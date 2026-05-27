@@ -47,6 +47,7 @@ from bigdata_briefs.api.schemas import (
     RunTraceResponse,
     SearchTrace,
 )
+from bigdata_briefs.api.routes.universes import _UNIVERSES, _get_my_portfolio_ids
 from bigdata_briefs.novelty.sql_models import SQLGeneratedBulletPoint
 from bigdata_briefs.novelty.storage import SQLiteGeneratedBulletPointStorage
 from bigdata_briefs.orchestration.models import (
@@ -737,7 +738,17 @@ def get_run_trace(run_id: uuid.UUID) -> RunTraceResponse:
 )
 def get_narratives(body: BatchNarrativesRequest) -> BatchNarrativesResponse:
     engine = get_engine()
-    entity_ids = body.entity_ids or _all_entity_ids(engine)
+    if body.universe and body.entity_ids:
+        raise HTTPException(status_code=422, detail="Provide either 'entity_ids' or 'universe', not both.")
+    if body.universe:
+        if body.universe == "my_portfolio":
+            entity_ids = _get_my_portfolio_ids()
+        else:
+            entity_ids = _UNIVERSES.get(body.universe)
+        if entity_ids is None:
+            raise HTTPException(status_code=404, detail=f"Universe '{body.universe}' not found. Available: {list(_UNIVERSES) + ['my_portfolio']}")
+    else:
+        entity_ids = body.entity_ids or _all_entity_ids(engine)
 
     results: list[EntityNarrativesResult] = []
     with Session(engine) as session:
