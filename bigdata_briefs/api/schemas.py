@@ -195,6 +195,13 @@ class BatchRunRequest(BaseModel):
             "When null, the default pipeline config categories are used (news)."
         ),
     )
+    generate_narrative: bool = Field(
+        default=False,
+        description=(
+            "When true, generates a per-entity editorial narrative after each entity's pipeline "
+            "completes (if at least one bullet was published). When false (default), no narrative is generated."
+        ),
+    )
     ranking_metric: str | None = Field(
         default=None,
         description=(
@@ -444,6 +451,42 @@ class ClearStaleRunsResponse(BaseModel):
     """Entity IDs whose stale run rows were cleared."""
     stale_seconds_threshold: int
     """Age (seconds) above which a running row was considered stale."""
+
+
+# ── Narratives ───────────────────────────────────────────────────────────────
+
+
+class NarrativeItem(BaseModel):
+    """A single per-entity editorial narrative."""
+
+    run_id: str
+    report_date: datetime
+    narrative_text: str
+    bullets_count: int
+    created_at: datetime
+
+
+class EntityNarrativesResult(BaseModel):
+    entity_id: str
+    found: bool
+    narratives: list[NarrativeItem] = []
+
+
+class BatchNarrativesRequest(BaseModel):
+    """Body for POST /reports/narratives.
+
+    If ``entity_ids`` is empty, all entities in the DB are returned.
+    ``from_date`` / ``to_date`` filter by ``report_date``.
+    """
+
+    entity_ids: list[str] = []
+    from_date: datetime | None = None
+    to_date: datetime | None = None
+
+
+class BatchNarrativesResponse(BaseModel):
+    results: list[EntityNarrativesResult]
+    total_entities: int
 
 
 class DeleteDateResponse(BaseModel):

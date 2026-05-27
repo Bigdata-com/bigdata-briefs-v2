@@ -24,6 +24,8 @@ from bigdata_briefs.api.schemas import (
     BatchBulletsDetailResponse,
     BatchBulletsRequest,
     BatchBulletsResponse,
+    BatchNarrativesRequest,
+    BatchNarrativesResponse,
     BulletDetailItem,
     BulletDiscardDetail,
     BulletPassedDetail,
@@ -35,8 +37,10 @@ from bigdata_briefs.api.schemas import (
     EmbeddingTrace,
     EntityBulletsResult,
     EntityDetailResult,
+    EntityNarrativesResult,
     EvidenceDetail,
     GroundingTrace,
+    NarrativeItem,
     RelevanceScoringTrace,
     RunBulletsResult,
     RunDetailResult,
@@ -49,6 +53,7 @@ from bigdata_briefs.orchestration.models import (
     SQLBulletRunLog,
     SQLEntityOrchestrationState,
     SQLEntityPipelineRunLog,
+    SQLRunNarrative,
 )
 
 router = APIRouter(tags=["reports"])
@@ -706,4 +711,60 @@ def get_run_trace(run_id: uuid.UUID) -> RunTraceResponse:
         total_bullets=len(bullets),
         active_bullets=sum(1 for b in bullets if b.is_active),
         bullets=bullets,
+    )
+
+
+# ── Narratives ────────────────────────────────────────────────────────────────
+
+
+@router.post(
+    "/reports/narratives",
+    response_model=BatchNarrativesResponse,
+    dependencies=[Depends(require_api_key)],
+    summary="Retrieve per-entity editorial narratives",
+    description=(
+        "Returns the editorial narratives generated after each pipeline run. "
+        "Each narrative is a 2-3 sentence summary of **all active bullets published "
+        "for that entity on the same UTC calendar day** (not just the bullets from "
+        "the triggering run). Only present when `generate_narrative: true` was passed "
+        "to the `run-parallel` call.\n\n"
+        "Multiple narrative rows can exist for the same entity and day (one per run). "
+        "Results are sorted newest first; the first entry for a given date is the most "
+        "up-to-date summary.\n\n"
+        "Filter by `from_date` / `to_date` (ISO 8601) to narrow the date range. "
+        "If `entity_ids` is empty, all entities in the database are returned."
+    ),
+)
+def get_narratives(body: BatchNarrativesRequest) -> BatchNarrativesResponse:
+    engine = get_engine()
+    entity_ids = body.entity_ids or _all_entity_ids(engine)
+
+    results: list[EntityNarrativesResult] = []
+    with Session(engine) as session:
+        for eid in entity_ids:
+            q = select(SQLRunNarrative).where(SQLRunNarrative.entity_id == eid)
+            if body.from_date:
+                q = q.where(SQLRunNarrative.report_date >= body.from_date)
+            if body.to_date:
+                q = q.where(SQLRunNarrative.report_date <= body.to_date)
+            q = q.order_by(desc(SQLRunNarrative.created_at))
+            rows = session.exec(q).all()
+            results.append(EntityNarrativesResult(
+                entity_id=eid,
+                found=len(rows) > 0,
+                narratives=[
+                    NarrativeItem(
+                        run_id=str(r.run_id),
+                        report_date=r.report_date,
+                        narrative_text=r.narrative_text,
+                        bullets_count=r.bullets_count,
+                        created_at=r.created_at,
+                    )
+                    for r in rows
+                ],
+            ))
+
+    return BatchNarrativesResponse(
+        results=results,
+        total_entities=len(results),
     )

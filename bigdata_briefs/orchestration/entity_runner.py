@@ -795,6 +795,7 @@ def run_entity_incremental(
     force_window_end: datetime | None = None,
     force_run: bool = False,
     window_mode: WindowMode = WindowMode.DAILY,
+    generate_narrative: bool = False,
     engine: Engine | None = None,
     kg_precache: dict[str, dict[str, Any]] | None = None,
     run_id: uuid.UUID | None = None,
@@ -1039,7 +1040,7 @@ def run_entity_incremental(
             sources_scanned=sources_scanned,
         )
 
-    if pipeline_ok:
+    if pipeline_ok and generate_narrative:
         _generate_and_flush_narrative(
             eng,
             run_log.run_id,

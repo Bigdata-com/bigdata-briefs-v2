@@ -68,7 +68,6 @@ The main reading view of the app. The landing is laid out as follows:
 Clicking a company opens the **Tearsheet**, which contains:
 - **Narrative** — an LLM-generated editorial summary of the day's active bullets, shown as the leading paragraph
 - **Bullet points** — published bullets grouped by theme, each with inline source citations (publisher + headline + excerpt). Bullets rewritten by the novelty step show a collapsible "Editor's note" explaining what changed.
-- **Editor's cut** — visible when enabled via the tweaks panel: discarded bullets grouped by the filter stage that eliminated them (relevance, grounding, novelty), each with the rejection reason
 - **Stats bar** — material developments (published bullets), sources scanned, excerpts reviewed, bullets filtered out, and pipeline runtime
 - **Date navigation** — prev/next arrows to move between available brief dates
 
@@ -76,7 +75,6 @@ The **right rail** shows:
 - **About this brief** — entity metadata: name, ticker, sector, industry, country, entity ID, website
 - **14-day pulse** — sparkline of bullets published per day over the past 14 days, with current/average/peak counts
 - **Signal history** — media attention sparkline with momentum and z-score metrics vs. 1-month and 1-quarter baselines; sentiment diverging sparkline with its own momentum and z-score metrics
-- **Read also** — up to 3 related company briefs from the same date
 
 Two additional tabs are accessible from the top sub-navigation:
 - **Audit** — every bullet the pipeline considered, both published and discarded, with the reason for each decision
@@ -127,6 +125,7 @@ To change the schedule, edit `crontab` (standard cron expression). To change the
   "force_window_start": "<computed>",
   "force_window_end": "<computed>",
   "categories": ["news"],
+  "generate_narrative": true,
   "ranking_metric": "media_attention_momentum"
 }
 ```
@@ -175,13 +174,11 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
 
 **What happens automatically after the run:**
 
-- **Per-entity narrative** — as the final step of each entity's pipeline, if at least one bullet was published the LLM generates a 2-3 sentence editorial summary of that entity's bullets for the day. Stored internally and surfaced by the app.
+- **Per-entity narrative** — if `generate_narrative: true` is set (default is `false`), and the run produced at least one active bullet, the LLM generates a 2-3 sentence editorial summary for that entity. The summary covers **all active bullets for that entity whose `report_window_end` falls on the same UTC calendar day** — not just bullets from the current run. This means that if an entity is run multiple times in the same day, each narrative will accumulate all bullets published so far that day. Enabled by default on the app update button and the cron job.
 - **Portfolio brief** — once all entities in the batch have finished, a portfolio brief is generated for the top 5 companies ranked by the chosen metric. This step is **opt-in**: it only runs when `ranking_metric` is explicitly set in the request body (default is `null` — no brief generated). Available metrics:
   - `media_attention_momentum` — latest `chunks_momentum_pct` (media volume acceleration; higher = more acceleration)
   - `media_attention` — |Δ `chunks_zscore_mo`| (day-over-day change in normalised media volume z-score)
   - `sentiment` — |Δ `sent_zscore_mo`| (day-over-day change in sentiment z-score)
-
-Both steps are fire-and-forget: a failure in either does not affect the run results or the batch status response.
 
 ---
 
@@ -250,6 +247,26 @@ curl -X POST http://localhost:8000/api/v1/reports/bullets/detail \
     "to_date": "2026-04-30T23:59:59"
   }'
 ```
+
+#### `POST /api/v1/reports/narratives`
+
+Returns the per-entity editorial narratives generated after pipeline runs. Each narrative is a 2-3 sentence summary of all active bullets published for that entity on the same UTC calendar day. Only available when `generate_narrative: true` was passed to `run-parallel`.
+
+Results are sorted newest first. If an entity was run multiple times on the same day, each run produces its own row — the first entry for a given date is the most up-to-date summary (it accumulates all bullets published so far that day).
+
+```bash
+# All entities, last 30 days
+curl -X POST http://localhost:8000/api/v1/reports/narratives \
+  -H "Content-Type: application/json" \
+  -d '{"from_date": "2026-04-27T00:00:00"}'
+
+# Specific entities
+curl -X POST http://localhost:8000/api/v1/reports/narratives \
+  -H "Content-Type: application/json" \
+  -d '{"entity_ids": ["0157B1", "D64C6D"], "from_date": "2026-04-27T00:00:00"}'
+```
+
+---
 
 #### `GET /api/v1/reports/runs/{run_id}/trace`
 

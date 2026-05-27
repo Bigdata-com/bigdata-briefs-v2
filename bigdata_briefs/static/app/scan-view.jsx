@@ -88,7 +88,7 @@ function ScanView({ tweaks }) {
     const endStr = updateEndDate || today;
 
     function doStart(idsForPolling) {
-      const body = { window_mode: "update", categories: sources };
+      const body = { window_mode: "update", categories: sources, generate_narrative: true };
       if (scope === "entity")        body.entity_ids = [entity?.id].filter(Boolean);
       else if (scope === "universe") body.universe   = universe?.id;
       // scope === "all": no entity_ids — backend defaults to all DB entities
