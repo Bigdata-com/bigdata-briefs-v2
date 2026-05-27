@@ -1954,9 +1954,9 @@ def remove_from_portfolio(entity_id: str) -> dict:
 # ── Admin ─────────────────────────────────────────────────────────────────────
 
 
-@router.get("/admin/stats")
-def get_admin_stats() -> dict:
-    """Real DB counts for the Admin view."""
+@router.get("/utilities/stats")
+def get_utilities_stats() -> dict:
+    """Real DB counts for the utilities view."""
     engine = get_engine()
     with Session(engine) as session:
         from bigdata_briefs.novelty.sql_models import SQLBulletPointEmbedding, SQLChunkTextHash

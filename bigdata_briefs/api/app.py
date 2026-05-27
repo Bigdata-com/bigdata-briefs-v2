@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from bigdata_briefs import logger
-from bigdata_briefs.api.routes.admin import router as admin_router
+from bigdata_briefs.api.routes.admin import router as utilities_router
 from bigdata_briefs.api.routes.batch import router as batch_router
 from bigdata_briefs.api.routes.entities import router as entities_router
 from bigdata_briefs.api.routes.frontend import router as frontend_router, get_data, get_run_data, get_extras, get_portfolio, get_companies_summaries
@@ -72,6 +72,12 @@ def invalidate_desk_cache() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if settings.PUBLIC_MODE and not settings.PIPELINE_API_KEY:
+        raise RuntimeError(
+            "PUBLIC_MODE is enabled but PIPELINE_API_KEY is not set. "
+            "Set PIPELINE_API_KEY to protect the API before running in public mode."
+        )
+
     app.state.bigdata_rate_limiter = RequestsPerMinuteController(
         max_requests_per_min=BIGDATA_MAX_REQUESTS_PER_MINUTE,
         rate_limit_refresh_frequency=BIGDATA_RATE_REFRESH_SECONDS,
@@ -190,7 +196,7 @@ def create_app() -> FastAPI:
     app.include_router(entities_router, prefix="/api/v1")
     app.include_router(runs_router, prefix="/api/v1")
     app.include_router(batch_router, prefix="/api/v1")
-    app.include_router(admin_router, prefix="/api/v1")
+    app.include_router(utilities_router, prefix="/api/v1")
     app.include_router(universes_router, prefix="/api/v1")
     app.include_router(report_router, prefix="/api/v1")
     app.include_router(reports_router, prefix="/api/v1")

@@ -1,8 +1,8 @@
 """
-Routes: admin operations
+Routes: utilities
 
-    POST /api/v1/admin/reset-db          → drop and recreate all tables (DESTRUCTIVE)
-    POST /api/v1/admin/clear-stale-runs  → reset stuck ``running`` rows to ``failed``
+    POST /api/v1/utilities/reset-db          → drop and recreate all tables (DESTRUCTIVE)
+    POST /api/v1/utilities/clear-stale-runs  → reset stuck ``running`` rows to ``failed``
 """
 
 from __future__ import annotations
@@ -19,11 +19,11 @@ from bigdata_briefs.orchestration.db import ensure_orchestration_schema
 from bigdata_briefs.orchestration.models import SQLEntityPipelineRunLog
 from bigdata_briefs.settings import settings
 
-router = APIRouter(tags=["admin"])
+router = APIRouter(tags=["utilities"])
 
 
 @router.post(
-    "/admin/reset-db",
+    "/utilities/reset-db",
     response_model=ResetDatabaseResponse,
     dependencies=[Depends(require_api_key)],
     summary="Reset the entire database",
@@ -65,7 +65,7 @@ def reset_database(confirm: bool = False) -> ResetDatabaseResponse:
 
 
 @router.post(
-    "/admin/clear-stale-runs",
+    "/utilities/clear-stale-runs",
     response_model=ClearStaleRunsResponse,
     dependencies=[Depends(require_api_key)],
     summary="Clear stuck 'running' run-log rows",
@@ -126,7 +126,7 @@ def clear_stale_runs(
 
 
 @router.post(
-    "/admin/delete-date",
+    "/utilities/delete-date",
     response_model=DeleteDateResponse,
     dependencies=[Depends(require_api_key)],
     summary="Delete all pipeline data for a calendar date",

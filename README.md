@@ -19,7 +19,7 @@ A LangGraph pipeline that generates structured, novelty-filtered brief reports f
   - [Entity history](#entity-history)
   - [Universes](#universes)
   - [My portfolio (API)](#my-portfolio-api)
-  - [Administration](#administration)
+  - [Utilities](#utilities)
 - [Window modes](#window-modes)
 - [Pre-defined universes](#pre-defined-universes)
 - [Configuration reference](#configuration-reference)
@@ -396,30 +396,30 @@ curl -X DELETE http://localhost:8000/api/frontend/portfolio/0157B1
 
 ---
 
-### Administration
+### Utilities
 
-#### `POST /api/v1/admin/reset-db`
+#### `POST /api/v1/utilities/reset-db`
 
 **Drops and recreates all database tables.** All run history, embeddings, and saved bullets are permanently deleted.
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/admin/reset-db
+curl -X POST http://localhost:8000/api/v1/utilities/reset-db
 ```
 
-#### `POST /api/v1/admin/clear-stale-runs`
+#### `POST /api/v1/utilities/clear-stale-runs`
 
 Resets rows stuck in `running` status after a service crash. Rows older than the configured threshold are marked as `failed`.
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/admin/clear-stale-runs
+curl -X POST http://localhost:8000/api/v1/utilities/clear-stale-runs
 ```
 
-#### `POST /api/v1/admin/delete-date`
+#### `POST /api/v1/utilities/delete-date`
 
 Deletes all pipeline runs whose window falls on a specific calendar date. Useful for reprocessing a date from scratch: call this first, then re-submit the same date via `run-parallel`.
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/admin/delete-date \
+curl -X POST http://localhost:8000/api/v1/utilities/delete-date \
   -H "Content-Type: application/json" \
   -d '{"date": "2026-04-22"}'
 ```
@@ -490,11 +490,44 @@ This is the mode used by the app's built-in update button. It is well suited for
 | `DB_STRING` | SQLite connection string | `sqlite:///briefs.db` |
 | `LLM_TIMEOUT_SECONDS` | LLM call timeout | `60` |
 | `NOVELTY_LOOKBACK_DAYS` | Days of history used for novelty checks | `30` |
-| `PIPELINE_API_KEY` | When set, all write endpoints require this key in the `X-API-Key` header | |
-| `PUBLIC_MODE` | When `true`, disables write actions in the UI (run, portfolio add/remove) and prevents the API key from being sent to the browser. Intended for shared or external deployments. Direct API calls with a valid `PIPELINE_API_KEY` still work. | `false` |
+| `PIPELINE_API_KEY` | Protects all API write endpoints: callers must pass this value in the `X-Api-Key` request header. When empty, auth is skipped (safe for local dev). **Required when `PUBLIC_MODE=true`** — the app will refuse to start if `PUBLIC_MODE` is on and this is not set. | |
+| `PUBLIC_MODE` | When `true`, disables write actions in the UI (run, portfolio add/remove). Intended for shared or external deployments. Requires `PIPELINE_API_KEY` to be set or the app will not start. | `false` |
 | `ENABLE_DOCS` | When `true`, exposes `/docs`, `/redoc`, and `/openapi.json` | `true` |
 
 See `.env.example` for the full list with descriptions.
+
+### Public deployment
+
+When running the app in a shared or external environment, set both `PUBLIC_MODE` and `PIPELINE_API_KEY`. The app will refuse to start if `PUBLIC_MODE=true` without a key set.
+
+**Docker:**
+
+```bash
+docker run -d \
+  --name bigdata_briefs \
+  -p 8000:8000 \
+  -e BIGDATA_API_KEY=<your-bigdata-api-key> \
+  -e OPENAI_API_KEY=<your-openai-api-key> \
+  -e PUBLIC_MODE=1 \
+  -e PIPELINE_API_KEY=<your-secret-key> \
+  bigdata_briefs
+```
+
+**uv (`.env` file):**
+
+```bash
+PUBLIC_MODE=1
+PIPELINE_API_KEY=your-secret-key
+```
+
+Once set, pass the key in the `X-Api-Key` header on every API call:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: your-secret-key" \
+  -d '{"universe": "my_portfolio"}'
+```
 
 ---
 
@@ -507,10 +540,10 @@ curl http://localhost:8000/health
 ```
 
 **Entity stuck in `running` for a long time**  
-Call `POST /api/v1/admin/clear-stale-runs` to reset it, then re-submit the entity.
+Call `POST /api/v1/utilities/clear-stale-runs` to reset it, then re-submit the entity.
 
 **All bullets discarded**  
 Expected when the entity has no materially new information in the requested window relative to prior runs. Try a different date range or run on a day with more news activity for that entity.
 
 **Need to reprocess a specific date**  
-Call `POST /api/v1/admin/delete-date` with the target date, then re-submit via `run-parallel` with `force_window_start` / `force_window_end` set to that day.
+Call `POST /api/v1/utilities/delete-date` with the target date, then re-submit via `run-parallel` with `force_window_start` / `force_window_end` set to that day.
