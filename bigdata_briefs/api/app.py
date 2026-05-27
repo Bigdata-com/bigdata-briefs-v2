@@ -72,30 +72,33 @@ def invalidate_desk_cache() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if settings.PUBLIC_MODE and not settings.PIPELINE_API_KEY:
-        raise RuntimeError(
-            "PUBLIC_MODE is enabled but PIPELINE_API_KEY is not set. "
-            "Set PIPELINE_API_KEY to protect the API before running in public mode."
+    try:
+        if settings.PUBLIC_MODE and not settings.PIPELINE_API_KEY:
+            raise RuntimeError(
+                "PUBLIC_MODE is enabled but PIPELINE_API_KEY is not set. "
+                "Set PIPELINE_API_KEY to protect the API before running in public mode."
+            )
+        app.state.bigdata_rate_limiter = RequestsPerMinuteController(
+            max_requests_per_min=BIGDATA_MAX_REQUESTS_PER_MINUTE,
+            rate_limit_refresh_frequency=BIGDATA_RATE_REFRESH_SECONDS,
+            seconds_before_retry=BIGDATA_RATE_RETRY_SECONDS,
         )
-
-    app.state.bigdata_rate_limiter = RequestsPerMinuteController(
-        max_requests_per_min=BIGDATA_MAX_REQUESTS_PER_MINUTE,
-        rate_limit_refresh_frequency=BIGDATA_RATE_REFRESH_SECONDS,
-        seconds_before_retry=BIGDATA_RATE_RETRY_SECONDS,
-    )
-    app.state.bigdata_connection_sem = Semaphore(settings.API_SIMULTANEOUS_REQUESTS)
-    app.state.bigdata_http_client = httpx.Client(
-        base_url=settings.API_BASE_URL,
-        headers={
-            "X-API-KEY": settings.BIGDATA_API_KEY,
-            "Content-Type": "application/json",
-        },
-        timeout=settings.API_TIMEOUT_SECONDS,
-    )
-    app.state.entity_executor = ThreadPoolExecutor(
-        max_workers=settings.MAX_CONCURRENT_ENTITIES,
-        thread_name_prefix="entity-worker",
-    )
+        app.state.bigdata_connection_sem = Semaphore(settings.API_SIMULTANEOUS_REQUESTS)
+        app.state.bigdata_http_client = httpx.Client(
+            base_url=settings.API_BASE_URL,
+            headers={
+                "X-API-KEY": settings.BIGDATA_API_KEY,
+                "Content-Type": "application/json",
+            },
+            timeout=settings.API_TIMEOUT_SECONDS,
+        )
+        app.state.entity_executor = ThreadPoolExecutor(
+            max_workers=settings.MAX_CONCURRENT_ENTITIES,
+            thread_name_prefix="entity-worker",
+        )
+    except Exception as exc:
+        logger.error("Lifespan startup failed", error=str(exc))
+        raise
 
     # Pre-warm desk HTML cache in background so the first user request is instant
     if _DESK_INDEX.exists():

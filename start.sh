@@ -4,4 +4,4 @@ set -e
 supercronic /code/crontab &
 
 exec /code/.venv/bin/uvicorn bigdata_briefs.api.app:app \
-    --host 0.0.0.0 --port 8000 --workers 1
+    --host 0.0.0.0 --port 8000 --workers 1 --lifespan on
