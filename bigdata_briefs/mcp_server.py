@@ -55,7 +55,7 @@ def run_and_get_briefs(
     force_overlap: bool = False,
     ranking_metric: str | None = None,
     poll_interval_seconds: int = 15,
-    timeout_seconds: int = 600,
+    timeout_seconds: int = 1200,
 ) -> dict[str, Any]:
     """Run the briefs pipeline and return bullets and narratives when complete.
 
@@ -82,7 +82,7 @@ def run_and_get_briefs(
         ranking_metric: Generate a portfolio brief ranked by this metric after completion
                         (e.g. "media_attention_momentum").
         poll_interval_seconds: Seconds between status checks. Default 15.
-        timeout_seconds: Max seconds to wait before returning with partial results. Default 600.
+        timeout_seconds: Max seconds to wait before returning with partial results. Default 1200.
 
     Returns:
         status ("completed" or "timed_out"), batch_id, succeeded, failed, elapsed_seconds,
