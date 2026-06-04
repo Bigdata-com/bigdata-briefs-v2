@@ -230,7 +230,7 @@ def _run_one_ui_entity(
                 rd = build_report_dates_for_entity_run(
                     now=force_window_end,
                     last_window_end=last_end,
-                    window_mode=WindowMode.DAILY,
+                    window_mode=WindowMode.CONTINUOUS,
                 )
                 force_window_start = rd.start
             except Exception:

@@ -176,15 +176,14 @@ class BatchRunRequest(BaseModel):
         ),
     )
     window_mode: WindowMode = Field(
-        default=WindowMode.DAILY,
+        default=WindowMode.CONTINUOUS,
         description=(
             "Controls how the search window is computed when no forced dates are provided. "
-            "'daily' (default): covers [UTC midnight of today → now]. If the pipeline already ran "
-            "today it resumes from where that run ended; if the last run was yesterday or earlier it "
-            "always resets to midnight of today. "
-            "'continuous': covers [end of last run → now], picking up exactly where the previous run "
-            "stopped regardless of which day it was. Falls back to [UTC midnight of today → now] if "
-            "no previous run exists. Use this mode to guarantee no gaps across consecutive runs."
+            "'continuous' (default): covers [end of last run → now], picking up exactly where the "
+            "previous run stopped. Falls back to [UTC midnight of today → now] if no previous run "
+            "exists. Use this mode to guarantee no gaps across consecutive runs. "
+            "'update': covers at most the 24 hours preceding now (72h on Mondays to bridge the "
+            "weekend gap), starting from the last run's end if it falls within that window."
         ),
     )
     categories: list[str] | None = Field(

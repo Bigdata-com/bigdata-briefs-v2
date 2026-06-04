@@ -794,7 +794,7 @@ def run_entity_incremental(
     force_window_start: datetime | None = None,
     force_window_end: datetime | None = None,
     force_run: bool = False,
-    window_mode: WindowMode = WindowMode.DAILY,
+    window_mode: WindowMode = WindowMode.CONTINUOUS,
     force_overlap: bool = False,
     generate_narrative: bool = False,
     engine: Engine | None = None,
