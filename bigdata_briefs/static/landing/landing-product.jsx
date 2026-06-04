@@ -271,7 +271,7 @@ function LandingProduct() {
         <div className="pr-nav-inner">
           <img className="pr-logo" src="/app/desk/bigdata-logo-black.png" alt="Bigdata by RavenPack" />
           <div className="pr-nav-spacer"></div>
-          <a href="/app/desk" className="pr-btn pr-btn-primary" style={{ padding: "9px 16px" }}>Open the app →</a>
+          <a href="/app/desk/" className="pr-btn pr-btn-primary" style={{ padding: "9px 16px" }}>Open the app →</a>
         </div>
       </nav>
 
@@ -286,7 +286,7 @@ function LandingProduct() {
           Then we built the alternative.
         </p>
         <div className="pr-cta-row">
-          <a href="/app/desk" className="pr-btn pr-btn-primary">Open the app →</a>
+          <a href="/app/desk/" className="pr-btn pr-btn-primary">Open the app →</a>
         </div>
       </section>
 
@@ -452,7 +452,7 @@ function LandingProduct() {
           Drop us your watchlist or pick a benchmark universe and we'll show you what it costs.
         </p>
         <div className="pr-cta-row">
-          <a href="/app/desk" className="pr-btn pr-btn-primary">Open the app →</a>
+          <a href="/app/desk/" className="pr-btn pr-btn-primary">Open the app →</a>
         </div>
       </section>
     </div>

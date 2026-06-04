@@ -151,30 +151,14 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
     c.name.toLowerCase().includes(_searchLower) ||
     (c.ticker || "").toLowerCase().includes(_searchLower);
 
-  // Multi-level sort: Last run → Published → |Med.Att.Δ| → |Sent.Δ|
-  const _sortCompanies = (list, summ) => [...list].sort((a, b) => {
-    const sa = summ[a.id] || {};
-    const sb = summ[b.id] || {};
-    const da = sa.lastRunDate || "";
-    const db = sb.lastRunDate || "";
-    if (db !== da) return db > da ? 1 : -1;
-    const pa = sa.bulletsSaved ?? 0;
-    const pb = sb.bulletsSaved ?? 0;
-    if (pb !== pa) return pb - pa;
-    const ma = Math.abs(sa.deltaChunks ?? 0);
-    const mb = Math.abs(sb.deltaChunks ?? 0);
-    if (mb !== ma) return mb - ma;
-    const sea = Math.abs(sa.deltaSent ?? 0);
-    const seb = Math.abs(sb.deltaSent ?? 0);
-    return seb - sea;
-  });
-
-  // Landing: always sorted by latest-day summaries, independent of selectedDate
+  // Landing picker: sorted by bullet count descending
   const landingCompanies = React.useMemo(() =>
-    _sortCompanies(allCompanies, landingSummaries),
+    [...allCompanies].sort((a, b) =>
+      (landingSummaries[b.id]?.bulletsSaved ?? 0) - (landingSummaries[a.id]?.bulletsSaved ?? 0)
+    ),
   [landingSummaries, allCompanies]);
 
-  // Overview left rail: filtered to companies that ran on selectedDate
+  // Overview left rail: filtered to companies that ran on selectedDate, sorted by bullet count
   const companiesForFrontPage = React.useMemo(() => {
     const bid = brief?.entityId;
     const list = allCompanies.filter(c => {
@@ -185,7 +169,9 @@ function BriefView({ density, showDiscarded, dropcap, setShowDiscarded, setView,
       if (s.hasRunOnDate === false) return false;
       return (s.bulletsSaved ?? 0) > 0;
     });
-    return _sortCompanies(list, companySummaries);
+    return [...list].sort((a, b) =>
+      (companySummaries[b.id]?.bulletsSaved ?? 0) - (companySummaries[a.id]?.bulletsSaved ?? 0)
+    );
   }, [companySummaries, brief?.entityId, allCompanies]);
 
   function refreshSidebar(date) {
