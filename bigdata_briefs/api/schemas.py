@@ -195,6 +195,14 @@ class BatchRunRequest(BaseModel):
             "When null, the default pipeline config categories are used (news)."
         ),
     )
+    force_overlap: bool = Field(
+        default=False,
+        description=(
+            "When true, skips the overlap check and runs the pipeline even if the requested "
+            "window overlaps an already-completed run for the same entity. Use this to re-run "
+            "or backfill a window that was already processed."
+        ),
+    )
     generate_narrative: bool = Field(
         default=False,
         description=(

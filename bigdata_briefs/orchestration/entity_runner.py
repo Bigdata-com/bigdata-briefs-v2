@@ -795,6 +795,7 @@ def run_entity_incremental(
     force_window_end: datetime | None = None,
     force_run: bool = False,
     window_mode: WindowMode = WindowMode.DAILY,
+    force_overlap: bool = False,
     generate_narrative: bool = False,
     engine: Engine | None = None,
     kg_precache: dict[str, dict[str, Any]] | None = None,
@@ -874,7 +875,8 @@ def run_entity_incremental(
 
     with Session(eng) as session:
         try:
-            _assert_no_overlapping_run(session, entity_id=entity_id, report_dates=report_dates)
+            if not force_overlap:
+                _assert_no_overlapping_run(session, entity_id=entity_id, report_dates=report_dates)
         except OrchestratorWindowOverlapError as e:
             return EntityRunResult(
                 entity_id=entity_id,
