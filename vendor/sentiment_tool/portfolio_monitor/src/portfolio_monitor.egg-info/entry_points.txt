@@ -1,0 +1,2 @@
+[console_scripts]
+portfolio-monitor-mcp = portfolio_monitor.server:main

@@ -209,6 +209,14 @@ class BatchRunRequest(BaseModel):
             "completes (if at least one bullet was published). When false (default), no narrative is generated."
         ),
     )
+    compute_signals: bool = Field(
+        default=True,
+        description=(
+            "When true (default), computes and stores sentiment signals after the batch completes. "
+            "Requires the sentiment_tool vendor dependency. Set to false to skip this step "
+            "(e.g. when running locally without the vendor tool)."
+        ),
+    )
     ranking_metric: str | None = Field(
         default=None,
         description=(

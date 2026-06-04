@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: portfolio-monitor
+Version: 0.1.0
+Summary: Portfolio-level sentiment and market data monitor powered by Bigdata.com and OpenAI.
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: mcp>=1.27.0
+Requires-Dist: openai>=1.0
+Requires-Dist: requests>=2.31
+Requires-Dist: pandas>=2.0
+Requires-Dist: numpy>=1.26
+Requires-Dist: python-dotenv>=1.0

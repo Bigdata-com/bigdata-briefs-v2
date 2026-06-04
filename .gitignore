@@ -18,4 +18,3 @@ docs/test_workflow/
 docs/test_wflow_py/
 old_metadata_runs/
 *.md
-vendor/sentiment_tool/

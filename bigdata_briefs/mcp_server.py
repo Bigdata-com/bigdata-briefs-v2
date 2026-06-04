@@ -93,6 +93,7 @@ def run_and_get_briefs(
         "window_mode": window_mode,
         "generate_narrative": generate_narrative,
         "force_overlap": force_overlap,
+        "compute_signals": False,
     }
     if entity_ids:
         run_body["entity_ids"] = entity_ids

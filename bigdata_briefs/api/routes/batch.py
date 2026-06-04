@@ -263,6 +263,7 @@ def batch_run_parallel(
                 # After all entities finish: signals first, then portfolio brief from DB
                 import threading as _threading
                 _ranking_metric = body.ranking_metric
+                _compute_signals = body.compute_signals
                 _batch_run_ids  = list(run_ids)
 
                 def _post_batch_pipeline():
@@ -270,11 +271,12 @@ def batch_run_parallel(
                         from sqlmodel import Session as _Session, select as _select
                         from sqlalchemy import desc as _desc
                         from bigdata_briefs.orchestration.models import SQLEntityPipelineRunLog as _RunLog
-                        from bigdata_briefs.orchestration.sentiment_ranking import compute_and_store_signals
                         from bigdata_briefs.orchestration.portfolio_brief import generate_and_store_portfolio_brief
 
-                        compute_and_store_signals(engine, entity_ids)
-                        logger.info("Signal history stored", batch_id=str(batch_id))
+                        if _compute_signals:
+                            from bigdata_briefs.orchestration.sentiment_ranking import compute_and_store_signals
+                            compute_and_store_signals(engine, entity_ids)
+                            logger.info("Signal history stored", batch_id=str(batch_id))
 
                         with _Session(engine) as _s:
                             latest = _s.exec(
