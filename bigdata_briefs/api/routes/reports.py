@@ -69,6 +69,45 @@ def _all_entity_ids(engine) -> list[str]:
     return list(rows)
 
 
+def _source_lookup_from_output_json(
+    engine,
+    entity_id: str,
+    window_start: datetime,
+    window_end: datetime,
+) -> dict[str, str]:
+    """Return a {CQS:doc_id-chunk_id -> source_name} map from the run's output_json."""
+    with Session(engine) as session:
+        row = session.exec(
+            select(SQLEntityPipelineRunLog)
+            .where(SQLEntityPipelineRunLog.entity_id == entity_id)
+            .where(SQLEntityPipelineRunLog.report_window_start == window_start)
+            .where(SQLEntityPipelineRunLog.report_window_end == window_end)
+            .where(SQLEntityPipelineRunLog.status == "succeeded")
+            .order_by(desc(SQLEntityPipelineRunLog.process_completed_at_utc))
+        ).first()
+    if not row or not row.output_json:
+        return {}
+    try:
+        parsed = json.loads(row.output_json)
+        raw_refs: dict = {}
+        if isinstance(parsed, list):
+            pass
+        else:
+            raw_refs = parsed.get("source_references") or {}
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    result: dict[str, str] = {}
+    for src in raw_refs.values():
+        if not isinstance(src, dict):
+            continue
+        doc_id = src.get("document_id")
+        chunk_id = src.get("chunk_id")
+        source_name = src.get("source_name", "")
+        if doc_id is not None and chunk_id is not None and source_name:
+            result[f"CQS:{doc_id}-{chunk_id}"] = source_name
+    return result
+
+
 def _stage_to_category(discard_stage: str | None) -> str | None:
     if discard_stage == "relevance_score":
         return "relevance"
@@ -503,12 +542,22 @@ def get_bullets(body: BatchBulletsRequest) -> BatchBulletsResponse:
             if entity_name is None:
                 entity_name = first.entity_name
 
+            source_lookup = _source_lookup_from_output_json(
+                engine, entity_id, first.report_window_start, first.report_window_end
+            )
+
             bullets = [
                 BulletPointItem(
                     trace_id=row.trace_id,
                     text=row.text,
                     citations=[
-                        CitationDetail(id=c["id"], headline=c["headline"], text=c["text"], url=c.get("url"), source_name=c.get("source_name", ""))
+                        CitationDetail(
+                            id=c["id"],
+                            headline=c["headline"],
+                            text=c["text"],
+                            url=c.get("url"),
+                            source_name=c.get("source_name") or source_lookup.get(c["id"], ""),
+                        )
                         for c in (row.citations or [])
                     ],
                     embedding_decision=row.embedding_decision,
