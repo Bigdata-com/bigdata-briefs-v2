@@ -105,7 +105,6 @@ def run_and_get_briefs(
     universe: str | None = None,
     window_start: str | None = None,
     window_end: str | None = None,
-    generate_narrative: bool = True,
     ranking_metric: str | None = None,
     poll_interval_seconds: int = 15,
     timeout_seconds: int = 1200,
@@ -124,7 +123,6 @@ def run_and_get_briefs(
                       Omit both to run all entities in the database.
         window_start: ISO 8601 UTC datetime for the window start (e.g. "2026-06-04T12:00:00Z"). Required.
         window_end:   ISO 8601 UTC datetime for the window end (e.g. "2026-06-05T12:00:00Z"). Required.
-        generate_narrative: Generate a 2-3 sentence editorial narrative per entity. Default True.
         ranking_metric: Generate a portfolio brief after completion (e.g. "media_attention_momentum").
         poll_interval_seconds: Seconds between status checks. Default 15.
         timeout_seconds: Max seconds to wait before returning partial results. Default 1200.
@@ -139,7 +137,7 @@ def run_and_get_briefs(
         "force_window_start": window_start,
         "force_window_end": window_end,
         "force_overlap": True,
-        "generate_narrative": generate_narrative,
+        "generate_narrative": True,
         "compute_signals": False,
     }
     if entity_ids:
