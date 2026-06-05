@@ -76,15 +76,12 @@ def _format_entity_bullets(entity_result: dict[str, Any], narrative: str | None 
         lines.append("Bullets:")
         for i, b in enumerate(bullets, 1):
             lines.append(f"{i}. {b.get('text', '')}")
+            citations = (b.get("citations") or [])[:3]
+            for c in citations:
+                headline = c.get("headline", "").strip()
+                if headline:
+                    lines.append(f"   - {headline}")
         lines.append("")
-
-    for stage, key in [("relevance", "discarded_by_relevance"), ("grounding", "discarded_by_grounding"), ("novelty", "discarded_by_novelty")]:
-        discarded_texts = run.get(key) or []
-        if discarded_texts:
-            lines.append(f"Discarded by {stage} ({len(discarded_texts)}):")
-            for t in discarded_texts:
-                lines.append(f"- {t}")
-            lines.append("")
 
     return "\n".join(lines)
 
