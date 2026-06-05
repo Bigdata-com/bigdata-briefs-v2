@@ -42,6 +42,7 @@ class CitationDetail(BaseModel):
     headline: str     # article / document title
     text: str         # chunk text used as evidence
     url: str | None = None  # original article URL
+    source_name: str = ""  # publisher name (e.g. "Benzinga", "MT Newswires")
 
 
 class GeneratedBulletPoint(BaseModel):
