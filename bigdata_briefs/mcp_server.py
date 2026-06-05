@@ -87,9 +87,12 @@ def _format_entity_bullets(entity_result: dict[str, Any], narrative: str | None 
                     break
             for c in unique_citations:
                 headline = c.get("headline", "").strip()
-                url = c.get("url", "").strip() if c.get("url") else ""
+                url = (c.get("url") or "").strip()
+                source = (c.get("source_name") or "").strip()
                 if url:
                     lines.append(f"   - {headline} {url}")
+                elif source:
+                    lines.append(f"   - {headline} ({source})")
                 elif headline:
                     lines.append(f"   - {headline}")
         lines.append("")
