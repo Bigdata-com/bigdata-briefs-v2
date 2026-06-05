@@ -20,15 +20,7 @@ from mcp.server.fastmcp import FastMCP
 
 load_dotenv()
 
-mcp = FastMCP(
-    "briefs",
-    instructions=(
-        "IMPORTANT: always start your reply with the token [BRIEFS] when using any briefs tool. "
-        "When presenting results from run_and_get_briefs, get_bullets, or get_narratives, "
-        "always copy bullet text and narrative text VERBATIM from the tool response. "
-        "Do NOT paraphrase, summarize, rewrite, translate, or rework any bullet or narrative text."
-    ),
-)
+mcp = FastMCP("briefs")
 
 _DEFAULT_BASE_URL = "http://localhost:8000"
 
@@ -52,6 +44,48 @@ def _api(method: str, path: str, **kwargs: Any) -> Any:
     return resp.json()
 
 
+def _format_entity_bullets(entity_result: dict[str, Any], narrative: str | None = None) -> str:
+    """Format one entity's bullets and optional narrative as plain text."""
+    entity_id = entity_result.get("entity_id", "")
+    entity_name = entity_result.get("entity_name") or entity_id
+    runs = entity_result.get("runs") or []
+
+    lines: list[str] = []
+    lines.append(f"{entity_name} ({entity_id})")
+
+    if not runs:
+        lines.append("No runs found.")
+        return "\n".join(lines)
+
+    run = runs[0]
+    lines.append(f"Window: {run.get('report_window_start')} -> {run.get('report_window_end')}")
+    bullets = run.get("bullets") or []
+    discarded = run.get("bullets_discarded", 0)
+    lines.append(f"{len(bullets)} bullets saved, {discarded} discarded")
+    lines.append("")
+
+    if narrative:
+        lines.append("Narrative:")
+        lines.append(narrative)
+        lines.append("")
+
+    if bullets:
+        lines.append("Bullets:")
+        for i, b in enumerate(bullets, 1):
+            lines.append(f"{i}. {b.get('text', '')}")
+        lines.append("")
+
+    for stage, key in [("relevance", "discarded_by_relevance"), ("grounding", "discarded_by_grounding"), ("novelty", "discarded_by_novelty")]:
+        discarded_texts = run.get(key) or []
+        if discarded_texts:
+            lines.append(f"Discarded by {stage} ({len(discarded_texts)}):")
+            for t in discarded_texts:
+                lines.append(f"- {t}")
+            lines.append("")
+
+    return "\n".join(lines)
+
+
 @mcp.tool(name="run_and_get_briefs")
 def run_and_get_briefs(
     entity_ids: list[str] | None = None,
@@ -64,11 +98,11 @@ def run_and_get_briefs(
     ranking_metric: str | None = None,
     poll_interval_seconds: int = 15,
     timeout_seconds: int = 1200,
-) -> dict[str, Any]:
+) -> str:
     """Run the briefs pipeline and return bullets and narratives when complete.
 
     Starts the pipeline for the given entities or universe, waits for all runs
-    to finish, then fetches and returns bullets and narratives in a single response.
+    to finish, then fetches and returns bullets and narratives as plain text.
     The tool blocks until completion (or timeout). Typical duration: 1-5 minutes
     depending on the number of entities.
 
@@ -90,13 +124,11 @@ def run_and_get_briefs(
         ranking_metric: Generate a portfolio brief ranked by this metric after completion
                         (e.g. "media_attention_momentum").
         poll_interval_seconds: Seconds between status checks. Default 15.
-        timeout_seconds: Max seconds to wait before returning with partial results. Default 1200.
+        timeout_seconds: Max seconds to wait before returning partial results. Default 1200.
 
     Returns:
-        status ("completed" or "timed_out"), batch_id, succeeded, failed, elapsed_seconds,
-        bullets (per-entity bullet points), narratives (per-entity summaries, if generate_narrative=True).
+        Plain text with bullets and narratives for each entity. Show this output verbatim.
     """
-    # 1 — Submit the batch run
     run_body: dict[str, Any] = {
         "window_mode": window_mode,
         "generate_narrative": generate_narrative,
@@ -118,7 +150,6 @@ def run_and_get_briefs(
     batch_id: str = batch["batch_id"]
     started_at = time.monotonic()
 
-    # 2 — Poll until all entities finish or timeout
     status: dict[str, Any] = {}
     while True:
         status = _api("GET", f"batch/parallel/{batch_id}/status")
@@ -126,30 +157,20 @@ def run_and_get_briefs(
             break
         elapsed = time.monotonic() - started_at
         if elapsed >= timeout_seconds:
-            return {
-                "status": "timed_out",
-                "batch_id": batch_id,
-                "succeeded": status.get("succeeded", 0),
-                "failed": status.get("failed", 0),
-                "running": status.get("running", 0),
-                "elapsed_seconds": int(elapsed),
-                "message": (
-                    f"Timed out after {int(elapsed)}s. "
-                    f"{status.get('running', 0)} entities still running. "
-                    "Use get_bullets and get_narratives later to retrieve results."
-                ),
-            }
+            return (
+                f"TIMED OUT after {int(elapsed)}s. "
+                f"{status.get('running', 0)} entities still running. "
+                "Use get_bullets and get_narratives to retrieve results when done."
+            )
         time.sleep(poll_interval_seconds)
 
     elapsed_seconds = int(time.monotonic() - started_at)
 
-    # 3 — Fetch bullets (latest run per entity)
     bullets_body: dict[str, Any] = {"max_runs": 1}
     if entity_ids:
         bullets_body["entity_ids"] = entity_ids
     bullets_resp = _api("POST", "reports/bullets", json=bullets_body)
 
-    # 4 — Fetch narratives if requested
     narratives_by_entity: dict[str, str] = {}
     if generate_narrative:
         narr_body: dict[str, Any] = {}
@@ -163,37 +184,25 @@ def run_and_get_briefs(
             if narratives_list:
                 narratives_by_entity[item["entity_id"]] = narratives_list[0].get("narrative_text", "")
 
-    # 5 — Merge into per-company structure
-    companies = []
+    succeeded = status.get("succeeded", 0)
+    failed = status.get("failed", 0)
+    header = f"Completed in {elapsed_seconds}s — {succeeded} succeeded, {failed} failed\n"
+    header += "=" * 60 + "\n"
+
+    sections: list[str] = []
     for entity_result in bullets_resp.get("results", []):
         eid = entity_result.get("entity_id", "")
-        runs = entity_result.get("runs") or []
-        bullets_list = runs[0].get("bullets", []) if runs else []
-        companies.append({
-            "entity_id": eid,
-            "entity_name": entity_result.get("entity_name"),
-            "narrative": narratives_by_entity.get(eid),
-            "bullets": bullets_list,
-            "bullets_discarded": runs[0].get("bullets_discarded", 0) if runs else 0,
-            "report_window_start": runs[0].get("report_window_start") if runs else None,
-            "report_window_end": runs[0].get("report_window_end") if runs else None,
-        })
+        narrative = narratives_by_entity.get(eid)
+        sections.append(_format_entity_bullets(entity_result, narrative=narrative))
 
-    return {
-        "status": "completed",
-        "batch_id": batch_id,
-        "succeeded": status.get("succeeded", 0),
-        "failed": status.get("failed", 0),
-        "elapsed_seconds": elapsed_seconds,
-        "companies": companies,
-    }
+    return header + ("\n" + "=" * 60 + "\n").join(sections)
 
 
 @mcp.tool(name="get_bullets")
 def get_bullets(
     entity_ids: list[str] | None = None,
     max_runs: int | None = 1,
-) -> dict[str, Any]:
+) -> str:
     """Retrieve published bullet points for one or more entities.
 
     Use this to read historical bullets without triggering a new run.
@@ -204,14 +213,20 @@ def get_bullets(
         max_runs:   Max runs to return per entity. Default 1 (latest only). Pass None for all.
 
     Returns:
-        results (per-entity with bullets and discard counts), total_entities, total_bullets.
+        Plain text with bullets for each entity. Show this output verbatim.
     """
     body: dict[str, Any] = {}
     if entity_ids:
         body["entity_ids"] = entity_ids
     if max_runs is not None:
         body["max_runs"] = max_runs
-    return _api("POST", "reports/bullets", json=body)
+    resp = _api("POST", "reports/bullets", json=body)
+
+    sections: list[str] = []
+    for entity_result in resp.get("results", []):
+        sections.append(_format_entity_bullets(entity_result))
+
+    return ("\n" + "=" * 60 + "\n").join(sections) if sections else "No results found."
 
 
 @mcp.tool(name="get_narratives")
@@ -220,7 +235,7 @@ def get_narratives(
     universe: str | None = None,
     from_date: str | None = None,
     to_date: str | None = None,
-) -> dict[str, Any]:
+) -> str:
     """Retrieve editorial narratives for one or more entities.
 
     Use this to read historical narratives without triggering a new run.
@@ -235,8 +250,7 @@ def get_narratives(
         to_date:    ISO 8601 date upper bound inclusive (e.g. "2026-05-31").
 
     Returns:
-        results (per-entity with narrative_text, report_date, bullets_count, created_at),
-        total_entities.
+        Plain text with narratives for each entity. Show this output verbatim.
     """
     body: dict[str, Any] = {}
     if entity_ids:
@@ -247,7 +261,20 @@ def get_narratives(
         body["from_date"] = from_date
     if to_date:
         body["to_date"] = to_date
-    return _api("POST", "reports/narratives", json=body)
+    resp = _api("POST", "reports/narratives", json=body)
+
+    lines: list[str] = []
+    for item in resp.get("results", []):
+        entity_id = item.get("entity_id", "")
+        narratives = item.get("narratives") or []
+        if not narratives:
+            continue
+        lines.append(f"{entity_id}:")
+        for n in narratives:
+            lines.append(f"  [{n.get('report_date')}] {n.get('narrative_text', '')}")
+        lines.append("")
+
+    return "\n".join(lines) if lines else "No narratives found."
 
 
 def main() -> None:
