@@ -11,7 +11,6 @@ Configuration (env vars or .env):
 from __future__ import annotations
 
 import os
-import time
 from typing import Any
 
 import requests
@@ -23,6 +22,7 @@ load_dotenv()
 mcp = FastMCP("briefs")
 
 _DEFAULT_BASE_URL = "http://localhost:8000"
+_MINUTES_PER_ENTITY = 5  # rough estimate for ETA message
 
 
 def _base_url() -> str:
@@ -99,22 +99,18 @@ def _format_entity_bullets(entity_result: dict[str, Any], narrative: str | None 
     return "\n".join(lines)
 
 
-@mcp.tool(name="run_and_get_briefs")
-def run_and_get_briefs(
+@mcp.tool(name="start_briefs_run")
+def start_briefs_run(
     entity_ids: list[str] | None = None,
     universe: str | None = None,
     window_start: str | None = None,
     window_end: str | None = None,
     ranking_metric: str | None = None,
-    poll_interval_seconds: int = 15,
-    timeout_seconds: int = 1200,
 ) -> str:
-    """Run the briefs pipeline for a specific time window and return bullets and narratives.
+    """Start the briefs pipeline for a specific time window. Returns immediately with a batch_id.
 
-    Requires an explicit time window (window_start + window_end). Always re-runs
-    even if the window was already processed (overlap is always allowed).
-
-    The briefs FastAPI app must be running locally before calling this tool.
+    After calling this tool, tell the user the estimated wait time and ask them to check
+    back by calling get_run_results(batch_id) when ready.
 
     Args:
         entity_ids:   List of rp_entity_ids (e.g. ["D8442A", "E09E2B"]).
@@ -124,11 +120,9 @@ def run_and_get_briefs(
         window_start: ISO 8601 UTC datetime for the window start (e.g. "2026-06-04T12:00:00Z"). Required.
         window_end:   ISO 8601 UTC datetime for the window end (e.g. "2026-06-05T12:00:00Z"). Required.
         ranking_metric: Generate a portfolio brief after completion (e.g. "media_attention_momentum").
-        poll_interval_seconds: Seconds between status checks. Default 15.
-        timeout_seconds: Max seconds to wait before returning partial results. Default 1200.
 
     Returns:
-        Plain text with bullets and narratives for each entity. Show this output verbatim.
+        batch_id and estimated wait time. Tell the user to check back with get_run_results(batch_id).
     """
     if not window_start or not window_end:
         return "ERROR: window_start and window_end are required. Provide ISO 8601 UTC datetimes."
@@ -149,52 +143,73 @@ def run_and_get_briefs(
 
     batch = _api("POST", "batch/run-parallel", json=run_body)
     batch_id: str = batch["batch_id"]
-    started_at = time.monotonic()
+    total: int = batch.get("total", 1)
+    eta_minutes = total * _MINUTES_PER_ENTITY
 
-    status: dict[str, Any] = {}
-    while True:
-        status = _api("GET", f"batch/parallel/{batch_id}/status")
-        if status.get("running", 0) == 0 and status.get("not_started", 0) == 0:
-            break
-        elapsed = time.monotonic() - started_at
-        if elapsed >= timeout_seconds:
-            return (
-                f"TIMED OUT after {int(elapsed)}s. "
-                f"{status.get('running', 0)} entities still running. "
-                "Use get_bullets and get_narratives to retrieve results when done."
-            )
-        time.sleep(poll_interval_seconds)
+    return (
+        f"Run started.\n"
+        f"batch_id: {batch_id}\n"
+        f"entities: {total}\n"
+        f"estimated wait: ~{eta_minutes} minutes\n\n"
+        f"Tell the user to ask 'check my run' or similar in ~{eta_minutes} minutes. "
+        f"Then call get_run_results(batch_id='{batch_id}') to retrieve results."
+    )
 
-    elapsed_seconds = int(time.monotonic() - started_at)
 
-    bullets_body: dict[str, Any] = {"max_runs": 1}
-    if entity_ids:
-        bullets_body["entity_ids"] = entity_ids
-    bullets_resp = _api("POST", "reports/bullets", json=bullets_body)
+@mcp.tool(name="get_run_results")
+def get_run_results(batch_id: str) -> str:
+    """Check the status of a briefs run. Returns results if complete, status if still running.
 
-    narratives_by_entity: dict[str, str] = {}
-    if generate_narrative:
-        narr_body: dict[str, Any] = {}
-        if entity_ids:
-            narr_body["entity_ids"] = entity_ids
-        if universe:
-            narr_body["universe"] = universe
-        narr_resp = _api("POST", "reports/narratives", json=narr_body)
-        for item in narr_resp.get("results", []):
-            narratives_list = item.get("narratives") or []
-            if narratives_list:
-                narratives_by_entity[item["entity_id"]] = narratives_list[0].get("narrative_text", "")
+    Call this after start_briefs_run to check progress and retrieve results when done.
 
+    Args:
+        batch_id: The batch_id returned by start_briefs_run.
+
+    Returns:
+        If complete: bullets and narratives for each entity (verbatim).
+        If still running: current status with entity counts.
+    """
+    status = _api("GET", f"batch/parallel/{batch_id}/status")
+
+    running = status.get("running", 0)
+    not_started = status.get("not_started", 0)
     succeeded = status.get("succeeded", 0)
     failed = status.get("failed", 0)
-    header = f"Completed in {elapsed_seconds}s — {succeeded} succeeded, {failed} failed\n"
-    header += "=" * 60 + "\n"
+    total = status.get("total", 0)
 
+    if running > 0 or not_started > 0:
+        done = succeeded + failed
+        return (
+            f"Still running — {done}/{total} entities complete "
+            f"({running} running, {not_started} queued, {failed} failed).\n"
+            f"Check again in a few minutes with get_run_results(batch_id='{batch_id}')."
+        )
+
+    # All done — fetch bullets and narratives
+    runs_list = status.get("runs") or []
+    entity_ids_done = [r["entity_id"] for r in runs_list if r.get("status") in ("succeeded", "no_data")]
+
+    bullets_body: dict[str, Any] = {"max_runs": 1}
+    if entity_ids_done:
+        bullets_body["entity_ids"] = entity_ids_done
+    bullets_resp = _api("POST", "reports/bullets", json=bullets_body)
+
+    narr_body: dict[str, Any] = {}
+    if entity_ids_done:
+        narr_body["entity_ids"] = entity_ids_done
+    narr_resp = _api("POST", "reports/narratives", json=narr_body)
+
+    narratives_by_entity: dict[str, str] = {}
+    for item in narr_resp.get("results", []):
+        narratives_list = item.get("narratives") or []
+        if narratives_list:
+            narratives_by_entity[item["entity_id"]] = narratives_list[0].get("narrative_text", "")
+
+    header = f"Completed — {succeeded} succeeded, {failed} failed\n" + "=" * 60 + "\n"
     sections: list[str] = []
     for entity_result in bullets_resp.get("results", []):
         eid = entity_result.get("entity_id", "")
-        narrative = narratives_by_entity.get(eid)
-        sections.append(_format_entity_bullets(entity_result, narrative=narrative))
+        sections.append(_format_entity_bullets(entity_result, narrative=narratives_by_entity.get(eid)))
 
     return _VERBATIM_HEADER + header + ("\n" + "=" * 60 + "\n").join(sections)
 
@@ -204,10 +219,7 @@ def get_bullets(
     entity_ids: list[str] | None = None,
     max_runs: int | None = 1,
 ) -> str:
-    """Retrieve published bullet points for one or more entities.
-
-    Use this to read historical bullets without triggering a new run.
-    For running the pipeline and getting results in one shot, use run_and_get_briefs.
+    """Retrieve published bullet points for one or more entities without triggering a new run.
 
     Args:
         entity_ids: List of rp_entity_ids. Omit to retrieve all entities in the database.
@@ -237,11 +249,7 @@ def get_narratives(
     from_date: str | None = None,
     to_date: str | None = None,
 ) -> str:
-    """Retrieve editorial narratives for one or more entities.
-
-    Use this to read historical narratives without triggering a new run.
-    Narratives are 2-3 sentence summaries generated when generate_narrative=True
-    was used. Multiple narratives can exist per entity per day; results are newest first.
+    """Retrieve editorial narratives for one or more entities without triggering a new run.
 
     Args:
         entity_ids: List of rp_entity_ids. Mutually exclusive with universe.
