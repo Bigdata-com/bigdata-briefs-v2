@@ -103,59 +103,49 @@ def _format_entity_bullets(entity_result: dict[str, Any], narrative: str | None 
 def run_and_get_briefs(
     entity_ids: list[str] | None = None,
     universe: str | None = None,
-    window_mode: str = "continuous",
-    force_window_start: str | None = None,
-    force_window_end: str | None = None,
+    window_start: str | None = None,
+    window_end: str | None = None,
     generate_narrative: bool = True,
-    force_overlap: bool = False,
     ranking_metric: str | None = None,
     poll_interval_seconds: int = 15,
     timeout_seconds: int = 1200,
 ) -> str:
-    """Run the briefs pipeline and return bullets and narratives when complete.
+    """Run the briefs pipeline for a specific time window and return bullets and narratives.
 
-    Starts the pipeline for the given entities or universe, waits for all runs
-    to finish, then fetches and returns bullets and narratives as plain text.
-    The tool blocks until completion (or timeout). Typical duration: 1-5 minutes
-    depending on the number of entities.
+    Requires an explicit time window (window_start + window_end). Always re-runs
+    even if the window was already processed (overlap is always allowed).
 
     The briefs FastAPI app must be running locally before calling this tool.
 
     Args:
-        entity_ids: List of rp_entity_ids (e.g. ["D8442A", "E09E2B"]).
-                    Mutually exclusive with universe.
-        universe:   Named universe (e.g. "my_portfolio"). Mutually exclusive with entity_ids.
-                    Omit both to run all entities in the database.
-        window_mode: "continuous" (default) or "update".
-                     continuous: covers [end of last run -> now], no gaps.
-                     update: covers at most the last 24h (72h on Mondays).
-        force_window_start: ISO 8601 UTC datetime to pin the window start
-                            (e.g. "2026-05-26T12:00:00Z"). Use together with force_window_end.
-        force_window_end:   ISO 8601 UTC datetime to pin the window end.
+        entity_ids:   List of rp_entity_ids (e.g. ["D8442A", "E09E2B"]).
+                      Mutually exclusive with universe.
+        universe:     Named universe (e.g. "my_portfolio"). Mutually exclusive with entity_ids.
+                      Omit both to run all entities in the database.
+        window_start: ISO 8601 UTC datetime for the window start (e.g. "2026-06-04T12:00:00Z"). Required.
+        window_end:   ISO 8601 UTC datetime for the window end (e.g. "2026-06-05T12:00:00Z"). Required.
         generate_narrative: Generate a 2-3 sentence editorial narrative per entity. Default True.
-        force_overlap: Skip the overlap check and re-run an already-completed window. Default False.
-        ranking_metric: Generate a portfolio brief ranked by this metric after completion
-                        (e.g. "media_attention_momentum").
+        ranking_metric: Generate a portfolio brief after completion (e.g. "media_attention_momentum").
         poll_interval_seconds: Seconds between status checks. Default 15.
         timeout_seconds: Max seconds to wait before returning partial results. Default 1200.
 
     Returns:
         Plain text with bullets and narratives for each entity. Show this output verbatim.
     """
+    if not window_start or not window_end:
+        return "ERROR: window_start and window_end are required. Provide ISO 8601 UTC datetimes."
+
     run_body: dict[str, Any] = {
-        "window_mode": window_mode,
+        "force_window_start": window_start,
+        "force_window_end": window_end,
+        "force_overlap": True,
         "generate_narrative": generate_narrative,
-        "force_overlap": force_overlap,
         "compute_signals": False,
     }
     if entity_ids:
         run_body["entity_ids"] = entity_ids
     if universe:
         run_body["universe"] = universe
-    if force_window_start:
-        run_body["force_window_start"] = force_window_start
-    if force_window_end:
-        run_body["force_window_end"] = force_window_end
     if ranking_metric:
         run_body["ranking_metric"] = ranking_metric
 
