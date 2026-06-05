@@ -76,8 +76,16 @@ def _format_entity_bullets(entity_result: dict[str, Any], narrative: str | None 
         lines.append("Bullets:")
         for i, b in enumerate(bullets, 1):
             lines.append(f"{i}. {b.get('text', '')}")
-            citations = (b.get("citations") or [])[:3]
-            for c in citations:
+            seen_sources: set[str] = set()
+            unique_citations: list[dict] = []
+            for c in (b.get("citations") or []):
+                key = c.get("url") or c.get("headline", "")
+                if key and key not in seen_sources:
+                    seen_sources.add(key)
+                    unique_citations.append(c)
+                if len(unique_citations) == 3:
+                    break
+            for c in unique_citations:
                 headline = c.get("headline", "").strip()
                 url = c.get("url", "").strip() if c.get("url") else ""
                 if url:
