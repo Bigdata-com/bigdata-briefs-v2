@@ -149,21 +149,30 @@ def start_briefs_run(
     return (
         f"Run started.\n"
         f"batch_id: {batch_id}\n"
+        f"window_start: {window_start}\n"
+        f"window_end: {window_end}\n"
         f"entities: {total}\n"
         f"estimated wait: ~{eta_minutes} minutes\n\n"
-        f"Tell the user to ask 'check my run' or similar in ~{eta_minutes} minutes. "
-        f"Then call get_run_results(batch_id='{batch_id}') to retrieve results."
+        f"Tell the user to check back in ~{eta_minutes} minutes. "
+        f"Then call get_run_results(batch_id='{batch_id}', window_start='{window_start}', window_end='{window_end}') to retrieve results."
     )
 
 
 @mcp.tool(name="get_run_results")
-def get_run_results(batch_id: str) -> str:
+def get_run_results(
+    batch_id: str,
+    window_start: str | None = None,
+    window_end: str | None = None,
+) -> str:
     """Check the status of a briefs run. Returns results if complete, status if still running.
 
-    Call this after start_briefs_run to check progress and retrieve results when done.
+    Call this after start_briefs_run. Pass window_start and window_end as returned by
+    start_briefs_run to ensure the correct run is retrieved (not a concurrent one).
 
     Args:
-        batch_id: The batch_id returned by start_briefs_run.
+        batch_id:     The batch_id returned by start_briefs_run.
+        window_start: The window_start returned by start_briefs_run (recommended).
+        window_end:   The window_end returned by start_briefs_run (recommended).
 
     Returns:
         If complete: bullets and narratives for each entity (verbatim).
@@ -182,17 +191,27 @@ def get_run_results(batch_id: str) -> str:
         return (
             f"Still running — {done}/{total} entities complete "
             f"({running} running, {not_started} queued, {failed} failed).\n"
-            f"Check again in a few minutes with get_run_results(batch_id='{batch_id}')."
+            f"Check again in a few minutes with get_run_results("
+            f"batch_id='{batch_id}', window_start='{window_start}', window_end='{window_end}')."
         )
 
     # All done — fetch bullets and narratives
     runs_list = status.get("runs") or []
     entity_ids_done = [r["entity_id"] for r in runs_list if r.get("status") in ("succeeded", "no_data")]
 
-    bullets_body: dict[str, Any] = {"max_runs": 1}
+    bullets_body: dict[str, Any] = {"max_runs": 5}  # fetch last 5 runs to find the right one
     if entity_ids_done:
         bullets_body["entity_ids"] = entity_ids_done
     bullets_resp = _api("POST", "reports/bullets", json=bullets_body)
+
+    # Normalize window timestamps for comparison (strip Z, drop subseconds)
+    def _norm(ts: str | None) -> str:
+        if not ts:
+            return ""
+        return ts.rstrip("Z").split(".")[0]
+
+    ws_norm = _norm(window_start)
+    we_norm = _norm(window_end)
 
     narr_body: dict[str, Any] = {}
     if entity_ids_done:
@@ -209,6 +228,18 @@ def get_run_results(batch_id: str) -> str:
     sections: list[str] = []
     for entity_result in bullets_resp.get("results", []):
         eid = entity_result.get("entity_id", "")
+
+        # If window provided, filter to the matching run
+        if ws_norm and we_norm:
+            filtered = dict(entity_result)
+            matching_runs = [
+                r for r in (entity_result.get("runs") or [])
+                if _norm(r.get("report_window_start")) == ws_norm
+                and _norm(r.get("report_window_end")) == we_norm
+            ]
+            filtered["runs"] = matching_runs if matching_runs else (entity_result.get("runs") or [])[:1]
+            entity_result = filtered
+
         sections.append(_format_entity_bullets(entity_result, narrative=narratives_by_entity.get(eid)))
 
     return _VERBATIM_HEADER + header + ("\n" + "=" * 60 + "\n").join(sections)
