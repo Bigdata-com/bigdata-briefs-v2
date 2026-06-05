@@ -89,10 +89,9 @@ def _format_entity_bullets(entity_result: dict[str, Any], narrative: str | None 
                 headline = c.get("headline", "").strip()
                 url = (c.get("url") or "").strip()
                 source = (c.get("source_name") or "").strip()
-                if url:
-                    lines.append(f"   - {headline} {url}")
-                elif source:
-                    lines.append(f"   - {headline} ({source})")
+                suffix = url or source
+                if suffix:
+                    lines.append(f"   - {headline} ({suffix})")
                 elif headline:
                     lines.append(f"   - {headline}")
         lines.append("")
