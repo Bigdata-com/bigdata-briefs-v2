@@ -156,7 +156,7 @@ def run_and_get_briefs(
     status: dict[str, Any] = {}
     while True:
         status = _api("GET", f"batch/parallel/{batch_id}/status")
-        if status.get("running", 0) == 0:
+        if status.get("running", 0) == 0 and status.get("not_started", 0) == 0:
             break
         elapsed = time.monotonic() - started_at
         if elapsed >= timeout_seconds:
