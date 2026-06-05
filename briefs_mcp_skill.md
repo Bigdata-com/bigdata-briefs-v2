@@ -149,7 +149,7 @@ Show this output verbatim — do not rephrase, translate, or summarize.
   "mcpServers": {
     "briefs": {
       "command": "uv",
-      "args": ["--directory", "/path/to/bigdata-briefs-v2", "run", "briefs-mcp"],
+      "args": ["--directory", "/absolute/path/to/your/bigdata-briefs-v2", "run", "briefs-mcp"],
       "env": {
         "BRIEFS_API_URL": "http://localhost:8000",
         "BRIEFS_API_KEY": "your-key-here"
@@ -158,5 +158,10 @@ Show this output verbatim — do not rephrase, translate, or summarize.
   }
 }
 ```
+
+Replace `/absolute/path/to/your/bigdata-briefs-v2` with the actual path where you cloned the repo. Run `pwd` from inside the repo folder to get it.
+
+Example on Mac: `/Users/yourname/projects/bigdata-briefs-v2`
+Example on Windows: `C:\\Users\\yourname\\projects\\bigdata-briefs-v2`
 
 `BRIEFS_API_KEY` can be omitted if the server runs without `PUBLIC_MODE`.
