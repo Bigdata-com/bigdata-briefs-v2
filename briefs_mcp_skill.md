@@ -4,14 +4,13 @@
 
 ---
 
-## Two deployment modes
+## Deployment
 
 | Mode | How to start | Cron | Use case |
 |------|-------------|------|---------|
 | **Docker with cron** | `docker compose --profile cron up` | Yes, Mon-Fri 12:01 UTC | Automated daily briefs |
 | **Docker without cron** | `docker compose up` | No | Ad-hoc runs via MCP |
-
-When using MCP, always use the second mode. Claude triggers runs explicitly — the cron does not run.
+| **Local (no Docker)** | `uv run uvicorn bigdata_briefs.api.app:app --port 8000` | No | Ad-hoc runs via MCP |
 
 ---
 
@@ -19,215 +18,146 @@ When using MCP, always use the second mode. Claude triggers runs explicitly — 
 
 | Tool | Purpose |
 |------|---------|
-| `run_and_get_briefs` | Run the pipeline and return bullets + narratives when complete |
+| `run_and_get_briefs` | Run the pipeline for a time window and return bullets + narratives |
 | `get_bullets` | Read existing bullet points without triggering a new run |
 | `get_narratives` | Read existing narrative summaries without triggering a new run |
 
 ---
 
-## The Two Run Modes
+## run_and_get_briefs
 
-### Mode 1 — Incremental update (default)
+Runs the pipeline for an explicit time window and returns bullets and narratives when complete. Always re-runs even if the window was already processed. Blocks until done (typically 1-5 minutes per entity).
 
-Picks up exactly where the last run ended. Use this when the user asks to update or refresh briefs.
+**Required:** `window_start` and `window_end` — always provide explicit ISO 8601 UTC datetimes.
 
 ```python
-result = run_and_get_briefs(
-    entity_ids=["D8442A", "E09E2B"],   # or use universe="my_portfolio"
-    window_mode="continuous",           # default, can be omitted
-    generate_narrative=True,            # default, can be omitted
+run_and_get_briefs(
+    entity_ids=["D8442A", "E09E2B"],      # or universe="my_portfolio"
+    window_start="2026-06-04T12:00:00Z",
+    window_end="2026-06-05T12:00:00Z",
+    generate_narrative=True,               # default, omit unless user says no
 )
 ```
 
-- No overlap with previous runs.
-- Falls back to UTC midnight of today if no previous run exists.
+**Parameters:**
 
-### Mode 2 — Custom time window
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `entity_ids` | None | rp_entity_ids to run. Mutually exclusive with `universe`. |
+| `universe` | None | Named universe (e.g. `"my_portfolio"`). Omit both to run all DB entities. |
+| `window_start` | — | ISO 8601 UTC window start. **Required.** |
+| `window_end` | — | ISO 8601 UTC window end. **Required.** |
+| `generate_narrative` | `True` | Generate a 2-3 sentence editorial narrative per entity. |
+| `ranking_metric` | None | Generate a portfolio brief after completion (e.g. `"media_attention_momentum"`). |
+| `poll_interval_seconds` | `15` | Seconds between status checks. |
+| `timeout_seconds` | `1200` | Max wait before returning partial results (20 min). |
 
-Use when the user asks for news or briefs covering a specific past period (e.g. "last 36 hours", "last 3 days"). Calculate `force_window_start` and `force_window_end` from the current time and always set `force_overlap=True`.
-
-```python
-# "Give me the news for Apple in the last 36 hours"
-result = run_and_get_briefs(
-    entity_ids=["D8442A"],
-    force_window_start="2026-06-03T02:00:00Z",   # now - 36h
-    force_window_end="2026-06-04T14:00:00Z",      # now
-    force_overlap=True,                            # required: window overlaps previous runs
-    generate_narrative=True,
-)
-```
-
-**Why force_overlap=True:** the requested window almost certainly overlaps runs already in the DB. Without this flag the pipeline would reject the entity immediately.
-
-**Novelty and overlap:** bullets from runs whose `window_end` falls inside the requested window are excluded from the novelty deduplication check. This means bullets that were already reported in an overlapping run can reappear — which is the intended behavior when the user explicitly asks for a time window.
+**Converting time zones:** ET (Eastern Time) is UTC-5 in winter and UTC-4 in summer (EDT). Always convert to UTC before passing.
 
 ---
 
-## Default Behavior Rules
+## get_bullets
 
-- **Always use `run_and_get_briefs`** when the user wants to generate or refresh briefs.
-- **`generate_narrative` defaults to True.** Only set it to False if the user explicitly says they don't need summaries.
-- **Incremental update is the default.** Use a custom window only when the user specifies a time range ("last X hours", "last X days").
-- **Always set `force_overlap=True`** when using a custom window.
-- **Use `get_bullets` or `get_narratives`** only when the user asks to read existing results without running the pipeline again (e.g. "show me yesterday's briefs").
-- If the tool returns a connection error, tell the user to start the app: `docker compose up`.
+Reads bullet points already saved in the database. Does not trigger a new run.
 
-## Presenting Results — CRITICAL
+```python
+get_bullets(
+    entity_ids=["D8442A"],
+    max_runs=1,    # 1 = latest run only, None = all historical runs
+)
+```
 
-- **Show bullet text VERBATIM.** Never paraphrase, summarize, or rewrite the bullet text from the tool response. The bullets are already processed and verified by the pipeline — any rewording introduces errors.
-- **Show narrative text VERBATIM.** Same rule applies to the narrative field.
-- You may add formatting (bold company name, section headers) but the text content must be copied exactly as returned by the tool.
-- If the user asks "what does this mean?" or wants interpretation, answer separately — never mix interpretation with the raw bullet text.
+---
+
+## get_narratives
+
+Reads editorial narratives already saved in the database. Does not trigger a new run.
+
+```python
+get_narratives(
+    entity_ids=["D8442A"],           # or universe="my_portfolio"
+    from_date="2026-06-01",
+    to_date="2026-06-05",
+)
+```
 
 ---
 
 ## Reading the Output
 
-### run_and_get_briefs result structure
+### run_and_get_briefs result
 
-```json
-{
-  "status": "completed",
-  "batch_id": "...",
-  "succeeded": 2,
-  "failed": 0,
-  "elapsed_seconds": 87,
-  "bullets": { ... },
-  "narratives": { ... }
-}
+```
+Completed in 87s — 2 succeeded, 0 failed
+============================================================
+Visa Inc. (93D207)
+Window: 2026-06-04T12:00:00 -> 2026-06-05T12:00:00
+4 bullets saved, 11 discarded
+
+Narrative:
+Visa teams with Brale to pilot stablecoin settlements...
+
+Bullets:
+1. Visa Inc. announced a collaboration with Brale...
+   - Visa and Brale Explore Private Stablecoin Settlement (https://investor.visa.com/...)
+2. ...
 ```
 
-If `status` is `"timed_out"`, some entities are still running (exceeded 10 min). Tell the user and suggest calling `get_bullets` / `get_narratives` in a few minutes.
+If `status` is `TIMED OUT`, the run exceeded 20 minutes. Call `get_bullets` and `get_narratives` later to retrieve results.
 
-If `failed > 0`, report which entities failed and why (visible in `bullets.results`).
+### Bullet citations
 
-### Bullets (per entity)
+Each bullet shows up to 3 unique sources (deduplicated by headline):
+- With URL: `- Headline (https://...)`
+- Without URL: `- Headline (Source Name)`
 
-```json
-{
-  "entity_id": "D8442A",
-  "entity_name": "Apple Inc.",
-  "total_bullets": 7,
-  "runs": [
-    {
-      "report_window_start": "2026-06-04T00:00:00",
-      "report_window_end":   "2026-06-04T14:30:00",
-      "bullet_count": 7,
-      "bullets_discarded": 4,
-      "bullets": [
-        {
-          "text": "Apple reported record services revenue of $26.6bn...",
-          "citations": [{"headline": "Apple Q2 2026 earnings beat...", "text": "..."}],
-          "not_fully_novel": false
-        }
-      ],
-      "discarded_by_relevance": [...],
-      "discarded_by_grounding": [...],
-      "discarded_by_novelty":   [...]
-    }
-  ]
-}
-```
+### Narratives
 
-**Discard stages:**
-- `discarded_by_relevance`: not financially material enough
-- `discarded_by_grounding`: not verifiable against cited sources
-- `discarded_by_novelty`: already reported in a previous run (outside the overlapping window)
-
-### Narratives (per entity)
-
-```json
-{
-  "entity_id": "D8442A",
-  "narratives": [
-    {
-      "report_date": "2026-06-04",
-      "narrative_text": "Apple reported strong Q2 results driven by services growth...",
-      "bullets_count": 7
-    }
-  ]
-}
-```
-
----
-
-## Parameters Reference
-
-### run_and_get_briefs
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `entity_ids` | None | rp_entity_ids (e.g. `["D8442A"]`). Mutually exclusive with `universe`. |
-| `universe` | None | Named universe (e.g. `"my_portfolio"`). Omit both to run all DB entities. |
-| `window_mode` | `"continuous"` | `"continuous"`: picks up from last run. `"update"`: last 24h (72h on Mondays). |
-| `force_window_start` | None | ISO 8601 UTC. Pin the window start. Use for custom time ranges. |
-| `force_window_end` | None | ISO 8601 UTC. Pin the window end. |
-| `generate_narrative` | `True` | Generate a 2-3 sentence editorial narrative per entity. |
-| `force_overlap` | `False` | Required when using a custom window that overlaps previous runs. |
-| `ranking_metric` | None | Generate a portfolio brief after completion (e.g. `"media_attention_momentum"`). |
-| `poll_interval_seconds` | `15` | Seconds between status checks. |
-| `timeout_seconds` | `600` | Max wait before returning partial results (10 min). |
-
-### get_bullets
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `entity_ids` | None | Omit to retrieve all entities. |
-| `max_runs` | `1` | Runs to return per entity. `None` for all historical runs. |
-
-### get_narratives
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `entity_ids` | None | Mutually exclusive with `universe`. |
-| `universe` | None | Named universe. Mutually exclusive with `entity_ids`. |
-| `from_date` | None | ISO 8601 date lower bound (e.g. `"2026-05-01"`). |
-| `to_date` | None | ISO 8601 date upper bound (e.g. `"2026-05-31"`). |
+2-3 sentence editorial summary of all bullets for that entity on that day. Only present when `generate_narrative=True`.
 
 ---
 
 ## Common Patterns
 
-### "Update my portfolio"
-```python
-run_and_get_briefs(universe="my_portfolio")
-```
+### "Give me the news for Apple in the last 24 hours"
 
-### "Update Apple and Microsoft"
-```python
-run_and_get_briefs(entity_ids=["D8442A", "E09E2B"])
-```
+Calculate `window_start = now - 24h` in UTC, `window_end = now` in UTC:
 
-### "Give me the news for Apple in the last 36 hours"
 ```python
 run_and_get_briefs(
     entity_ids=["D8442A"],
-    force_window_start="<now - 36h, ISO 8601 UTC>",
-    force_window_end="<now, ISO 8601 UTC>",
-    force_overlap=True,
+    window_start="2026-06-04T14:00:00Z",
+    window_end="2026-06-05T14:00:00Z",
 )
 ```
 
-### "Show me yesterday's briefs for my portfolio" (no new run)
+### "Give me briefs for my portfolio from Wednesday 8am to Thursday 8am ET"
+
+Convert ET to UTC (EDT = UTC-4 in summer):
+
 ```python
-get_bullets(entity_ids=[...], max_runs=1)
-# or
-get_narratives(universe="my_portfolio", from_date="2026-06-03", to_date="2026-06-03")
+run_and_get_briefs(
+    universe="my_portfolio",
+    window_start="2026-06-04T12:00:00Z",   # Wed 8am EDT = 12:00 UTC
+    window_end="2026-06-05T12:00:00Z",     # Thu 8am EDT = 12:00 UTC
+)
+```
+
+### "Show me the latest bullets for Visa" (no new run)
+
+```python
+get_bullets(entity_ids=["93D207"], max_runs=1)
+```
+
+### "Show me narratives for last week" (no new run)
+
+```python
+get_narratives(universe="my_portfolio", from_date="2026-05-28", to_date="2026-06-04")
 ```
 
 ---
 
-## Prerequisites
-
-```bash
-# Start the app (no cron, for MCP use)
-docker compose up
-
-# Or via uv directly
-uv run uvicorn bigdata_briefs.api.app:app --port 8000
-```
-
-### Claude Desktop config
+## Claude Desktop Setup
 
 ```json
 {
@@ -243,3 +173,5 @@ uv run uvicorn bigdata_briefs.api.app:app --port 8000
   }
 }
 ```
+
+`BRIEFS_API_KEY` can be omitted if the server runs without `PUBLIC_MODE`.
