@@ -508,7 +508,7 @@ def get_bullets(body: BatchBulletsRequest) -> BatchBulletsResponse:
                     trace_id=row.trace_id,
                     text=row.text,
                     citations=[
-                        CitationDetail(id=c["id"], headline=c["headline"], text=c["text"])
+                        CitationDetail(id=c["id"], headline=c["headline"], text=c["text"], url=c.get("url"))
                         for c in (row.citations or [])
                     ],
                     embedding_decision=row.embedding_decision,
@@ -635,7 +635,7 @@ def get_bullets_detail(body: BatchBulletsDetailRequest) -> BatchBulletsDetailRes
                     ).all()
                 cite_map = {
                     r.trace_id: [
-                        CitationDetail(id=c["id"], headline=c["headline"], text=c["text"])
+                        CitationDetail(id=c["id"], headline=c["headline"], text=c["text"], url=c.get("url"))
                         for c in (r.citations or [])
                         if isinstance(c, dict)
                     ]
