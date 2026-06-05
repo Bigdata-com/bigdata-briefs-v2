@@ -79,7 +79,7 @@ def _format_entity_bullets(entity_result: dict[str, Any], narrative: str | None 
             seen_sources: set[str] = set()
             unique_citations: list[dict] = []
             for c in (b.get("citations") or []):
-                key = c.get("url") or c.get("headline", "")
+                key = c.get("headline", "").strip() or c.get("url", "")
                 if key and key not in seen_sources:
                     seen_sources.add(key)
                     unique_citations.append(c)
