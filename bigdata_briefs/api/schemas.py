@@ -56,6 +56,7 @@ class CitationDetail(BaseModel):
     headline: str
     text: str
     source_name: str = ""
+    url: str | None = None
 
 
 class BulletPointItem(BaseModel):

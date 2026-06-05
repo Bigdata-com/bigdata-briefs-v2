@@ -41,6 +41,7 @@ class CitationDetail(BaseModel):
     id: str           # e.g. "CQS:REF0"
     headline: str     # article / document title
     text: str         # chunk text used as evidence
+    url: str | None = None  # original article URL
 
 
 class GeneratedBulletPoint(BaseModel):

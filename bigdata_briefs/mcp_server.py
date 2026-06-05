@@ -79,7 +79,10 @@ def _format_entity_bullets(entity_result: dict[str, Any], narrative: str | None 
             citations = (b.get("citations") or [])[:3]
             for c in citations:
                 headline = c.get("headline", "").strip()
-                if headline:
+                url = c.get("url", "").strip() if c.get("url") else ""
+                if url:
+                    lines.append(f"   - {headline} {url}")
+                elif headline:
                     lines.append(f"   - {headline}")
         lines.append("")
 
