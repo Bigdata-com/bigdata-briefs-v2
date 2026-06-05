@@ -44,6 +44,9 @@ def _api(method: str, path: str, **kwargs: Any) -> Any:
     return resp.json()
 
 
+_VERBATIM_HEADER = "[VERBATIM CONTENT - copy exactly as shown, do not rephrase, translate or summarize]\n"
+
+
 def _format_entity_bullets(entity_result: dict[str, Any], narrative: str | None = None) -> str:
     """Format one entity's bullets and optional narrative as plain text."""
     entity_id = entity_result.get("entity_id", "")
@@ -195,7 +198,7 @@ def run_and_get_briefs(
         narrative = narratives_by_entity.get(eid)
         sections.append(_format_entity_bullets(entity_result, narrative=narrative))
 
-    return header + ("\n" + "=" * 60 + "\n").join(sections)
+    return _VERBATIM_HEADER + header + ("\n" + "=" * 60 + "\n").join(sections)
 
 
 @mcp.tool(name="get_bullets")
@@ -226,7 +229,7 @@ def get_bullets(
     for entity_result in resp.get("results", []):
         sections.append(_format_entity_bullets(entity_result))
 
-    return ("\n" + "=" * 60 + "\n").join(sections) if sections else "No results found."
+    return _VERBATIM_HEADER + (("\n" + "=" * 60 + "\n").join(sections) if sections else "No results found.")
 
 
 @mcp.tool(name="get_narratives")
