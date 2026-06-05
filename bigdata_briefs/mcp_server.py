@@ -20,7 +20,17 @@ from mcp.server.fastmcp import FastMCP
 
 load_dotenv()
 
-mcp = FastMCP("briefs")
+mcp = FastMCP(
+    "briefs",
+    instructions=(
+        "You are connected to the bigdata-briefs pipeline. "
+        "CRITICAL: when presenting results from run_and_get_briefs, get_bullets, or get_narratives, "
+        "always copy bullet text and narrative text VERBATIM from the tool response. "
+        "Do NOT paraphrase, summarize, rewrite, or rework any bullet or narrative text. "
+        "The pipeline has already processed and verified this content — any rewording introduces errors. "
+        "You may add formatting (company name, section headers) but the text must be copied exactly as returned."
+    ),
+)
 
 _DEFAULT_BASE_URL = "http://localhost:8000"
 
