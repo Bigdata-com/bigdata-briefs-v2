@@ -18,64 +18,102 @@
 
 | Tool | Purpose |
 |------|---------|
-| `run_and_get_briefs` | Run the pipeline for a time window and return bullets + narratives |
-| `get_bullets` | Read existing bullet points without triggering a new run |
-| `get_narratives` | Read existing narrative summaries without triggering a new run |
+| `start_briefs_run` | Start the pipeline. Returns immediately with batch_id + ETA. |
+| `get_run_results` | Check status. Returns bullets + narratives when complete. |
+| `get_bullets` | Read existing bullet points without triggering a new run. |
+| `get_narratives` | Read existing narrative summaries without triggering a new run. |
 
 ---
 
-## run_and_get_briefs
+## Standard Workflow
 
-Runs the pipeline for an explicit time window and returns bullets and narratives when complete. Always re-runs even if the window was already processed. Blocks until done (typically 1-5 minutes per entity).
-
-**Required:** `window_start` and `window_end` — always provide explicit ISO 8601 UTC datetimes.
+### Step 1 — Start the run
 
 ```python
-run_and_get_briefs(
+start_briefs_run(
     entity_ids=["D8442A", "E09E2B"],      # or universe="my_portfolio"
     window_start="2026-06-04T12:00:00Z",
     window_end="2026-06-05T12:00:00Z",
-    generate_narrative=True,               # default, omit unless user says no
 )
 ```
 
-**Parameters:**
+Returns:
+```
+Run started.
+batch_id: abc123...
+window_start: 2026-06-04T12:00:00Z
+window_end: 2026-06-05T12:00:00Z
+entities: 2
+estimated wait: ~6 minutes
+```
+
+**Tell the user:** "The run has started. Please check back in ~6 minutes."
+
+### Step 2 — Check results
+
+When the user says "check my run" or similar:
+
+```python
+get_run_results(
+    batch_id="abc123...",
+    window_start="2026-06-04T12:00:00Z",
+    window_end="2026-06-05T12:00:00Z",
+)
+```
+
+- If still running: returns progress (X/N entities complete). Tell the user to wait and check again.
+- If complete: returns bullets and narratives verbatim.
+
+Always pass `window_start` and `window_end` to `get_run_results` — this ensures the correct run is returned even if other runs are in progress.
+
+---
+
+## Parameters
+
+### start_briefs_run
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `entity_ids` | None | rp_entity_ids to run. Mutually exclusive with `universe`. |
+| `entity_ids` | None | rp_entity_ids. Mutually exclusive with `universe`. |
 | `universe` | None | Named universe (e.g. `"my_portfolio"`). Omit both to run all DB entities. |
 | `window_start` | — | ISO 8601 UTC window start. **Required.** |
 | `window_end` | — | ISO 8601 UTC window end. **Required.** |
-| `generate_narrative` | `True` | Generate a 2-3 sentence editorial narrative per entity. |
 | `ranking_metric` | None | Generate a portfolio brief after completion (e.g. `"media_attention_momentum"`). |
-| `poll_interval_seconds` | `15` | Seconds between status checks. |
-| `timeout_seconds` | `1200` | Max wait before returning partial results (20 min). |
 
-**Converting time zones:** ET (Eastern Time) is UTC-5 in winter and UTC-4 in summer (EDT). Always convert to UTC before passing.
+### get_run_results
+
+| Parameter | Description |
+|-----------|-------------|
+| `batch_id` | The batch_id returned by start_briefs_run. |
+| `window_start` | The window_start returned by start_briefs_run. Pass it always. |
+| `window_end` | The window_end returned by start_briefs_run. Pass it always. |
 
 ---
 
-## get_bullets
+## Time Zone Conversion
 
-Reads bullet points already saved in the database. Does not trigger a new run.
+Always convert to UTC before passing window times.
+
+| Time Zone | UTC offset | Example |
+|-----------|-----------|---------|
+| ET (summer, EDT) | UTC-4 | 8:00 AM EDT = 12:00:00Z |
+| ET (winter, EST) | UTC-5 | 8:00 AM EST = 13:00:00Z |
+
+---
+
+## Read-only Tools (no new run)
+
+### get_bullets
 
 ```python
-get_bullets(
-    entity_ids=["D8442A"],
-    max_runs=1,    # 1 = latest run only, None = all historical runs
-)
+get_bullets(entity_ids=["D8442A"], max_runs=1)
 ```
 
----
-
-## get_narratives
-
-Reads editorial narratives already saved in the database. Does not trigger a new run.
+### get_narratives
 
 ```python
 get_narratives(
-    entity_ids=["D8442A"],           # or universe="my_portfolio"
+    entity_ids=["D8442A"],      # or universe="my_portfolio"
     from_date="2026-06-01",
     to_date="2026-06-05",
 )
@@ -83,12 +121,10 @@ get_narratives(
 
 ---
 
-## Reading the Output
-
-### run_and_get_briefs result
+## Output Format
 
 ```
-Completed in 87s — 2 succeeded, 0 failed
+Completed — 2 succeeded, 0 failed
 ============================================================
 Visa Inc. (93D207)
 Window: 2026-06-04T12:00:00 -> 2026-06-05T12:00:00
@@ -100,60 +136,9 @@ Visa teams with Brale to pilot stablecoin settlements...
 Bullets:
 1. Visa Inc. announced a collaboration with Brale...
    - Visa and Brale Explore Private Stablecoin Settlement (https://investor.visa.com/...)
-2. ...
 ```
 
-If `status` is `TIMED OUT`, the run exceeded 20 minutes. Call `get_bullets` and `get_narratives` later to retrieve results.
-
-### Bullet citations
-
-Each bullet shows up to 3 unique sources (deduplicated by headline):
-- With URL: `- Headline (https://...)`
-- Without URL: `- Headline (Source Name)`
-
-### Narratives
-
-2-3 sentence editorial summary of all bullets for that entity on that day. Only present when `generate_narrative=True`.
-
----
-
-## Common Patterns
-
-### "Give me the news for Apple in the last 24 hours"
-
-Calculate `window_start = now - 24h` in UTC, `window_end = now` in UTC:
-
-```python
-run_and_get_briefs(
-    entity_ids=["D8442A"],
-    window_start="2026-06-04T14:00:00Z",
-    window_end="2026-06-05T14:00:00Z",
-)
-```
-
-### "Give me briefs for my portfolio from Wednesday 8am to Thursday 8am ET"
-
-Convert ET to UTC (EDT = UTC-4 in summer):
-
-```python
-run_and_get_briefs(
-    universe="my_portfolio",
-    window_start="2026-06-04T12:00:00Z",   # Wed 8am EDT = 12:00 UTC
-    window_end="2026-06-05T12:00:00Z",     # Thu 8am EDT = 12:00 UTC
-)
-```
-
-### "Show me the latest bullets for Visa" (no new run)
-
-```python
-get_bullets(entity_ids=["93D207"], max_runs=1)
-```
-
-### "Show me narratives for last week" (no new run)
-
-```python
-get_narratives(universe="my_portfolio", from_date="2026-05-28", to_date="2026-06-04")
-```
+Show this output verbatim — do not rephrase, translate, or summarize.
 
 ---
 
