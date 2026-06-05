@@ -22,7 +22,7 @@ load_dotenv()
 mcp = FastMCP("briefs")
 
 _DEFAULT_BASE_URL = "http://localhost:8000"
-_MINUTES_PER_ENTITY = 5  # rough estimate for ETA message
+_MINUTES_PER_ENTITY = 3  # rough estimate for ETA message
 
 
 def _base_url() -> str:
