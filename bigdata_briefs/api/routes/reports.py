@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import desc
@@ -227,6 +227,71 @@ def _build_entity_result_from_run_log(entity_id: str, engine) -> EntityBulletsRe
         total_bullets=0,
         runs=runs,
     )
+
+
+def _get_empty_run_results_for_entity(
+    engine,
+    entity_id: str,
+    limit: int,
+) -> list[RunBulletsResult]:
+    """Return RunBulletsResult entries for recent runs that completed with 0 active bullets.
+
+    These runs exist in SQLEntityPipelineRunLog but have no rows in SQLGeneratedBulletPoint,
+    so get_bullets would otherwise skip them and fall back to older stale data.
+    """
+    with Session(engine) as session:
+        recent_logs = session.exec(
+            select(SQLEntityPipelineRunLog)
+            .where(SQLEntityPipelineRunLog.entity_id == entity_id)
+            .where(SQLEntityPipelineRunLog.status.in_(["succeeded", "no_data"]))
+            .order_by(desc(SQLEntityPipelineRunLog.process_completed_at_utc))
+            .limit(limit)
+        ).all()
+
+        if not recent_logs:
+            return []
+
+        active_run_ids: set[uuid.UUID] = set(session.exec(
+            select(SQLBulletRunLog.run_id).distinct()
+            .where(SQLBulletRunLog.run_id.in_([r.run_id for r in recent_logs]))
+            .where(SQLBulletRunLog.is_active == True)  # noqa: E712
+        ).all())
+
+    results: list[RunBulletsResult] = []
+    for log_row in recent_logs:
+        if log_row.run_id in active_run_ids:
+            continue  # has active bullets — already covered by SQLGeneratedBulletPoint
+
+        with Session(engine) as session:
+            discarded_rows = session.exec(
+                select(SQLBulletRunLog)
+                .where(SQLBulletRunLog.run_id == log_row.run_id)
+                .where(SQLBulletRunLog.is_active == False)  # noqa: E712
+            ).all()
+
+        buckets: dict[str, list[str]] = {"relevance": [], "grounding": [], "novelty": []}
+        for br in discarded_rows:
+            cat = _stage_to_category(br.discard_stage)
+            if cat and br.text:
+                buckets[cat].append(br.text)
+
+        run_ts = log_row.process_completed_at_utc or log_row.process_started_at_utc
+        bullets_discarded = sum(len(v) for v in buckets.values())
+        results.append(RunBulletsResult(
+            run_id=str(log_row.run_id),
+            report_window_start=log_row.report_window_start,
+            report_window_end=log_row.report_window_end,
+            run_created_at=run_ts,
+            bullet_count=0,
+            bullets_saved=0,
+            bullets_discarded=bullets_discarded,
+            bullets=[],
+            discarded_by_relevance=buckets["relevance"],
+            discarded_by_grounding=buckets["grounding"],
+            discarded_by_novelty=buckets["novelty"],
+        ))
+
+    return results
 
 
 def _resolve_citations(
@@ -527,6 +592,11 @@ def get_bullets(body: BatchBulletsRequest) -> BatchBulletsResponse:
         if body.max_runs is not None:
             run_ids_ordered = run_ids_ordered[:body.max_runs]
 
+        # Find recent runs with 0 active bullets that are missing from SQLGeneratedBulletPoint.
+        # Without this, get_bullets would skip those runs and return stale data from older runs.
+        _rlog_limit = body.max_runs if body.max_runs is not None else 50
+        empty_runs = _get_empty_run_results_for_entity(engine, entity_id, _rlog_limit)
+
         run_info: dict[str, tuple[str, datetime, datetime]] = {
             run_id: (grouped[run_id][0].entity_id, grouped[run_id][0].report_window_start, grouped[run_id][0].report_window_end)
             for run_id in run_ids_ordered
@@ -586,14 +656,27 @@ def get_bullets(body: BatchBulletsRequest) -> BatchBulletsResponse:
                 discarded_by_novelty=discarded_novelty,
             ))
 
-        total_bullets = sum(r.bullet_count for r in runs)
+        # Merge runs-with-bullets and empty runs, sort newest-first, apply max_runs.
+        if empty_runs:
+            all_runs: list[RunBulletsResult] = sorted(
+                runs + empty_runs,
+                key=lambda r: r.run_created_at.replace(tzinfo=timezone.utc)
+                if r.run_created_at.tzinfo is None else r.run_created_at,
+                reverse=True,
+            )
+            if body.max_runs is not None:
+                all_runs = all_runs[:body.max_runs]
+        else:
+            all_runs = runs
+
+        total_bullets = sum(r.bullet_count for r in all_runs)
         results.append(EntityBulletsResult(
             entity_id=entity_id,
             found=True,
             entity_name=entity_name,
-            total_runs=len(runs),
+            total_runs=len(all_runs),
             total_bullets=total_bullets,
-            runs=runs,
+            runs=all_runs,
         ))
 
     return BatchBulletsResponse(

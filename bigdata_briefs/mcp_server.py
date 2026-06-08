@@ -237,7 +237,7 @@ def get_run_results(
                 if _norm(r.get("report_window_start")) == ws_norm
                 and _norm(r.get("report_window_end")) == we_norm
             ]
-            filtered["runs"] = matching_runs if matching_runs else (entity_result.get("runs") or [])[:1]
+            filtered["runs"] = matching_runs
             entity_result = filtered
 
         sections.append(_format_entity_bullets(entity_result, narrative=narratives_by_entity.get(eid)))
