@@ -6,6 +6,8 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlmodel import SQLModel
 
+from bigdata_briefs import logger
+
 # Register table models on SQLModel.metadata
 from bigdata_briefs.novelty import sql_models as _novelty_sql  # noqa: F401
 from bigdata_briefs.novelty import sql_pipeline_checkpoint as _novelty_cp  # noqa: F401
@@ -119,12 +121,26 @@ def _ensure_is_novel_columns(engine: Engine) -> None:
         if not rows:
             continue  # table doesn't exist yet; create_all handles fresh schema
         colnames = {r[1] for r in rows}
-        if "is_novel" in colnames:
-            continue
-        with engine.connect() as conn:
-            conn.execute(
-                text(f"ALTER TABLE {table} ADD COLUMN is_novel BOOLEAN NOT NULL DEFAULT 1")
-            )
-            if "not_fully_novel" in colnames:
-                conn.execute(text(f"UPDATE {table} SET is_novel = NOT not_fully_novel"))
-            conn.commit()
+
+        if "is_novel" not in colnames:
+            with engine.connect() as conn:
+                conn.execute(
+                    text(f"ALTER TABLE {table} ADD COLUMN is_novel BOOLEAN NOT NULL DEFAULT 1")
+                )
+                if "not_fully_novel" in colnames:
+                    conn.execute(text(f"UPDATE {table} SET is_novel = NOT not_fully_novel"))
+                conn.commit()
+
+        # Drop the legacy not_fully_novel column. The renamed models no longer write it,
+        # so its NOT NULL constraint makes every INSERT fail
+        # ("NOT NULL constraint failed: ...not_fully_novel"). Runs even when is_novel was
+        # added by an earlier migration version that left not_fully_novel behind.
+        if "not_fully_novel" in colnames:
+            try:
+                with engine.connect() as conn:
+                    conn.execute(text(f"ALTER TABLE {table} DROP COLUMN not_fully_novel"))
+                    conn.commit()
+            except Exception as e:  # noqa: BLE001 — older SQLite without DROP COLUMN
+                logger.warning(
+                    "Could not drop legacy not_fully_novel from %s: %s", table, e
+                )
