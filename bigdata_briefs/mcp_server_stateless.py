@@ -24,6 +24,9 @@ Tools:
 from __future__ import annotations
 
 import csv
+import logging
+import os
+import sys
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -32,6 +35,7 @@ from pathlib import Path
 from threading import Lock, Semaphore
 
 import httpx
+import structlog
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
@@ -42,6 +46,25 @@ from bigdata_briefs.orchestration.config_load import (
 from bigdata_briefs.orchestration.stateless_runner import run_entity_stateless
 from bigdata_briefs.query_service.rate_limit import RequestsPerMinuteController
 from bigdata_briefs.settings import settings
+
+# ── stdio hygiene (must run before any pipeline logging) ───────────────────────
+# On an stdio MCP server, stdout IS the JSON-RPC channel. The bigdata_briefs package
+# configures structlog to write to stdout, so pipeline log lines would corrupt the
+# protocol stream — the client then times out and restarts the server, wiping the
+# in-memory job registry. Redirect all logging to stderr to keep stdout clean.
+structlog.configure(
+    processors=[
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S", utc=False),
+        structlog.dev.ConsoleRenderer(pad_event=False, colors=False),
+    ],
+    logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
+    wrapper_class=structlog.make_filtering_bound_logger(
+        logging._nameToLevel.get(os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO)
+    ),
+)
+logging.basicConfig(stream=sys.stderr, level=logging.WARNING)
 
 load_dotenv()
 
