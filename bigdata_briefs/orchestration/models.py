@@ -29,7 +29,7 @@ class SQLBulletRunLog(SQLModel, table=True):
 
     # ── final outcome ────────────────────────────────────────────────────────
     is_active: bool                         # True = published, False = discarded
-    not_fully_novel: bool = False           # True = amber (rewritten / mixed verdict)
+    is_novel: bool = True                   # False = amber (rewritten / mixed verdict)
     discard_stage: str | None = Field(default=None, max_length=64)
     # relevance_score | grounding | novelty_embedding |
     # novelty_embedding_relevance | novelty_search | novelty_search_relevance

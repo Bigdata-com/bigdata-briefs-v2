@@ -28,6 +28,130 @@ def _state(**overrides):
     return {**BASE_STATE, **overrides}
 
 
+def _topology(compiled):
+    """Return (sorted node names, sorted (source, target, conditional) edges)."""
+    gg = compiled.get_graph()
+    nodes = tuple(sorted(compiled.nodes))
+    edges = tuple(sorted((e.source, e.target, bool(e.conditional)) for e in gg.edges))
+    return nodes, edges
+
+
+# ── Behavior-preservation guard: stateful (default) topology is frozen ─────────
+#
+# This snapshot locks the EXISTING graph so the stateless work cannot silently
+# alter it. If you intentionally change the stateful pipeline, update these two
+# frozen sets in the same commit.
+
+_STATEFUL_NODES = (
+    "__start__",
+    "build_report",
+    "bullets_generation_and_scoring",
+    "concept_extraction",
+    "concept_search",
+    "concept_search_postprocessing",
+    "embed_and_retrieve",
+    "entity_grounding_check",
+    "exploratory_search",
+    "initialize_pipeline",
+    "novelty_judgment_embedding",
+    "novelty_search_fetch",
+    "novelty_search_judgment",
+    "novelty_search_parse_and_plan",
+    "novelty_search_rewrite",
+    "persist_novel_embeddings",
+    "quarter_info",
+    "redundancy_check",
+    "relevance_score_search",
+    "save_novel_bullets",
+    "standalone_validation",
+    "thematic_consolidation",
+)
+
+_STATEFUL_EDGES = (
+    ("__start__", "initialize_pipeline", False),
+    ("build_report", "__end__", False),
+    ("bullets_generation_and_scoring", "__end__", True),
+    ("bullets_generation_and_scoring", "entity_grounding_check", True),
+    ("concept_extraction", "concept_search", False),
+    ("concept_search", "concept_search_postprocessing", False),
+    ("concept_search_postprocessing", "__end__", True),
+    ("concept_search_postprocessing", "bullets_generation_and_scoring", True),
+    ("embed_and_retrieve", "novelty_judgment_embedding", False),
+    ("entity_grounding_check", "embed_and_retrieve", False),
+    ("exploratory_search", "__end__", True),
+    ("exploratory_search", "quarter_info", True),
+    ("initialize_pipeline", "exploratory_search", False),
+    ("novelty_judgment_embedding", "persist_novel_embeddings", False),
+    ("novelty_search_fetch", "novelty_search_judgment", False),
+    ("novelty_search_judgment", "novelty_search_rewrite", False),
+    ("novelty_search_parse_and_plan", "novelty_search_fetch", False),
+    ("novelty_search_rewrite", "relevance_score_search", False),
+    ("persist_novel_embeddings", "novelty_search_parse_and_plan", False),
+    ("quarter_info", "concept_extraction", False),
+    ("redundancy_check", "thematic_consolidation", False),
+    ("relevance_score_search", "save_novel_bullets", False),
+    ("save_novel_bullets", "__end__", True),
+    ("save_novel_bullets", "build_report", True),
+    ("save_novel_bullets", "redundancy_check", True),
+    ("standalone_validation", "build_report", False),
+    ("thematic_consolidation", "standalone_validation", False),
+)
+
+
+def test_stateful_topology_snapshot_unchanged():
+    """The default (stateful) compiled graph must match the frozen snapshot."""
+    nodes, edges = _topology(compile_brief_graph())
+    assert nodes == _STATEFUL_NODES
+    assert edges == _STATEFUL_EDGES
+
+
+def test_default_is_stateful():
+    """compile_brief_graph() with no args must be the stateful graph."""
+    assert "embed_and_retrieve" in compile_brief_graph().nodes
+
+
+# ── Stateless topology ─────────────────────────────────────────────────────────
+
+_STATELESS_OMITTED_NODES = (
+    "initialize_pipeline",
+    "embed_and_retrieve",
+    "novelty_judgment_embedding",
+    "persist_novel_embeddings",
+)
+
+
+def test_stateless_omits_db_coupled_nodes():
+    """Stateless graph must not contain the initialize or embedding-novelty nodes."""
+    nodes = set(compile_brief_graph(stateless=True).nodes)
+    for n in _STATELESS_OMITTED_NODES:
+        assert n not in nodes
+
+
+def test_stateless_wires_start_to_exploratory_search():
+    """With initialize_pipeline gone, START goes straight to exploratory_search."""
+    _, edges = _topology(compile_brief_graph(stateless=True))
+    assert ("__start__", "exploratory_search", False) in edges
+
+
+def test_stateless_wires_grounding_to_search_novelty():
+    """Grounding feeds search-novelty directly (no embedding trio in between)."""
+    _, edges = _topology(compile_brief_graph(stateless=True))
+    assert ("entity_grounding_check", "novelty_search_parse_and_plan", False) in edges
+
+
+def test_stateless_keeps_shared_nodes():
+    """All non-DB nodes are shared verbatim with the stateful graph."""
+    nodes = set(compile_brief_graph(stateless=True).nodes)
+    for n in (
+        "exploratory_search", "quarter_info", "concept_extraction", "concept_search",
+        "concept_search_postprocessing", "bullets_generation_and_scoring",
+        "entity_grounding_check", "novelty_search_parse_and_plan", "novelty_search_fetch",
+        "novelty_search_judgment", "novelty_search_rewrite", "relevance_score_search",
+        "save_novel_bullets", "build_report",
+    ):
+        assert n in nodes
+
+
 # ── Graph topology ────────────────────────────────────────────────────────────
 
 

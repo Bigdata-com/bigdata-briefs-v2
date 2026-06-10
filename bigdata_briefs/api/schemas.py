@@ -67,10 +67,10 @@ class BulletPointItem(BaseModel):
     citations: list[CitationDetail]
     embedding_decision: str | None  # keep | rewrite | discard
     search_action: str | None       # keep | rewrite | discard | None
-    # True when novelty_search kept the bullet (search_action=="keep") but the
+    # False when novelty_search kept the bullet (search_action=="keep") but the
     # overall claim-level verdict was "mixed" — i.e. at least one claim was already
-    # known in the evidence.  Fully novel bullets have this as False.
-    not_fully_novel: bool = False
+    # known in the evidence.  Fully novel bullets have this as True.
+    is_novel: bool = True
 
 
 # ── Delete entity ─────────────────────────────────────────────────────────────
@@ -514,3 +514,73 @@ class DeleteDateResponse(BaseModel):
     """Calendar date that was deleted (YYYY-MM-DD)."""
     runs_deleted: int
     """Number of pipeline runs removed."""
+
+
+# ── Stateless API (database-less, search-only novelty) ─────────────────────────
+
+
+class StatelessBriefsRequest(BaseModel):
+    """Fan out the database-less pipeline across many entities (one window for all).
+
+    A single entity is just a list of length 1.
+    """
+
+    entity_ids: list[str]
+    window_start: datetime
+    window_end: datetime
+    categories: list[str] | None = None
+
+
+class StatelessCitation(BaseModel):
+    """A resolved source for a bullet. Mirrors CitationDetail's display fields,
+    without the internal CQS reference id or raw chunk text."""
+
+    source_name: str = ""
+    headline: str = ""
+    url: str | None = None
+
+
+class StatelessBullet(BaseModel):
+    """A single published bullet with its data attached directly.
+
+    Mirrors BulletPointItem (the per-bullet object used by /reports/bullets)."""
+
+    text: str
+    citations: list[StatelessCitation] = []
+    search_action: str | None = None       # keep | rewrite | discard | None
+    # True = fully novel; False = partially novel (some claim already known in evidence).
+    is_novel: bool = True
+
+
+class StatelessEntityReport(BaseModel):
+    """One entity's brief for a single window. Mirrors the field conventions of
+    RunBulletsResult (counts + discarded-by-stage) flattened to the entity, since
+    a stateless run covers exactly one window."""
+
+    entity_id: str
+    entity_name: str | None = None
+    bullets_saved: int = 0
+    bullets_discarded: int = 0
+    bullets: list[StatelessBullet] = []
+    discarded_by_relevance: list[str] = []
+    discarded_by_grounding: list[str] = []
+    discarded_by_novelty: list[str] = []
+
+
+class StatelessJobAccepted(BaseModel):
+    job_id: str
+    total: int
+
+
+class StatelessJobStatus(BaseModel):
+    job_id: str
+    status: str  # running | finished
+    total: int
+    done: int
+    progress: dict[str, str]
+    """entity_id -> current phase: queued | search | bullet_generation | grounding |
+    novelty | finalizing | done | failed."""
+    results: dict[str, dict]
+    """entity_id -> SingleEntityReport dict (only finished entities)."""
+    errors: dict[str, str]
+    """entity_id -> error message (only failed entities)."""

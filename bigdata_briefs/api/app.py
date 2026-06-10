@@ -25,6 +25,7 @@ from bigdata_briefs.api.routes.report import router as report_router
 from bigdata_briefs.api.routes.reports import router as reports_router
 from bigdata_briefs.api.routes.scan import router as scan_router
 from bigdata_briefs.api.routes.runs import router as runs_router
+from bigdata_briefs.api.routes.stateless import router as stateless_router
 from bigdata_briefs.api.routes.universes import router as universes_router
 from bigdata_briefs.query_service.rate_limit import RequestsPerMinuteController
 from bigdata_briefs.settings import settings
@@ -96,12 +97,15 @@ async def lifespan(app: FastAPI):
             max_workers=settings.MAX_CONCURRENT_ENTITIES,
             thread_name_prefix="entity-worker",
         )
+        # In-memory fan-out registry for POST /stateless/briefs (no DB).
+        app.state.job_registry = {}
     except Exception as exc:
         logger.error("Lifespan startup failed", error=str(exc))
         raise
 
-    # Pre-warm desk HTML cache in background so the first user request is instant
-    if _DESK_INDEX.exists():
+    # Pre-warm desk HTML cache in background so the first user request is instant.
+    # Skipped in stateless-only mode: the desk view reads from the (absent) DB.
+    if settings.BRIEFS_MODE != "stateless" and _DESK_INDEX.exists():
         threading.Thread(target=_desk_html, daemon=True, name="desk-cache-warmup").start()
 
     logger.info(
@@ -196,15 +200,21 @@ def create_app() -> FastAPI:
     async def health() -> JSONResponse:
         return JSONResponse({"status": "ok"})
 
-    app.include_router(entities_router, prefix="/api/v1")
-    app.include_router(runs_router, prefix="/api/v1")
-    app.include_router(batch_router, prefix="/api/v1")
-    app.include_router(utilities_router, prefix="/api/v1")
-    app.include_router(universes_router, prefix="/api/v1")
-    app.include_router(report_router, prefix="/api/v1")
-    app.include_router(reports_router, prefix="/api/v1")
-    app.include_router(scan_router, prefix="/api/v1")
-    app.include_router(frontend_router, prefix="/api/frontend", include_in_schema=False)
+    # Stateful (SQLite-backed) surface — mounted unless running stateless-only.
+    if settings.BRIEFS_MODE in ("stateful", "both"):
+        app.include_router(entities_router, prefix="/api/v1")
+        app.include_router(runs_router, prefix="/api/v1")
+        app.include_router(batch_router, prefix="/api/v1")
+        app.include_router(utilities_router, prefix="/api/v1")
+        app.include_router(universes_router, prefix="/api/v1")
+        app.include_router(report_router, prefix="/api/v1")
+        app.include_router(reports_router, prefix="/api/v1")
+        app.include_router(scan_router, prefix="/api/v1")
+        app.include_router(frontend_router, prefix="/api/frontend", include_in_schema=False)
+
+    # Stateless (database-less) surface — mounted unless running stateful-only.
+    if settings.BRIEFS_MODE in ("stateless", "both"):
+        app.include_router(stateless_router, prefix="/api/v1")
 
     return app
 

@@ -85,12 +85,12 @@ def save_novel_bullet_points(
             embedding_decision = record.novelty_embedding.judgment.decision
 
         search_action = None
-        not_fully_novel = False
+        is_novel = True
         if record.novelty_search and record.novelty_search.search:
             search_action = record.novelty_search.search.verdict
-            # Flag bullets that passed (keep) but have mixed claim novelty:
+            # Not fully novel when it passed (keep) but has mixed claim novelty:
             # at least one claim was already known in the evidence.
-            not_fully_novel = (
+            is_novel = not (
                 search_action == "keep"
                 and record.novelty_search.search.overall_verdict == "novel_with_context"
             )
@@ -125,11 +125,14 @@ def save_novel_bullet_points(
                 citations=citation_details,
                 embedding_decision=embedding_decision,
                 search_action=search_action,
-                not_fully_novel=not_fully_novel,
+                is_novel=is_novel,
             )
         )
 
-    deps.generated_bullet_storage.store(to_store)
+    # Persisting published bullets is a stateful-only concern. In the stateless run
+    # path generated_bullet_storage is None and the report is assembled from state.
+    if deps.generated_bullet_storage is not None:
+        deps.generated_bullet_storage.store(to_store)
 
     active_count = len(to_store)
     pipeline_status = PIPELINE_STATUS_RUNNING if active_count > 0 else PIPELINE_STATUS_NO_DATA

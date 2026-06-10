@@ -43,6 +43,7 @@ dev = [
 [project.scripts]
 run-entity = "bigdata_briefs.run_entity:main"
 briefs-mcp = "bigdata_briefs.mcp_server:main"
+briefs-mcp-stateless = "bigdata_briefs.mcp_server_stateless:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["bigdata_briefs"]

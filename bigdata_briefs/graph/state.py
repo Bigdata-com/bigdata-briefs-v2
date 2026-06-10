@@ -102,11 +102,13 @@ class SearchNoveltyMetadata(BaseModel):
     # discard_not_new        — all claims old or trivial; discarded
     # discard_unsupported    — at least one unsupported inference; discarded
     # Populated by rewrite_search_bullets; used by save_novel_bullets to flag
-    # not_fully_novel bullets (overall_verdict in mixed family and not discarded).
+    # is_novel=False bullets (overall_verdict in mixed family and not discarded).
+    # discard_step_error     — a novelty-search step failed (e.g. Bigdata 5xx); the
+    #                          bullet is discarded defensively rather than crashing the run.
     overall_verdict: Literal[
         "novel", "novel_with_context", "novel_noisy",
         "partial_update", "partial_update_with_context", "multi_partial_update",
-        "discard_not_new", "discard_unsupported", "old"
+        "discard_not_new", "discard_unsupported", "old", "discard_step_error"
     ] | None = None
 
 

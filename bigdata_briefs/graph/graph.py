@@ -188,18 +188,30 @@ def _route_save_novel_bullets(state: BriefGraphState) -> str:
 # ── Graph builder ──────────────────────────────────────────────────────────────
 
 
-def build_brief_graph() -> StateGraph:
+def build_brief_graph(*, stateless: bool = False) -> StateGraph:
     """
     Construct and return the Brief 2.0 StateGraph (uncompiled).
 
     Call ``.compile()`` on the returned graph to get an executable graph.
+
+    When ``stateless=False`` (default) the graph is identical to the legacy
+    SQLite-backed pipeline. When ``stateless=True`` the two DB-coupled stages are
+    omitted:
+      * ``initialize_pipeline`` (only creates DB schema) — START wires straight to
+        ``exploratory_search``.
+      * the embedding novelty trio (``embed_and_retrieve`` →
+        ``novelty_judgment_embedding`` → ``persist_novel_embeddings``) — grounding
+        wires straight to ``novelty_search_parse_and_plan``, leaving search-novelty
+        as the sole novelty gate.
+    All other nodes are shared verbatim between the two modes.
     """
     g = StateGraph(BriefGraphState)
 
     L = with_node_log  # shorthand
 
-    # ── Initialization ───────────────────────────────────────────────────────
-    g.add_node(NODE_INITIALIZE_PIPELINE, L(NODE_INITIALIZE_PIPELINE, initialize_pipeline))
+    # ── Initialization (stateful only: DB schema creation) ────────────────────
+    if not stateless:
+        g.add_node(NODE_INITIALIZE_PIPELINE, L(NODE_INITIALIZE_PIPELINE, initialize_pipeline))
 
     # ── Phase 1: Search ──────────────────────────────────────────────────────
     g.add_node(NODE_EXPLORATORY_SEARCH, L(NODE_EXPLORATORY_SEARCH, execute_broad_topic_search))
@@ -215,13 +227,14 @@ def build_brief_graph() -> StateGraph:
     # ── Grounding ─────────────────────────────────────────────────────────────
     g.add_node(NODE_ENTITY_GROUNDING_CHECK, L(NODE_ENTITY_GROUNDING_CHECK, classify_grounding_validity))
 
-    # ── Novelty Embedding ────────────────────────────────────────────────────
-    g.add_node(NODE_EMBED_AND_RETRIEVE, L(NODE_EMBED_AND_RETRIEVE, compute_embeddings_and_retrieve_candidates))
-    g.add_node(NODE_NOVELTY_JUDGMENT_EMBEDDING, L(NODE_NOVELTY_JUDGMENT_EMBEDDING, evaluate_novelty_by_embedding_similarity))
-    # NODE_REWRITE_EMBEDDING and NODE_RELEVANCE_CHECK_EMBEDDING intentionally omitted:
-    # the embedding phase only discards old bullets; partially-novel ones go to novelty
-    # search with their original text so the search phase can judge and rewrite them.
-    g.add_node(NODE_PERSIST_NOVEL_EMBEDDINGS, L(NODE_PERSIST_NOVEL_EMBEDDINGS, persist_embeddings_of_novel_bullets))
+    # ── Novelty Embedding (stateful only: reads/writes embedding history) ─────
+    if not stateless:
+        g.add_node(NODE_EMBED_AND_RETRIEVE, L(NODE_EMBED_AND_RETRIEVE, compute_embeddings_and_retrieve_candidates))
+        g.add_node(NODE_NOVELTY_JUDGMENT_EMBEDDING, L(NODE_NOVELTY_JUDGMENT_EMBEDDING, evaluate_novelty_by_embedding_similarity))
+        # NODE_REWRITE_EMBEDDING and NODE_RELEVANCE_CHECK_EMBEDDING intentionally omitted:
+        # the embedding phase only discards old bullets; partially-novel ones go to novelty
+        # search with their original text so the search phase can judge and rewrite them.
+        g.add_node(NODE_PERSIST_NOVEL_EMBEDDINGS, L(NODE_PERSIST_NOVEL_EMBEDDINGS, persist_embeddings_of_novel_bullets))
 
     # ── Novelty via Search ───────────────────────────────────────────────────
     g.add_node(NODE_NOVELTY_SEARCH_PARSE_AND_PLAN, L(NODE_NOVELTY_SEARCH_PARSE_AND_PLAN, parse_and_plan_search))
@@ -244,9 +257,13 @@ def build_brief_graph() -> StateGraph:
     # ── Edges ─────────────────────────────────────────────────────────────────
 
     # START → initialize_pipeline → exploratory_search (initial_check removed:
-    # exploratory_search already routes to END when no data is found)
-    g.add_edge(START, NODE_INITIALIZE_PIPELINE)
-    g.add_edge(NODE_INITIALIZE_PIPELINE, NODE_EXPLORATORY_SEARCH)
+    # exploratory_search already routes to END when no data is found).
+    # Stateless skips initialize_pipeline (DB schema creation) and starts at search.
+    if not stateless:
+        g.add_edge(START, NODE_INITIALIZE_PIPELINE)
+        g.add_edge(NODE_INITIALIZE_PIPELINE, NODE_EXPLORATORY_SEARCH)
+    else:
+        g.add_edge(START, NODE_EXPLORATORY_SEARCH)
 
     # exploratory_search (conditional) — acts as the existence check
     g.add_conditional_edges(
@@ -274,13 +291,17 @@ def build_brief_graph() -> StateGraph:
         {ROUTE_NO_DATA: END, ROUTE_CONTINUE: NODE_ENTITY_GROUNDING_CHECK},
     )
 
-    # Grounding → Novelty Embedding → persist (rewrite + relevance check steps removed)
-    g.add_edge(NODE_ENTITY_GROUNDING_CHECK, NODE_EMBED_AND_RETRIEVE)
-    g.add_edge(NODE_EMBED_AND_RETRIEVE, NODE_NOVELTY_JUDGMENT_EMBEDDING)
-    g.add_edge(NODE_NOVELTY_JUDGMENT_EMBEDDING, NODE_PERSIST_NOVEL_EMBEDDINGS)
+    # Grounding → Novelty Embedding → persist (rewrite + relevance check steps removed).
+    # Stateless omits the embedding trio and wires grounding straight to search novelty.
+    if not stateless:
+        g.add_edge(NODE_ENTITY_GROUNDING_CHECK, NODE_EMBED_AND_RETRIEVE)
+        g.add_edge(NODE_EMBED_AND_RETRIEVE, NODE_NOVELTY_JUDGMENT_EMBEDDING)
+        g.add_edge(NODE_NOVELTY_JUDGMENT_EMBEDDING, NODE_PERSIST_NOVEL_EMBEDDINGS)
+        g.add_edge(NODE_PERSIST_NOVEL_EMBEDDINGS, NODE_NOVELTY_SEARCH_PARSE_AND_PLAN)
+    else:
+        g.add_edge(NODE_ENTITY_GROUNDING_CHECK, NODE_NOVELTY_SEARCH_PARSE_AND_PLAN)
 
-    # Novelty Search: linear chain (4 nodes)
-    g.add_edge(NODE_PERSIST_NOVEL_EMBEDDINGS, NODE_NOVELTY_SEARCH_PARSE_AND_PLAN)
+    # Novelty Search: linear chain
     g.add_edge(NODE_NOVELTY_SEARCH_PARSE_AND_PLAN, NODE_NOVELTY_SEARCH_FETCH)
     g.add_edge(NODE_NOVELTY_SEARCH_FETCH, NODE_NOVELTY_SEARCH_JUDGMENT)
     g.add_edge(NODE_NOVELTY_SEARCH_JUDGMENT, NODE_NOVELTY_SEARCH_REWRITE)
@@ -309,6 +330,10 @@ def build_brief_graph() -> StateGraph:
     return g
 
 
-def compile_brief_graph():
-    """Return a compiled, executable Brief pipeline graph."""
-    return build_brief_graph().compile()
+def compile_brief_graph(*, stateless: bool = False):
+    """Return a compiled, executable Brief pipeline graph.
+
+    ``stateless=False`` (default) returns the legacy SQLite-backed pipeline.
+    ``stateless=True`` returns the database-less, search-only-novelty variant.
+    """
+    return build_brief_graph(stateless=stateless).compile()

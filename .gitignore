@@ -19,3 +19,4 @@ docs/test_wflow_py/
 old_metadata_runs/
 *.md
 !briefs_mcp_skill.md
+.jira_log/

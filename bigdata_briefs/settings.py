@@ -25,6 +25,11 @@ class Settings(BaseSettings):
 
     BIGDATA_API_KEY: str | Literal["<UNSET>"] = UNSET
     OPENAI_API_KEY: str | Literal["<UNSET>"] = UNSET
+    # Which API surface(s) to mount. ``both`` (default) preserves today's behavior
+    # (every stateful router) and additionally mounts the stateless router.
+    # ``stateful`` = legacy SQLite-backed pipeline only. ``stateless`` = database-less
+    # search-only path only (no DB engine is ever opened).
+    BRIEFS_MODE: Literal["stateful", "stateless", "both"] = "both"
     # Data storage configuration (override with ``DB_STRING`` in ``.env`` if needed)
     DB_STRING: str = _DEFAULT_DB_SQLITE_URL
     # Pipeline JSON state directory for ``PipelineRunner`` when using entity orchestrator CLI.

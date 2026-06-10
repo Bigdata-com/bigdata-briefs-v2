@@ -465,7 +465,7 @@ def _flush_bullet_run_log(eng: Engine, run_id: uuid.UUID, entity_id: str, final_
         overall_verdict = s.get("overall_verdict")
         # mixed / partial_update_with_context / multi_partial_update: rewritten with known context → amber
         # novel_noisy / partial_update: result is fully novel after rewrite → green
-        not_fully_novel = bool(is_active and overall_verdict in ("novel_with_context", "partial_update_with_context", "multi_partial_update"))
+        is_novel = not (is_active and overall_verdict in ("novel_with_context", "partial_update_with_context", "multi_partial_update"))
 
         ne_rewrite = (ne.get("rewrite") or {}).get("text_after")
         search_rewrite = s.get("rewritten_text")
@@ -495,7 +495,7 @@ def _flush_bullet_run_log(eng: Engine, run_id: uuid.UUID, entity_id: str, final_
             entity_id=entity_id,
             trace_id=str(bp.get("trace_id") or ""),
             is_active=is_active,
-            not_fully_novel=not_fully_novel,
+            is_novel=is_novel,
             discard_stage=_get_discard_stage(bp),
             text=final_text,
             original_text=str(gen.get("original_text") or bp.get("text") or ""),

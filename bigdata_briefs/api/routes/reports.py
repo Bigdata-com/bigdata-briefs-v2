@@ -570,7 +570,7 @@ def _parse_bullet_trace(bp: dict) -> BulletTrace:
         "Use `max_runs` to limit how many runs are returned per entity: "
         "`1` for the latest run only, `N` for the last N runs, omit for all runs.\n\n"
         "Each bullet includes the final text, source citations, and novelty metadata "
-        "(`search_action`, `not_fully_novel`). Discarded bullets are returned as counts "
+        "(`search_action`, `is_novel`). Discarded bullets are returned as counts "
         "grouped by stage (`discarded_by_relevance`, `discarded_by_grounding`, `discarded_by_novelty`)."
     ),
 )
@@ -632,7 +632,7 @@ def get_bullets(body: BatchBulletsRequest) -> BatchBulletsResponse:
                     ],
                     embedding_decision=row.embedding_decision,
                     search_action=row.search_action,
-                    not_fully_novel=row.not_fully_novel or False,
+                    is_novel=row.is_novel if row.is_novel is not None else True,
                 )
                 for row in rows
             ]

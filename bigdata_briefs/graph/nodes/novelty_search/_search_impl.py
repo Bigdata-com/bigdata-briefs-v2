@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 
 from bigdata_briefs import logger
 from bigdata_briefs.settings import settings
+from bigdata_briefs.utils import asleep_with_backoff
 
 
 # ── LLM model config ──────────────────────────────────────────────────────────
@@ -1319,13 +1320,33 @@ async def _ns_bigdata_search_slice(
         "X-API-KEY": api_key,
     }
 
-    if request_hook is not None:
-        await request_hook()
-
+    # Retry transient errors with backoff, consistent with APIQueryService._call_api
+    # (settings.API_RETRIES attempts, retry on HTTP error / timeout, backoff + jitter).
+    # The search POST is read-only, so retrying is safe. The rate-limit hook is awaited
+    # before every attempt so each retry is counted against the shared 450 QPM budget.
+    data: dict | None = None
+    last_exc: Exception | None = None
     async with httpx.AsyncClient(timeout=_NS_HTTP_TIMEOUT) as client:
-        resp = await client.post(_NS_SEARCH_URL, json=payload, headers=headers)
-        resp.raise_for_status()
-        data = resp.json()
+        for attempt in range(settings.API_RETRIES):
+            if request_hook is not None:
+                await request_hook()
+            try:
+                resp = await client.post(_NS_SEARCH_URL, json=payload, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+                break
+            except (httpx.HTTPStatusError, httpx.TimeoutException) as e:
+                last_exc = e
+                logger.warning(
+                    "[novelty_search] search slice error (attempt %d/%d) query=%r: %s",
+                    attempt + 1,
+                    settings.API_RETRIES,
+                    search_query[:60],
+                    e,
+                )
+                await asleep_with_backoff(attempt=attempt)
+        else:
+            raise last_exc
 
     query_units = float(data.get("usage", {}).get("api_query_units", 0.0))
     logger.debug(

@@ -1,3 +1,4 @@
+import asyncio
 import random
 import time
 import traceback
@@ -103,6 +104,25 @@ def sleep_with_backoff(*, base: int = 1, attempt: int):
     logger.debug(f"Sleeping for {sleep_time}")
 
     time.sleep(sleep_time)
+
+
+async def asleep_with_backoff(*, base: int = 1, attempt: int):
+    """Async mirror of :func:`sleep_with_backoff`.
+
+    Same backoff + jitter schedule, but awaits ``asyncio.sleep`` instead of
+    blocking the thread, for use inside async code paths (e.g. the novelty-search
+    HTTP fetch).
+
+    @attempt starts at 0
+    """
+    max_sleep = 20
+
+    rnd_upper_bound = min(max_sleep, base * 2**attempt)
+    sleep_time = round(random.uniform(0.5, rnd_upper_bound), 2)
+
+    logger.debug(f"Sleeping for {sleep_time}")
+
+    await asyncio.sleep(sleep_time)
 
 
 def raise_warning_from(e, category=RuntimeWarning):

@@ -59,7 +59,10 @@ def resolve_fiscal_quarter_from_calendar(
     )
     quarter_title: str = titles.get(entity_id) or ""
 
-    if api_key:
+    # The earnings-calendar cache is a cross-run convenience; it is skipped in the
+    # stateless path (deps.engine is None). The quarter title above is still
+    # resolved from the live API either way.
+    if api_key and deps.engine is not None:
         try:
             upsert_entity_earnings_calendar(
                 deps.engine,

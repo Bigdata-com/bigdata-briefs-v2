@@ -67,9 +67,9 @@ class GeneratedBulletPoint(BaseModel):
     citations: list[CitationDetail] | None = None
     embedding_decision: str | None = None  # "keep" | "rewrite" | "discard"
     search_action: str | None = None       # "keep" | "rewrite" | "discard" | None
-    # True when novelty_search verdict=="keep" but overall_verdict=="mixed":
+    # False when novelty_search verdict=="keep" but overall_verdict=="mixed":
     # the bullet passed but at least one of its claims was already known.
-    not_fully_novel: bool = False
+    is_novel: bool = True
 
 
 @dataclass

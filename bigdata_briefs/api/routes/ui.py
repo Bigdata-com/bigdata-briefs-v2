@@ -434,7 +434,7 @@ def _load_bullets_for_run(engine, run_id) -> list[dict]:
             "theme": r.theme,
             "citations": citations,
             "is_active": r.is_active,
-            "not_fully_novel": r.not_fully_novel,
+            "is_novel": r.is_novel,
             "embedding_decision": r.embedding_decision,
             "search_action": r.search_verdict,
             "grounding_decision": r.grounding_decision,
@@ -485,8 +485,8 @@ def _nl_to_br(s: str) -> str:
 
 
 def _bullet_shows_partial_novelty(bp: dict) -> bool:
-    """True for amber (partially novel): not_fully_novel flag OR search_action==rewrite."""
-    if bp.get("not_fully_novel") is True:
+    """True for amber (partially novel): is_novel is False OR search_action==rewrite."""
+    if bp.get("is_novel") is False:
         return True
     return str(bp.get("search_action") or "").strip().lower() == "rewrite"
 
@@ -676,7 +676,7 @@ def _convert_bp(bp: dict, source_refs: dict) -> dict:
     search_action = s.get("verdict")
     is_active = bp.get("is_active", True)
     overall_verdict = s.get("overall_verdict")
-    not_fully_novel = bool(is_active and overall_verdict in ("novel_with_context", "partial_update_with_context", "multi_partial_update"))
+    is_novel = not (is_active and overall_verdict in ("novel_with_context", "partial_update_with_context", "multi_partial_update"))
 
     ne_rewrite = (ne.get("rewrite") or {}).get("text_after")
     search_rewrite = s.get("rewritten_text")
@@ -718,7 +718,7 @@ def _convert_bp(bp: dict, source_refs: dict) -> dict:
         "citations": citations,
         "embedding_decision": emb_decision,
         "search_action": search_action,
-        "not_fully_novel": not_fully_novel,
+        "is_novel": is_novel,
         "theme": bp.get("theme", ""),
         "original_text": original_text,
         "final_text": final_text,

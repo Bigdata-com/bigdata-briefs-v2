@@ -16,7 +16,7 @@ def ensure_orchestration_schema(engine: Engine) -> None:
     """Create orchestration and novelty tables if missing (idempotent)."""
     SQLModel.metadata.create_all(engine)
     _ensure_report_window_columns(engine)
-    _ensure_not_fully_novel_column(engine)
+    _ensure_is_novel_columns(engine)
     _ensure_bullet_run_log_json_columns(engine)
     _ensure_run_metrics_columns(engine)
     _ensure_signal_history_columns(engine)
@@ -104,17 +104,27 @@ def _ensure_signal_history_columns(engine: Engine) -> None:
                 conn.commit()
 
 
-def _ensure_not_fully_novel_column(engine: Engine) -> None:
-    """Add not_fully_novel to generated_bullet_points when upgrading existing DBs."""
-    with engine.connect() as conn:
-        rows = conn.execute(text("PRAGMA table_info(generated_bullet_points)")).fetchall()
-    colnames = {r[1] for r in rows}
-    if "not_fully_novel" not in colnames:
+def _ensure_is_novel_columns(engine: Engine) -> None:
+    """Add ``is_novel`` to generated_bullet_points and sqlbulletrunlog for existing DBs.
+
+    The column is added (default 1 = novel) and, when the legacy ``not_fully_novel``
+    column is present, backfilled with the inverted value (``is_novel = NOT
+    not_fully_novel``). The legacy column is left in place to avoid a destructive drop.
+    Backfill runs only on the upgrade that adds ``is_novel``, so later app writes are
+    never overwritten.
+    """
+    for table in ("generated_bullet_points", "sqlbulletrunlog"):
+        with engine.connect() as conn:
+            rows = conn.execute(text(f"PRAGMA table_info({table})")).fetchall()
+        if not rows:
+            continue  # table doesn't exist yet; create_all handles fresh schema
+        colnames = {r[1] for r in rows}
+        if "is_novel" in colnames:
+            continue
         with engine.connect() as conn:
             conn.execute(
-                text(
-                    "ALTER TABLE generated_bullet_points "
-                    "ADD COLUMN not_fully_novel BOOLEAN NOT NULL DEFAULT 0"
-                )
+                text(f"ALTER TABLE {table} ADD COLUMN is_novel BOOLEAN NOT NULL DEFAULT 1")
             )
+            if "not_fully_novel" in colnames:
+                conn.execute(text(f"UPDATE {table} SET is_novel = NOT not_fully_novel"))
             conn.commit()
