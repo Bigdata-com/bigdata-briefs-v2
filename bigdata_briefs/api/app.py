@@ -160,7 +160,13 @@ def create_app() -> FastAPI:
     # three blocking synchronous XHR calls that were in data.js/run-data.js/extras-data.js.
     app_dir = _PACKAGE_DIR / "static" / "app"
     if app_dir.is_dir():
+        # /app/desk (no trailing slash) must redirect to /app/desk/ — the SPA's
+        # assets are referenced with relative paths, so without the slash they
+        # resolve against /app/ instead of /app/desk/ and the page renders blank.
         @app.get("/app/desk", include_in_schema=False)
+        def app_desk_no_slash() -> RedirectResponse:
+            return RedirectResponse(url="/app/desk/")
+
         @app.get("/app/desk/", include_in_schema=False)
         def app_desk() -> HTMLResponse:
             return HTMLResponse(content=_desk_html())
@@ -186,7 +192,7 @@ def create_app() -> FastAPI:
 
     @app.get("/", include_in_schema=False)
     async def root() -> RedirectResponse:
-        return RedirectResponse(url="/app/desk")
+        return RedirectResponse(url="/app/desk/")
 
     @app.get("/favicon.ico", include_in_schema=False)
     async def favicon_ico() -> FileResponse:
