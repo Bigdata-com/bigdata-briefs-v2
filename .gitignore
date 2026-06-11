@@ -2,6 +2,7 @@
 __pycache__/
 *.pyc
 .venv/
+.DS_Store
 *.db
 *.db-shm
 *.db-wal
@@ -19,4 +20,4 @@ docs/test_wflow_py/
 old_metadata_runs/
 *.md
 !briefs_mcp_skill.md
-.jira_log/
+jira_log/

@@ -8,7 +8,7 @@ The same pipeline is reachable through three front doors. Pick the one that fits
 
 | | Who it's for | What you do |
 |---|---|---|
-| **Web app** ([Part 1](#part-1-the-app)) | Humans, no coding | Browse briefs and run updates in the browser at `http://localhost:8000/app/desk`. |
+| **Web app** ([Part 1](#part-1-the-app)) | Humans, no coding | Browse briefs and run updates in the browser at `http://localhost:8000/app/desk/`. |
 | **REST API** ([Part 2](#part-2-the-api)) | Scripts, integrations, your own code | Trigger runs and read results over HTTP (`curl`, `requests`, etc.) against `http://localhost:8000/api/v1/`. |
 | **MCP** ([Part 3](#part-3-mcp)) | AI assistants (Claude, etc.) | Let an assistant run briefs and read results conversationally through MCP tools. |
 
@@ -63,7 +63,7 @@ For a detailed description of each phase, see the [pipeline reference guide](htt
 
 ## Part 1: The App
 
-The app is a read-and-run desk available at **`http://localhost:8000/app/desk`**. It is built around **My Portfolio**: a custom list of companies you configure once and then monitor daily. The main navigation has three sections: **The Brief**, **My Portfolio**, and **Costs**.
+The app is a read-and-run desk available at **`http://localhost:8000/app/desk/`**. It is built around **My Portfolio**: a custom list of companies you configure once and then monitor daily. The main navigation has three sections: **The Brief**, **My Portfolio**, and **Costs**.
 
 ### Prerequisites
 
@@ -95,7 +95,7 @@ cp .env.example .env
 uv run uvicorn bigdata_briefs.api.app:app --host 0.0.0.0 --port 8000
 ```
 
-Open **`http://localhost:8000/app/desk`** in your browser.
+Open **`http://localhost:8000/app/desk/`** in your browser.
 
 ---
 
@@ -146,13 +146,29 @@ A **Cost forensics** view for a single pipeline run. Select a company and run fr
 
 ### Scheduled runs (cron job)
 
-When the app runs inside Docker, a cron job starts automatically alongside the server. It is managed by [supercronic](https://github.com/aptible/supercronic) and defined in `crontab`:
+The app can run a daily cron job alongside the server, managed by [supercronic](https://github.com/aptible/supercronic) and defined in `crontab`:
 
 ```
 1 12 * * 1-5  /code/run_daily.sh
 ```
 
-This triggers `run_daily.sh` every weekday (Monday–Friday) at **12:01 UTC (08:01 ET)**, which calls the `run-parallel` endpoint for the `my_portfolio` universe. No manual action is needed; the pipeline runs on its own and the app updates automatically when you open it.
+This triggers `run_daily.sh` every weekday (Monday–Friday) at **12:01 UTC (08:01 ET)**, which calls the `run-parallel` endpoint for the `my_portfolio` universe. The pipeline then runs on its own and the app updates automatically when you open it.
+
+**The cron job is opt-in and off by default.** `start.sh` only starts supercronic when the `ENABLE_CRON` environment variable is set to `1`:
+
+- `docker compose up` → API only, **no cron**.
+- `docker compose --profile cron up` → API **+ cron** (the `briefs-cron` service sets `ENABLE_CRON=1`).
+- Plain `docker run` (the [Quickstart](#quickstart)) → **no cron** unless you add `-e ENABLE_CRON=1`.
+
+#### Disabling the cron job
+
+If you have the cron job running and want to turn it off, simply start the app **without** `ENABLE_CRON=1`:
+
+- **Compose**: use `docker compose up` instead of `docker compose --profile cron up`.
+- **`docker run`**: omit the `-e ENABLE_CRON=1` flag (or set `-e ENABLE_CRON=0`).
+- **uv / local**: running `uvicorn` directly never starts the cron (it lives in `start.sh`), so nothing to disable.
+
+Restart the container after changing it. To keep the cron container running but stop the daily trigger without rebuilding, you can also comment out the line in `crontab` and restart.
 
 `run_daily.sh` computes the window automatically:
 
