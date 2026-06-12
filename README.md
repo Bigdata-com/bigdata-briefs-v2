@@ -132,9 +132,14 @@ The Portfolio view is where you build and manage the list of companies the app t
 
 **Removing a company**: click the remove button next to any entry in the portfolio list.
 
-**Running an update**: once your portfolio is set up, click **Start Update** to open the scan/update configuration screen. From there you can select the scope, news sources, and date mode before launching the run. The run uses `window_mode: update` by default, covering at most the last 24 hours from the previous run (72 hours on Mondays to bridge the weekend gap). After the run completes, briefs and narratives for all companies are available in The Brief.
+**Keeping the portfolio current**: the portfolio is monitored by running the pipeline against the `my_portfolio` universe. There are two ways to do this:
 
-> In `PUBLIC_MODE` the add/remove and run buttons are disabled. Portfolio management and pipeline runs must be done via the API (see Part 2).
+- **Automatically**, via the daily [cron job](#scheduled-runs-cron-job): enable it and the app runs on its own every weekday morning, so the latest briefs are already there when you open it. No action required.
+- **On demand**, via the API: trigger a run for the `my_portfolio` universe whenever you want a fresh update (see [Part 2](#part-2-the-api)).
+
+An incremental update covers the trailing **24 hours** since the previous run (extended to **72 hours on Mondays** to bridge the weekend gap); see [Window modes](#window-modes). After a run completes, briefs and narratives for all companies are available in The Brief.
+
+> In `PUBLIC_MODE` the add/remove buttons are disabled. Portfolio management and pipeline runs must be done via the API (see Part 2).
 
 ---
 
@@ -169,6 +174,8 @@ If you have the cron job running and want to turn it off, simply start the app *
 - **uv / local**: running `uvicorn` directly never starts the cron (it lives in `start.sh`), so nothing to disable.
 
 Restart the container after changing it. To keep the cron container running but stop the daily trigger without rebuilding, you can also comment out the line in `crontab` and restart.
+
+With the cron off, trigger updates on demand via the API (see [Part 2](#part-2-the-api)) whenever you want a fresh run.
 
 `run_daily.sh` computes the window automatically:
 
