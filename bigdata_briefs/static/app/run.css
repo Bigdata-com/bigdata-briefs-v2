@@ -290,42 +290,6 @@
 }
 .entity-pick.active .entity-pick-meta { color: color-mix(in srgb, var(--paper) 60%, transparent); }
 
-/* Segmented control */
-.seg {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  margin-bottom: 18px;
-}
-.seg-btn {
-  text-align: left;
-  padding: 12px 14px;
-  border: 1px solid var(--rule);
-  background: var(--paper);
-  font-family: var(--sans);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  transition: all 100ms;
-}
-.seg-btn:hover { border-color: var(--ink-soft); }
-.seg-btn.active {
-  border-color: var(--ink);
-  background: var(--ink);
-  color: var(--paper);
-}
-.seg-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
-}
-.seg-btn.active .seg-label { color: var(--paper); }
-.seg-sub {
-  font-size: 10.5px;
-  color: var(--ink-mute);
-}
-.seg-btn.active .seg-sub { color: color-mix(in srgb, var(--paper) 60%, transparent); }
-
 .theme-mode {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -514,71 +478,6 @@ input[type="range"]::-moz-range-thumb {
   font-size: 11px;
   color: var(--ink-soft);
   font-weight: 600;
-}
-
-/* ── Sticky launch bar ────────────────────────────────── */
-.launch-bar {
-  position: sticky;
-  bottom: 0;
-  background: var(--paper);
-  border-top: 2px solid var(--ink);
-  padding: 18px 0;
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 32px;
-  align-items: center;
-  margin-top: 32px;
-  z-index: 5;
-  box-shadow: 0 -8px 24px -16px rgba(26, 23, 20, 0.15);
-}
-.launch-summary-line {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font-family: var(--sans);
-  font-size: 13px;
-  color: var(--ink-soft);
-  flex-wrap: wrap;
-}
-.launch-summary-line strong {
-  font-family: var(--serif-display);
-  font-weight: 600;
-  font-size: 15px;
-  color: var(--ink);
-}
-.launch-cost {
-  display: flex;
-  gap: 24px;
-  font-family: var(--sans);
-}
-.launch-cost > div {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.cost-num {
-  font-family: var(--serif-display);
-  font-weight: 700;
-  font-size: 22px;
-  color: var(--ink);
-  letter-spacing: -0.01em;
-}
-.launch-btn {
-  padding: 16px 28px;
-  font-family: var(--sans);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  background: var(--ink);
-  color: var(--paper);
-  border: 1px solid var(--ink);
-  transition: all 120ms;
-  cursor: pointer;
-}
-.launch-btn:hover {
-  background: var(--accent);
-  border-color: var(--accent);
 }
 
 /* ── Run header / live state ─────────────────────────── */

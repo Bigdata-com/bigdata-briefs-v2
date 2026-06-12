@@ -1,23 +1,16 @@
 // ── My Portfolio view ──────────────────────────────────────────────────
-// Left panel: portfolio composition (add/remove/search + dates + start).
-// Right panel: empty by default; on "Start update" shows a support-contact box.
+// Left panel: portfolio composition (add/remove/search).
+// Right panel: holdings list; in PUBLIC_MODE, add/remove shows a support-contact box.
 
 const { useState: useStateP, useEffect: useEffectP, useRef: useRefP } = React;
 
 function PortfolioView({ tweaks, appPortfolio, setView }) {
-  const today = new Date().toISOString().slice(0, 10);
-  const now = new Date();
-  const hh = String(now.getHours()).padStart(2, "0");
-  const mm = String(now.getMinutes()).padStart(2, "0");
-
   // portfolio: array of {entity_id, entity_name, kg_ticker} objects (loaded from API)
   const [portfolio, setPortfolio] = useStateP(appPortfolio || []);
   const [portfolioLoaded, setPortfolioLoaded] = useStateP(appPortfolio !== null);
   const [allCandidates, setAllCandidates] = useStateP([]);
   const [search, setSearch] = useStateP("");
   const [showResults, setShowResults] = useStateP(false);
-  const [updateDate, setUpdateDate] = useStateP(today);
-  const [updateTime, setUpdateTime] = useStateP(`${hh}:${mm}`);
   const [showSupport, setShowSupport] = useStateP(false);
   const publicMode = window.DATA?.publicMode === true;
 
@@ -83,10 +76,6 @@ function PortfolioView({ tweaks, appPortfolio, setView }) {
       .then(() => setPortfolio(prev => prev.filter(p => p.entity_id !== id)))
       .catch(() => {});
   }
-  function handleStart() {
-    if (publicMode) { setShowSupport(true); return; }
-    if (setView) setView("scan");
-  }
 
   return (
     <div className="portfolio-layout">
@@ -144,29 +133,6 @@ function PortfolioView({ tweaks, appPortfolio, setView }) {
           <span>{portfolioCompanies.length} {portfolioCompanies.length === 1 ? "company" : "companies"}</span>
         </div>
 
-        {/* Date + time */}
-        <section className="portfolio-date-section">
-          <div className="scan-step-num" style={{ marginBottom: 6 }}>02</div>
-          <h2 className="scan-section-title">Update window</h2>
-          <div className="portfolio-date-row">
-            <div>
-              <label>Date</label>
-              <input type="date" value={updateDate} max={today} onChange={e => setUpdateDate(e.target.value)} />
-            </div>
-            <div>
-              <label>Time</label>
-              <input type="time" value={updateTime} onChange={e => setUpdateTime(e.target.value)} />
-            </div>
-          </div>
-        </section>
-
-        <button
-          className="portfolio-start-btn"
-          onClick={handleStart}
-          disabled={portfolioCompanies.length === 0}
-        >
-          ▶&nbsp; Start update
-        </button>
       </aside>
 
       {/* RIGHT: portfolio companies list → support box on Start */}
