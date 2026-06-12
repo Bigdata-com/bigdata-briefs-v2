@@ -168,7 +168,7 @@ def test_flush_active_bullet_fields(engine):
     assert row is not None
     assert row.is_active is True
     assert row.discard_stage is None
-    assert row.is_novel is True
+    assert row.is_fully_novel is True
     assert row.text == "Final text"
     assert row.original_text == "Draft text"
     assert row.theme == "earnings"
@@ -219,7 +219,7 @@ def test_flush_discarded_novelty_embedding(engine):
     assert row.embedding_decision == "discard"
 
 
-def test_flush_is_novel(engine):
+def test_flush_is_fully_novel(engine):
     run_id = uuid.uuid4()
     bp = _make_active_bp("amber")
     bp["novelty_search"]["search"]["overall_verdict"] = "novel_with_context"
@@ -228,7 +228,7 @@ def test_flush_is_novel(engine):
     with Session(engine) as s:
         row = s.exec(select(SQLBulletRunLog).where(SQLBulletRunLog.trace_id == "amber")).first()
 
-    assert row.is_novel is False
+    assert row.is_fully_novel is False
 
 
 def test_flush_empty_bullet_points_writes_nothing(engine):
@@ -272,7 +272,7 @@ def _insert_bullet(session, run_id, trace_id, is_active, discard_stage=None):
         entity_id="E1",
         trace_id=trace_id,
         is_active=is_active,
-        is_novel=True,
+        is_fully_novel=True,
         discard_stage=discard_stage,
         text="x",
         created_at=datetime.now(timezone.utc),
@@ -435,7 +435,7 @@ def _insert_full_bullet(session, run_id, trace_id, is_active, discard_stage=None
         entity_id="E1",
         trace_id=trace_id,
         is_active=is_active,
-        is_novel=True,
+        is_fully_novel=True,
         discard_stage=discard_stage,
         text="bullet text",
         original_text="draft text",

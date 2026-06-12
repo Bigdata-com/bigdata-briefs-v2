@@ -54,7 +54,7 @@ class BulletJson(TypedDict, total=False):
     citations: list[CitationJson]
     embedding_decision: str
     search_action: str
-    is_novel: bool
+    is_fully_novel: bool
     theme: str
     original_text: str
     final_text: str
@@ -1247,7 +1247,7 @@ def _sorted_runs(runs: list[RunJson]) -> list[RunJson]:
 
 def _bullet_shows_partial_novelty_style(bullet: BulletJson) -> bool:
     """Amber styling: partial novelty or ``search_action`` rewrite (not ``embedding_decision``)."""
-    if bullet.get("is_novel") is False:
+    if bullet.get("is_fully_novel") is False:
         return True
     return str(bullet.get("search_action") or "").strip().lower() == "rewrite"
 

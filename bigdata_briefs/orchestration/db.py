@@ -18,7 +18,7 @@ def ensure_orchestration_schema(engine: Engine) -> None:
     """Create orchestration and novelty tables if missing (idempotent)."""
     SQLModel.metadata.create_all(engine)
     _ensure_report_window_columns(engine)
-    _ensure_is_novel_columns(engine)
+    _ensure_is_fully_novel_columns(engine)
     _ensure_bullet_run_log_json_columns(engine)
     _ensure_run_metrics_columns(engine)
     _ensure_signal_history_columns(engine)
@@ -106,14 +106,20 @@ def _ensure_signal_history_columns(engine: Engine) -> None:
                 conn.commit()
 
 
-def _ensure_is_novel_columns(engine: Engine) -> None:
-    """Add ``is_novel`` to generated_bullet_points and sqlbulletrunlog for existing DBs.
+def _ensure_is_fully_novel_columns(engine: Engine) -> None:
+    """Ensure the ``is_fully_novel`` column on generated_bullet_points and sqlbulletrunlog.
 
-    The column is added (default 1 = novel) and, when the legacy ``not_fully_novel``
-    column is present, backfilled with the inverted value (``is_novel = NOT
-    not_fully_novel``). The legacy column is left in place to avoid a destructive drop.
-    Backfill runs only on the upgrade that adds ``is_novel``, so later app writes are
-    never overwritten.
+    Upgrades both legacy schemas with no value change (the flag's true/false meaning
+    is identical across all three names):
+
+    - DBs with the older ``is_novel`` column are renamed in place to
+      ``is_fully_novel`` (same values).
+    - Much older DBs with only ``not_fully_novel`` get ``is_fully_novel`` added and
+      backfilled with the inverted value (``is_fully_novel = NOT not_fully_novel``).
+    - Fresh tables get the column added (default 1 = fully novel).
+
+    Any leftover legacy columns (``is_novel``, ``not_fully_novel``) are dropped so
+    their NOT NULL constraints don't break later inserts.
     """
     for table in ("generated_bullet_points", "sqlbulletrunlog"):
         with engine.connect() as conn:
@@ -122,25 +128,35 @@ def _ensure_is_novel_columns(engine: Engine) -> None:
             continue  # table doesn't exist yet; create_all handles fresh schema
         colnames = {r[1] for r in rows}
 
-        if "is_novel" not in colnames:
+        if "is_fully_novel" not in colnames:
             with engine.connect() as conn:
-                conn.execute(
-                    text(f"ALTER TABLE {table} ADD COLUMN is_novel BOOLEAN NOT NULL DEFAULT 1")
-                )
-                if "not_fully_novel" in colnames:
-                    conn.execute(text(f"UPDATE {table} SET is_novel = NOT not_fully_novel"))
+                if "is_novel" in colnames:
+                    # Same semantics and values — rename the column in place.
+                    conn.execute(
+                        text(f"ALTER TABLE {table} RENAME COLUMN is_novel TO is_fully_novel")
+                    )
+                else:
+                    conn.execute(
+                        text(f"ALTER TABLE {table} ADD COLUMN is_fully_novel BOOLEAN NOT NULL DEFAULT 1")
+                    )
+                    if "not_fully_novel" in colnames:
+                        conn.execute(text(f"UPDATE {table} SET is_fully_novel = NOT not_fully_novel"))
                 conn.commit()
+            # Refresh after a possible rename so the drop step below is accurate.
+            with engine.connect() as conn:
+                colnames = {
+                    r[1] for r in conn.execute(text(f"PRAGMA table_info({table})")).fetchall()
+                }
 
-        # Drop the legacy not_fully_novel column. The renamed models no longer write it,
-        # so its NOT NULL constraint makes every INSERT fail
-        # ("NOT NULL constraint failed: ...not_fully_novel"). Runs even when is_novel was
-        # added by an earlier migration version that left not_fully_novel behind.
-        if "not_fully_novel" in colnames:
-            try:
-                with engine.connect() as conn:
-                    conn.execute(text(f"ALTER TABLE {table} DROP COLUMN not_fully_novel"))
-                    conn.commit()
-            except Exception as e:  # noqa: BLE001 — older SQLite without DROP COLUMN
-                logger.warning(
-                    "Could not drop legacy not_fully_novel from %s: %s", table, e
-                )
+        # Drop any leftover legacy columns. The renamed models no longer write them,
+        # so a NOT NULL constraint would make every INSERT fail.
+        for legacy in ("not_fully_novel", "is_novel"):
+            if legacy in colnames:
+                try:
+                    with engine.connect() as conn:
+                        conn.execute(text(f"ALTER TABLE {table} DROP COLUMN {legacy}"))
+                        conn.commit()
+                except Exception as e:  # noqa: BLE001 — older SQLite without DROP COLUMN
+                    logger.warning(
+                        "Could not drop legacy %s from %s: %s", legacy, table, e
+                    )

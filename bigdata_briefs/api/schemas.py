@@ -70,7 +70,7 @@ class BulletPointItem(BaseModel):
     # False when novelty_search kept the bullet (search_action=="keep") but the
     # overall claim-level verdict was "mixed" — i.e. at least one claim was already
     # known in the evidence.  Fully novel bullets have this as True.
-    is_novel: bool = True
+    is_fully_novel: bool = True
 
 
 # ── Delete entity ─────────────────────────────────────────────────────────────
@@ -551,7 +551,7 @@ class StatelessBullet(BaseModel):
     citations: list[StatelessCitation] = []
     search_action: str | None = None       # keep | rewrite | discard | None
     # True = fully novel; False = partially novel (some claim already known in evidence).
-    is_novel: bool = True
+    is_fully_novel: bool = True
 
 
 class StatelessEntityReport(BaseModel):

@@ -182,7 +182,7 @@ class SQLiteGeneratedBulletPointStorage:
                         citations=[c.model_dump() for c in bp.citations] if bp.citations else None,
                         embedding_decision=bp.embedding_decision,
                         search_action=bp.search_action,
-                        is_novel=bp.is_novel,
+                        is_fully_novel=bp.is_fully_novel,
                     )
                 )
             session.commit()

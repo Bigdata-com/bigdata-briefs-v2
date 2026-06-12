@@ -147,8 +147,8 @@ def _format_report(entity_id: str, report: dict) -> str:
         return "\n".join(lines)
 
     for i, bullet in enumerate(bullets, 1):
-        # is_novel False = partially novel (mixed): some claim already known in evidence.
-        tag = "" if bullet.get("is_novel", True) else "  [partial update]"
+        # is_fully_novel False = partially novel (mixed): some claim already known in evidence.
+        tag = "" if bullet.get("is_fully_novel", True) else "  [partial update]"
         lines.append(f"{i}. {bullet.get('text', '')}{tag}")
         seen: set[str] = set()
         shown = 0

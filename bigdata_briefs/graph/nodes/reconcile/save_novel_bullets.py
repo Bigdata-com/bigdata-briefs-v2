@@ -85,12 +85,12 @@ def save_novel_bullet_points(
             embedding_decision = record.novelty_embedding.judgment.decision
 
         search_action = None
-        is_novel = True
+        is_fully_novel = True
         if record.novelty_search and record.novelty_search.search:
             search_action = record.novelty_search.search.verdict
             # Not fully novel when it passed (keep) but has mixed claim novelty:
             # at least one claim was already known in the evidence.
-            is_novel = not (
+            is_fully_novel = not (
                 search_action == "keep"
                 and record.novelty_search.search.overall_verdict == "novel_with_context"
             )
@@ -125,7 +125,7 @@ def save_novel_bullet_points(
                 citations=citation_details,
                 embedding_decision=embedding_decision,
                 search_action=search_action,
-                is_novel=is_novel,
+                is_fully_novel=is_fully_novel,
             )
         )
 

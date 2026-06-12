@@ -59,7 +59,7 @@ def test_build_entity_report_groups_bullets_citations_and_discards():
     bullet = rep["bullets"][0]
     assert bullet["text"] == "Apple raised guidance."
     assert bullet["search_action"] == "keep"
-    assert bullet["is_novel"] is True  # overall_verdict "novel" => fully novel
+    assert bullet["is_fully_novel"] is True  # overall_verdict "novel" => fully novel
     assert "not_fully_novel" not in bullet
     # citation has only source_name/headline/url — no CQS id surfaced
     assert bullet["citations"][0] == {

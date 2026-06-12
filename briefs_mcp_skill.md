@@ -122,7 +122,7 @@ Apple Inc. (D8442A)
 ```
 - `N material developments, M discarded` — published vs dropped bullets.
 - Up to 3 sources per bullet as `source_name - headline (url)`.
-- `[partial update]` = not fully novel (`is_novel=false`): at least one claim already known.
+- `[partial update]` = not fully novel (`is_fully_novel=false`): at least one claim already known.
 
 ## Notes & limits
 - **One process per key** — each MCP process uses its own `BIGDATA_API_KEY`, so the 450 QPM budget is correct per key.

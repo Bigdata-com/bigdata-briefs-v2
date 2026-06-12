@@ -57,7 +57,7 @@ class SQLGeneratedBulletPoint(SQLModel, table=True):
     embedding_decision: str | None = Field(default=None, nullable=True)
     search_action: str | None = Field(default=None, nullable=True)
     # False when search verdict=="keep" but overall claim novelty is "mixed".
-    is_novel: bool = Field(default=True)
+    is_fully_novel: bool = Field(default=True)
 
 
 class SQLChunkTextHash(SQLModel, table=True):

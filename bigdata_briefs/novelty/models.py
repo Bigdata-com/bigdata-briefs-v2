@@ -24,15 +24,15 @@ class BulletPointEmbedding(BaseModel):
     status_embedding: bool | None = None
     report_window_start: datetime | None = None
     report_window_end: datetime | None = None
-    _is_novel: bool = True
+    _is_fully_novel: bool = True
 
-    def is_novel(self):
+    def is_fully_novel(self):
         if self.novelty is not None:
             return self.novelty
-        return self._is_novel
+        return self._is_fully_novel
 
     def set_novel(self, value: bool):
-        self._is_novel = value
+        self._is_fully_novel = value
         self.novelty = value
 
 
@@ -69,7 +69,7 @@ class GeneratedBulletPoint(BaseModel):
     search_action: str | None = None       # "keep" | "rewrite" | "discard" | None
     # False when novelty_search verdict=="keep" but overall_verdict=="mixed":
     # the bullet passed but at least one of its claims was already known.
-    is_novel: bool = True
+    is_fully_novel: bool = True
 
 
 @dataclass
