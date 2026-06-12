@@ -211,11 +211,13 @@ class BatchRunRequest(BaseModel):
         ),
     )
     compute_signals: bool = Field(
-        default=True,
+        default=False,
         description=(
-            "When true (default), computes and stores sentiment signals after the batch completes. "
-            "Requires the sentiment_tool vendor dependency. Set to false to skip this step "
-            "(e.g. when running locally without the vendor tool)."
+            "When true, computes and stores sentiment signals (media-attention / sentiment "
+            "z-scores and momentum) after the batch completes, using the sentiment_tool vendor "
+            "dependency. These signals only feed the web app's ranking (portfolio brief top-N) "
+            "and signal-history sparklines, so the default is false: plain API/MCP runs skip it. "
+            "The app sets it to true explicitly. Failures are isolated and never fail the batch."
         ),
     )
     ranking_metric: str | None = Field(
