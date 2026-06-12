@@ -20,7 +20,7 @@ All three run the **same pipeline**. The web app and MCP (stateful server) are j
 - [Part 1: The App](#part-1-the-app)
   - [Prerequisites](#prerequisites)
   - [Quickstart](#quickstart)
-  - [The Brief](#the-brief-default-view)
+  - [The Brief](#the-brief)
   - [Portfolio](#portfolio)
   - [Costs](#costs)
   - [Scheduled runs (cron job)](#scheduled-runs-cron-job)
@@ -99,7 +99,7 @@ Open **`http://localhost:8000/app/desk/`** in your browser.
 
 ---
 
-### The Brief (default view)
+### The Brief
 
 The main reading view of the app. The landing is laid out as follows:
 
@@ -216,6 +216,7 @@ Submits a list of entity IDs (or a named universe) to the pipeline. All entities
 | `force_window_end` | `null` | Override window end (ISO 8601 UTC). Must be paired with `force_window_start`. |
 | `window_mode` | `continuous` | How to compute the window when no forced dates are provided. One of `continuous` or `update`. See [Window modes](#window-modes). |
 | `categories` | `null` | Source categories to search: `news`, `news_premium`, `filings`, `transcripts`. Defaults to pipeline config (`news`). |
+| `force_overlap` | `false` | When `true`, skips the overlap check and runs even if the requested window overlaps an already-completed run for the same entity. Use it to re-run or backfill a window that was already processed. |
 | `generate_narrative` | `false` | When `true`, generates a 2-3 sentence editorial summary per entity after each run. The summary covers **all active bullets for that entity on the same UTC calendar day** (not just bullets from the current run). Retrievable via `POST /api/v1/reports/narratives`. |
 | `ranking_metric` | `null` | When set, generates a portfolio brief for the top 5 companies after all entities finish. Available values: `media_attention_momentum` (latest `chunks_momentum_pct`), `media_attention` (\|Δ `chunks_zscore_mo`\|), `sentiment` (\|Δ `sent_zscore_mo`\|). |
 
@@ -315,6 +316,8 @@ Returns the per-entity editorial narratives generated after pipeline runs. Each 
 
 Results are sorted newest first. If an entity was run multiple times on the same day, each run produces its own row; the first entry for a given date is the most up-to-date summary (it accumulates all bullets published so far that day).
 
+**Body parameters:** `entity_ids` or `universe` (mutually exclusive; omit both for all entities), plus optional `from_date` and `to_date` (ISO 8601) to bound the report-date range.
+
 ```bash
 # All entities, last 30 days
 curl -X POST http://localhost:8000/api/v1/reports/narratives \
@@ -358,8 +361,10 @@ curl http://localhost:8000/api/v1/reports/runs/3f8a1c2d-.../trace
 
 Returns the run history for a single entity: a paginated list of runs with their window, status, timestamps, and any error message. Useful for checking when an entity was last processed and whether previous runs succeeded.
 
+**Query parameters:** `limit` (default `20`, range 1-100) and `offset` (default `0`) control pagination; runs are returned newest first.
+
 ```bash
-curl http://localhost:8000/api/v1/entities/0157B1/runs
+curl "http://localhost:8000/api/v1/entities/0157B1/runs?limit=50&offset=0"
 ```
 
 #### `DELETE /api/v1/entities/{entity_id}`
@@ -433,18 +438,22 @@ curl -X DELETE http://localhost:8000/api/frontend/portfolio/0157B1
 
 #### `POST /api/v1/utilities/reset-db`
 
-**Drops and recreates all database tables.** All run history, embeddings, and saved bullets are permanently deleted.
+**Drops and recreates all database tables.** All run history, embeddings, and saved bullets are permanently deleted. This is irreversible, so the endpoint is guarded: you must pass `confirm=true`, otherwise it returns `400` and does nothing.
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/utilities/reset-db
+curl -X POST "http://localhost:8000/api/v1/utilities/reset-db?confirm=true"
 ```
 
 #### `POST /api/v1/utilities/clear-stale-runs`
 
-Resets rows stuck in `running` status after a service crash. Rows older than the configured threshold are marked as `failed`.
+Resets rows stuck in `running` status (e.g. after a service crash) to `failed`. The optional `stale_seconds` query parameter sets the age threshold: only running rows older than that many seconds are cleared. The default (`stale_seconds=0`) clears **all** running rows immediately regardless of age, which is what you usually want after a restart.
 
 ```bash
+# Clear all stuck running rows
 curl -X POST http://localhost:8000/api/v1/utilities/clear-stale-runs
+
+# Only clear rows running for more than 1 hour
+curl -X POST "http://localhost:8000/api/v1/utilities/clear-stale-runs?stale_seconds=3600"
 ```
 
 #### `POST /api/v1/utilities/delete-date`
