@@ -100,7 +100,7 @@ get_run_results(job_id="11aea5f1-...")
 | `universe` | None | CSV universe: `dow_30`, `eurostoxx_50`, `top_us_10/100/500`, `top_eu_100/500`. **`my_portfolio` not available** — pass `entity_ids`. |
 | `window_start` | — | ISO 8601 UTC. **Required.** |
 | `window_end` | — | ISO 8601 UTC. **Required.** |
-| `categories` | config | e.g. `["news"]`. |
+| `categories` | `news` | Source categories, e.g. `["news"]`. Defaults to `news`. |
 
 ### get_run_results
 | Parameter | Description |
@@ -128,6 +128,8 @@ Apple Inc. (D8442A)
 - **One process per key** — each MCP process uses its own `BIGDATA_API_KEY`, so the 450 QPM budget is correct per key.
 - **No persistence** — results in RAM (~10 min TTL), lost on restart. No list-jobs endpoint, so keep the `job_id`.
 - **Concurrency** — entities run in parallel up to `MAX_CONCURRENT_ENTITIES`; bigger batches queue (rate-limit back-pressure), not more memory.
+- **Re-runs always work** — there's no run history, so the same window can be re-run any time (no overlap protection).
+- **Default category is `news`.**
 
 ---
 
@@ -203,6 +205,9 @@ Always pass `window_start`/`window_end` so the correct run is returned even if o
 | `window_start` | — | ISO 8601 UTC. **Required.** |
 | `window_end` | — | ISO 8601 UTC. **Required.** |
 | `ranking_metric` | None | Generate a portfolio brief after completion (e.g. `"media_attention_momentum"`). |
+
+- **Re-runs always work**: this server forces overlap (`force_overlap=true`), so a window is run even if it overlaps an already-completed run (unlike the raw REST API, which rejects overlapping windows).
+- **Default category is `news`**: the tool doesn't expose `categories`, so runs always use `news`.
 
 ### get_run_results
 | Parameter | Description |

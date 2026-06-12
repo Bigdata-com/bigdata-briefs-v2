@@ -570,7 +570,15 @@ Starts the pipeline for a time window and returns immediately with an id and an 
 | `window_start` | yes | ISO 8601 UTC datetime, e.g. `"2026-06-08T12:00:00Z"`. |
 | `window_end` | yes | ISO 8601 UTC datetime, e.g. `"2026-06-09T12:00:00Z"`. |
 | `ranking_metric` | no | *Stateful only.* Generate a portfolio brief after completion, e.g. `"media_attention_momentum"`. |
-| `categories` | no | *Stateless only.* Source categories, e.g. `["news"]`. Defaults to the pipeline config. |
+| `categories` | no | *Stateless only.* Source categories, e.g. `["news"]`. Defaults to `news`. |
+
+> **Re-runs always work via MCP.** Unlike the REST API (which rejects a window overlapping an
+> already-completed run), the MCP servers always run: the stateful server forces overlap
+> (`force_overlap=true`), and the stateless server keeps no history to overlap with. You can
+> re-run the same window at any time.
+
+> **Default source category is `news`.** The stateful tool does not expose `categories`, so it
+> always runs on `news`; the stateless tool accepts `categories` but also defaults to `news`.
 
 #### `get_run_results`
 
