@@ -69,11 +69,19 @@ The app is a read-and-run desk available at **`http://localhost:8000/app/desk/`*
 
 ### Prerequisites
 
+- **Git**
 - A **Bigdata.com API key**
 - An **OpenAI API key**
 - **Docker** (option A) or **uv** (option B)
 
 ### Quickstart
+
+Clone the repository first, then pick one of the two options below:
+
+```bash
+git clone https://github.com/Bigdata-com/bigdata-briefs-v2.git
+cd bigdata-briefs-v2
+```
 
 #### Option A: Docker
 
