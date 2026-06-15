@@ -421,23 +421,12 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
 curl http://localhost:8000/api/frontend/portfolio
 ```
 
-**Add one or more entities** (name and ticker are resolved automatically from the database if the entity has already been processed). Pass a single `entity_id` or a list of `entity_ids`; the response returns a per-entity `results` list (`added` / `already_exists`):
+**Add one or more entities** (name and ticker are resolved automatically from the database if the entity has already been processed; returns a per-entity `results` list, `added` / `already_exists`):
 
 ```bash
-# Single entity
-curl -X POST http://localhost:8000/api/frontend/portfolio \
-  -H "Content-Type: application/json" \
-  -d '{"entity_id": "0157B1"}'
-
-# Several at once
 curl -X POST http://localhost:8000/api/frontend/portfolio \
   -H "Content-Type: application/json" \
   -d '{"entity_ids": ["0157B1", "D8442A", "228D42"]}'
-
-# Or supply metadata explicitly (single entity only):
-curl -X POST http://localhost:8000/api/frontend/portfolio \
-  -H "Content-Type: application/json" \
-  -d '{"entity_id": "0157B1", "entity_name": "Apple Inc.", "kg_ticker": "AAPL"}'
 ```
 
 **Remove one or more entities** (pass a single `entity_id` or a list of `entity_ids`; returns a per-entity `results` list, `removed` / `not_found`):
