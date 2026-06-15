@@ -1509,8 +1509,6 @@ def get_run_data() -> dict:
         "sources": [
             {"id": "news", "label": "News", "checked": False},
             {"id": "news_premium", "label": "News (premium)", "checked": True},
-            {"id": "filings", "label": "SEC filings", "checked": False},
-            {"id": "transcripts", "label": "Transcripts", "checked": False},
         ],
         "models": [
             {"id": "fast", "label": "Fast", "desc": "gpt-4.1-mini · embed-3-large", "cost": 0.18, "time": "2–3m"},

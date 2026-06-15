@@ -191,7 +191,7 @@ class BatchRunRequest(BaseModel):
         default=None,
         description=(
             "Override the source categories for exploratory and concept search. "
-            "Available values: news, news_premium, filings, transcripts. "
+            "Available values: news, news_premium. "
             "When null, the default pipeline config categories are used (news)."
         ),
     )

@@ -357,7 +357,7 @@ class ScanRequest(BaseModel):
     start_time: str | None = None  # HH:MM UTC — overrides the time on start_date
     end_time: str | None = None    # HH:MM UTC — overrides the time on end_date
     boundary_time: str | None = None  # HH:MM UTC — daily split point (default: 00:00 midnight)
-    source_categories: list[str] | None = None  # override pipeline categories (news, news_premium, filings, transcripts)
+    source_categories: list[str] | None = None  # override pipeline categories (news, news_premium)
 
 
 class ScanResponse(BaseModel):

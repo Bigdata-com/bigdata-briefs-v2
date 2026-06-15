@@ -55,7 +55,7 @@ MAX_REQUESTS_PER_MINUTE = (
 )
 
 # All selectable source categories for the UI category filter
-AVAILABLE_SOURCE_CATEGORIES: list[str] = ["news", "news_premium", "filings", "transcripts"]
+AVAILABLE_SOURCE_CATEGORIES: list[str] = ["news", "news_premium"]
 REFRESH_FREQUENCY_RATE_LIMIT = 5  # Time in seconds to pro-rate the rate limiter, lower values = smoother requests, more overhead
 TIME_BEFORE_RETRY_RATE_LIMITER = 1.0  # Time in seconds before retrying the request
 
