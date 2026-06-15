@@ -164,6 +164,7 @@ This triggers `run_daily.sh` every weekday (Monday–Friday) at **12:01 UTC (08:
 - `docker compose up` → API only, **no cron**.
 - `docker compose --profile cron up` → API **+ cron** (the `briefs-cron` service sets `ENABLE_CRON=1`).
 - Plain `docker run` (the [Quickstart](#quickstart)) → **no cron** unless you add `-e ENABLE_CRON=1`.
+- **uv / local** (Quickstart Option B) → **no cron**: running `uvicorn` directly bypasses `start.sh`, so `ENABLE_CRON` is ignored and supercronic never starts. To schedule runs in this mode, point your OS scheduler (e.g. system `cron`) at `run_daily.sh` — it just `curl`s `run-parallel` on `localhost:8000` — or run via Docker with the cron profile.
 
 #### Disabling the cron job
 
