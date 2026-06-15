@@ -55,7 +55,8 @@ For each entity, the pipeline moves through five sequential phases, followed by 
 3. **Grounding Check**: each bullet is validated against its cited source text
 4. **Novelty Check via Embedding**: embedding-based retrieval of past bullets, LLM coarse decision
 5. **Novelty Check via Search**: claim-level verification against current evidence
-6. **Narrative** (optional, off by default): one-sentence editorial summary synthesising all active bullets published that day
+
+An optional **Narrative** step (off by default) then produces a one-sentence editorial summary synthesising all active bullets published that day.
 
 For a detailed description of each phase, see the [pipeline reference guide](https://docs.bigdata.com/use-cases/bigdata-briefs-pipeline).
 
@@ -250,6 +251,49 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
   }'
 ```
 
+#### `POST /api/v1/scan`
+
+Builds or backfills a historical record for a portfolio. Takes a single `entity_id` or a `universe` plus a date range, splits the range into windows, and processes them sequentially, producing a separate brief per window. For each entity the effective start is resolved from the last completed run, so re-running over an already-covered range is safe: windows that already have a run are skipped. For multi-day ranges, prefer `scan` over `run-parallel` (which is best used one day at a time).
+
+**Request body parameters:**
+
+| Parameter | Default | Description |
+|---|---|---|
+| `entity_id` | `null` | Single entity to scan. Mutually exclusive with `universe`. |
+| `universe` | `null` | Named universe to scan (e.g. `dow_30`, `my_portfolio`). Mutually exclusive with `entity_id`. |
+| `start_date` | **required** | First day of the range (`YYYY-MM-DD`, or a full ISO 8601 timestamp). |
+| `end_date` | `null` | Last day of the range. Omit to scan up to now. |
+| `boundary_time` | `null` (midnight) | `HH:MM` UTC daily split point. By default each window spans one UTC calendar day (midnight to midnight); set e.g. `13:30` to align each window to the US market open, so each brief covers one trading session. Friday windows automatically extend through the weekend to Monday, producing five windows per week with no gaps. |
+| `start_time` | `null` | `HH:MM` UTC clock applied to `start_date` only (opening of the first window). |
+| `end_time` | `null` | `HH:MM` UTC clock applied to `end_date` only (close of the last window). |
+| `source_categories` | `null` | Source categories: `news`, `news_premium`. Defaults to pipeline config (`news`). |
+
+```bash
+# Historical range, one UTC-day window each (default midnight boundary)
+curl -X POST http://localhost:8000/api/v1/scan \
+  -H "Content-Type: application/json" \
+  -d '{
+    "universe": "dow_30",
+    "start_date": "2026-04-01",
+    "end_date": "2026-04-30"
+  }'
+
+# Align each window to the US market open (13:30 UTC)
+curl -X POST http://localhost:8000/api/v1/scan \
+  -H "Content-Type: application/json" \
+  -d '{
+    "universe": "dow_30",
+    "start_date": "2026-04-01",
+    "end_date": "2026-04-30",
+    "boundary_time": "13:30"
+  }'
+
+# Up to now (omit end_date)
+curl -X POST http://localhost:8000/api/v1/scan \
+  -H "Content-Type: application/json" \
+  -d '{"universe": "dow_30", "start_date": "2026-04-01"}'
+```
+
 ---
 
 ### Monitor a batch
@@ -268,6 +312,14 @@ Returns the status of a single pipeline run: window, start/end timestamps, and a
 
 ```bash
 curl http://localhost:8000/api/v1/runs/3f8a1c2d-...
+```
+
+#### `GET /api/v1/scan/status`
+
+Returns per-entity, per-day progress for a scan range. Query parameters: `entity_ids` (comma-separated), `start_date`, `end_date`.
+
+```bash
+curl "http://localhost:8000/api/v1/scan/status?entity_ids=0157B1,D64C6D&start_date=2026-04-01&end_date=2026-04-30"
 ```
 
 ---
