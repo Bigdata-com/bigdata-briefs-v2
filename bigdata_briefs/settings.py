@@ -139,6 +139,11 @@ class Settings(BaseSettings):
     # Default False: the app is read-only (safe for shared / Fly.io deployments).
     UI_SCAN_ENABLED: bool = False
 
+    # Demo-only "Start update" button on the Portfolio page. It does NOT run anything:
+    # clicking it shows a "Contact support" call-to-action. Intended for presentation/
+    # marketing demos. Set SHOW_PORTFOLIO_UPDATE_DEMO=1 to show it. Default False (hidden).
+    SHOW_PORTFOLIO_UPDATE_DEMO: bool = False
+
     # Public mode — set PUBLIC_MODE=1 for a shared/external deployment.
     # Disables write actions in the UI (run, portfolio add/remove).
     # API key is never sent to the browser. Direct API calls with a valid

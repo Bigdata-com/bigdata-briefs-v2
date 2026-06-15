@@ -50,6 +50,7 @@ def _build_desk_html() -> str:
     data["companySummaries"] = summaries.get("summaries", data.get("companySummaries", {}))
     data["lastRunDate"] = summaries.get("date")
     data["publicMode"] = settings.PUBLIC_MODE
+    data["showPortfolioUpdateDemo"] = settings.SHOW_PORTFOLIO_UPDATE_DEMO
     d = json.dumps(data).replace("</", "<\\/")
     script = f"<script>window.DATA={d};window.RUN_DATA={{}};window.EXTRAS={{}};</script>"
     return html.replace("</head>", script + "\n</head>", 1)

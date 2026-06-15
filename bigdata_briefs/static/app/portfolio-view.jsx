@@ -13,6 +13,15 @@ function PortfolioView({ tweaks, appPortfolio, setView }) {
   const [showResults, setShowResults] = useStateP(false);
   const [showSupport, setShowSupport] = useStateP(false);
   const publicMode = window.DATA?.publicMode === true;
+  // Demo-only "Start update" block (gated by SHOW_PORTFOLIO_UPDATE_DEMO). It does not
+  // run anything — clicking it surfaces the "contact support" call-to-action.
+  const showUpdateDemo = window.DATA?.showPortfolioUpdateDemo === true;
+  const today = new Date().toISOString().slice(0, 10);
+  const _now = new Date();
+  const [updateDate, setUpdateDate] = useStateP(today);
+  const [updateTime, setUpdateTime] = useStateP(
+    `${String(_now.getHours()).padStart(2, "0")}:${String(_now.getMinutes()).padStart(2, "0")}`
+  );
 
   const searchRef = useRefP(null);
 
@@ -80,6 +89,10 @@ function PortfolioView({ tweaks, appPortfolio, setView }) {
       .then(() => setPortfolio(prev => prev.filter(p => p.entity_id !== id)))
       .catch(() => {});
   }
+  // Demo CTA: never triggers a run — surface the "contact support" box.
+  function handleStart() {
+    setShowSupport(true);
+  }
 
   return (
     <div className="portfolio-layout">
@@ -136,6 +149,34 @@ function PortfolioView({ tweaks, appPortfolio, setView }) {
           <span>Holdings</span>
           <span>{portfolioCompanies.length} {portfolioCompanies.length === 1 ? "company" : "companies"}</span>
         </div>
+
+        {showUpdateDemo && (
+          <>
+            {/* Date + time (demo only) */}
+            <section className="portfolio-date-section">
+              <div className="scan-step-num" style={{ marginBottom: 6 }}>02</div>
+              <h2 className="scan-section-title">Update window</h2>
+              <div className="portfolio-date-row">
+                <div>
+                  <label>Date</label>
+                  <input type="date" value={updateDate} max={today} onChange={e => setUpdateDate(e.target.value)} />
+                </div>
+                <div>
+                  <label>Time</label>
+                  <input type="time" value={updateTime} onChange={e => setUpdateTime(e.target.value)} />
+                </div>
+              </div>
+            </section>
+
+            <button
+              className="portfolio-start-btn"
+              onClick={handleStart}
+              disabled={portfolioCompanies.length === 0}
+            >
+              ▶&nbsp; Start update
+            </button>
+          </>
+        )}
 
       </aside>
 
