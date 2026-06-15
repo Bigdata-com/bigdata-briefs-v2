@@ -48,14 +48,14 @@ All three run the **same pipeline**. The web app and MCP (stateful server) are j
 
 ![Pipeline diagram](assets/bigdata_briefs_overview.png)
 
-For each entity, the pipeline moves through six sequential phases:
+For each entity, the pipeline moves through five sequential phases, followed by an optional narrative step:
 
 1. **Search**: exploratory pass to discover active themes, fiscal quarter resolution, targeted per-theme retrieval
 2. **Bullet Generation**: LLM generates bullets from each theme's evidence, scored for relevance
 3. **Grounding Check**: each bullet is validated against its cited source text
 4. **Novelty Check via Embedding**: embedding-based retrieval of past bullets, LLM coarse decision
 5. **Novelty Check via Search**: claim-level verification against current evidence
-6. **Narrative**: multi-sentence editorial summary synthesising all active bullets published that day
+6. **Narrative** (optional, off by default): one-sentence editorial summary synthesising all active bullets published that day
 
 For a detailed description of each phase, see the [pipeline reference guide](https://docs.bigdata.com/use-cases/bigdata-briefs-pipeline).
 
@@ -223,9 +223,9 @@ Submits a list of entity IDs (or a named universe) to the pipeline. All entities
 | `force_window_start` | `null` | Override window start (ISO 8601 UTC). Must be paired with `force_window_end`. |
 | `force_window_end` | `null` | Override window end (ISO 8601 UTC). Must be paired with `force_window_start`. |
 | `window_mode` | `continuous` | How to compute the window when no forced dates are provided. One of `continuous` or `update`. See [Window modes](#window-modes). |
-| `categories` | `null` | Source categories to search: `news`, `news_premium`, `filings`, `transcripts`. Defaults to pipeline config (`news`). |
+| `categories` | `null` | Source categories to search: `news`, `news_premium`. Defaults to pipeline config (`news`). |
 | `force_overlap` | `false` | When `true`, skips the overlap check and runs even if the requested window overlaps an already-completed run for the same entity. Use it to re-run or backfill a window that was already processed. |
-| `generate_narrative` | `false` | When `true`, generates a 2-3 sentence editorial summary per entity after each run. The summary covers **all active bullets for that entity on the same UTC calendar day** (not just bullets from the current run). Retrievable via `POST /api/v1/reports/narratives`. |
+| `generate_narrative` | `false` | When `true`, generates a one-sentence editorial summary per entity after each run. The summary covers **all active bullets for that entity on the same UTC calendar day** (not just bullets from the current run). Retrievable via `POST /api/v1/reports/narratives`. |
 | `ranking_metric` | `null` | When set, generates a portfolio brief for the top 5 companies after all entities finish. Available values: `media_attention_momentum` (latest `chunks_momentum_pct`), `media_attention` (\|Δ `chunks_zscore_mo`\|), `sentiment` (\|Δ `sent_zscore_mo`\|). |
 
 ```bash
@@ -278,7 +278,7 @@ The `/reports/` namespace groups all read-only endpoints that query bullet data 
 
 #### `POST /api/v1/reports/bullets`
 
-Returns the **published** bullet points for one or more entities, grouped by run. Each bullet includes the final text, source citations (headline, chunk text), and novelty metadata (`search_action`, `not_fully_novel`). Pass an empty `entity_ids` list to retrieve all entities in the database.
+Returns the **published** bullet points for one or more entities, grouped by run. Each bullet includes the final text, source citations (headline, chunk text), and novelty metadata (`search_action`, `is_fully_novel`). Pass an empty `entity_ids` list to retrieve all entities in the database.
 
 The optional `max_runs` parameter controls how many runs per entity are returned (newest first):
 - Omit (or `null`) → all runs
@@ -320,7 +320,7 @@ curl -X POST http://localhost:8000/api/v1/reports/bullets/detail \
 
 #### `POST /api/v1/reports/narratives`
 
-Returns the per-entity editorial narratives generated after pipeline runs. Each narrative is a 2-3 sentence summary of all active bullets published for that entity on the same UTC calendar day. Only available when `generate_narrative: true` was passed to `run-parallel`.
+Returns the per-entity editorial narratives generated after pipeline runs. Each narrative is a one-sentence summary of all active bullets published for that entity on the same UTC calendar day. Only available when `generate_narrative: true` was passed to `run-parallel`.
 
 Results are sorted newest first. If an entity was run multiple times on the same day, each run produces its own row; the first entry for a given date is the most up-to-date summary (it accumulates all bullets published so far that day).
 
