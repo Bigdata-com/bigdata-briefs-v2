@@ -18,7 +18,7 @@ from datetime import date as date_cls, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel as _BaseModel
 from bigdata_briefs.api.auth import require_api_key
 from sqlalchemy import desc
@@ -1872,7 +1872,8 @@ def get_portfolio_candidates() -> dict:
 # ── Portfolio CRUD ────────────────────────────────────────────────────────────
 
 class _PortfolioAddBody(_BaseModel):
-    entity_id: str
+    entity_id: str | None = None
+    entity_ids: list[str] | None = None
     entity_name: str | None = None
     kg_ticker: str | None = None
 
@@ -1910,45 +1911,111 @@ def get_portfolio() -> dict:
 
 @router.post("/portfolio", dependencies=[Depends(require_api_key)])
 def add_to_portfolio(body: _PortfolioAddBody) -> dict:
-    """Add an entity to the portfolio. Resolves name/ticker from SQLEntityOrchestrationState."""
+    """Add one or more entities to the portfolio.
+
+    Accepts either a single ``entity_id`` or a list of ``entity_ids``. Name and
+    ticker are resolved from ``SQLEntityOrchestrationState`` (and ``_TICKER_MAP``);
+    the explicit ``entity_name`` / ``kg_ticker`` overrides only apply when a single
+    entity is added. Returns a per-entity ``results`` list.
+    """
+    raw_ids = list(body.entity_ids) if body.entity_ids else []
+    if body.entity_id:
+        raw_ids.append(body.entity_id)
+
+    # De-duplicate while preserving order, dropping blanks.
+    ids: list[str] = []
+    seen: set[str] = set()
+    for raw in raw_ids:
+        eid = (raw or "").strip()
+        if eid and eid not in seen:
+            seen.add(eid)
+            ids.append(eid)
+
+    if not ids:
+        raise HTTPException(status_code=400, detail="Provide entity_id or entity_ids")
+
+    single = len(ids) == 1
     engine = get_engine()
+    results: list[dict] = []
     with Session(engine) as session:
-        existing = session.get(SQLUserPortfolio, body.entity_id)
-        if existing:
-            return {"status": "already_exists", "entity_id": body.entity_id}
+        for eid in ids:
+            if session.get(SQLUserPortfolio, eid):
+                results.append({"entity_id": eid, "status": "already_exists"})
+                continue
 
-        orch = session.get(SQLEntityOrchestrationState, body.entity_id)
-        name = (orch.kg_name if orch else None) or body.entity_name or body.entity_id
-        ticker = (
-            _TICKER_MAP.get(body.entity_id)
-            or (orch.kg_ticker if orch else None)
-            or body.kg_ticker
-            or None
-        )
-
-        row = SQLUserPortfolio(
-            entity_id=body.entity_id,
-            entity_name=name,
-            kg_ticker=ticker,
-            added_at=datetime.now(timezone.utc),
-        )
-        session.add(row)
+            orch = session.get(SQLEntityOrchestrationState, eid)
+            name = (orch.kg_name if orch else None) or (body.entity_name if single else None) or eid
+            ticker = (
+                _TICKER_MAP.get(eid)
+                or (orch.kg_ticker if orch else None)
+                or (body.kg_ticker if single else None)
+                or None
+            )
+            session.add(
+                SQLUserPortfolio(
+                    entity_id=eid,
+                    entity_name=name,
+                    kg_ticker=ticker,
+                    added_at=datetime.now(timezone.utc),
+                )
+            )
+            results.append(
+                {"entity_id": eid, "status": "added", "entity_name": name, "kg_ticker": ticker}
+            )
         session.commit()
 
-    return {"status": "added", "entity_id": body.entity_id, "entity_name": name, "kg_ticker": ticker}
+    return {
+        "status": "ok",
+        "added": sum(1 for r in results if r["status"] == "added"),
+        "results": results,
+    }
 
 
-@router.delete("/portfolio/{entity_id}", dependencies=[Depends(require_api_key)])
-def remove_from_portfolio(entity_id: str) -> dict:
-    """Remove an entity from the portfolio."""
+class _PortfolioRemoveBody(_BaseModel):
+    entity_id: str | None = None
+    entity_ids: list[str] | None = None
+
+
+@router.delete("/portfolio", dependencies=[Depends(require_api_key)])
+def remove_from_portfolio(body: _PortfolioRemoveBody) -> dict:
+    """Remove one or more entities from the portfolio.
+
+    Accepts either a single ``entity_id`` or a list of ``entity_ids``. Returns a
+    per-entity ``results`` list.
+    """
+    raw_ids = list(body.entity_ids) if body.entity_ids else []
+    if body.entity_id:
+        raw_ids.append(body.entity_id)
+
+    # De-duplicate while preserving order, dropping blanks.
+    ids: list[str] = []
+    seen: set[str] = set()
+    for raw in raw_ids:
+        eid = (raw or "").strip()
+        if eid and eid not in seen:
+            seen.add(eid)
+            ids.append(eid)
+
+    if not ids:
+        raise HTTPException(status_code=400, detail="Provide entity_id or entity_ids")
+
     engine = get_engine()
+    results: list[dict] = []
     with Session(engine) as session:
-        row = session.get(SQLUserPortfolio, entity_id)
-        if not row:
-            return {"status": "not_found", "entity_id": entity_id}
-        session.delete(row)
+        for eid in ids:
+            row = session.get(SQLUserPortfolio, eid)
+            if not row:
+                results.append({"entity_id": eid, "status": "not_found"})
+                continue
+            session.delete(row)
+            results.append({"entity_id": eid, "status": "removed"})
         session.commit()
-    return {"status": "removed", "entity_id": entity_id}
+
+    return {
+        "status": "ok",
+        "removed": sum(1 for r in results if r["status"] == "removed"),
+        "results": results,
+    }
 
 
 # ── Admin ─────────────────────────────────────────────────────────────────────

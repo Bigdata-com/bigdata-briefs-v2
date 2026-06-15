@@ -64,7 +64,7 @@ function PortfolioView({ tweaks, appPortfolio, setView }) {
     fetch("/api/frontend/portfolio", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entity_id: id, entity_name: candidate?.name, kg_ticker: candidate?.ticker }),
+      body: JSON.stringify({ entity_ids: [id], entity_name: candidate?.name, kg_ticker: candidate?.ticker }),
     })
       .then(r => r.json())
       .then(() => fetch("/api/frontend/portfolio").then(r => r.json()).then(d => setPortfolio(d.portfolio || [])))
@@ -72,7 +72,11 @@ function PortfolioView({ tweaks, appPortfolio, setView }) {
   }
   function removeCompany(id) {
     if (publicMode) { setShowSupport(true); return; }
-    fetch(`/api/frontend/portfolio/${encodeURIComponent(id)}`, { method: "DELETE" })
+    fetch("/api/frontend/portfolio", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entity_ids: [id] }),
+    })
       .then(() => setPortfolio(prev => prev.filter(p => p.entity_id !== id)))
       .catch(() => {});
   }
