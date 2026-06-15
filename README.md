@@ -211,9 +211,7 @@ A typical exchange: the user asks *"brief me on Apple and Microsoft for yesterda
 | | `briefs-mcp` (stateful) | `briefs-mcp-stateless` |
 |---|---|---|
 | Backing | Thin HTTP client to a **running** REST service + database | Runs the pipeline **in-process**, no service, no database |
-| Start the app first? | Yes (Part 1 / Part 3) | No |
 | Results persist | Yes, in the database | No, held in memory (evicted ~10 min after completion) |
-| `my_portfolio` | Available | Not available (no DB), pass `entity_ids` instead |
 | Tools | `start_briefs_run`, `get_run_results`, `get_bullets`, `get_narratives` | `start_briefs_run`, `get_run_results` |
 | Best for | A shared/long-lived deployment you also browse in the web app | A self-contained, single-user setup with nothing else to run |
 
@@ -291,11 +289,9 @@ Starts the pipeline for a time window and returns immediately with an id and an 
 | Argument | Required | Description |
 |---|---|---|
 | `entity_ids` | one of these | List of `rp_entity_id`s, e.g. `["D8442A", "E09E2B"]`. Mutually exclusive with `universe`. |
-| `universe` | one of these | Named universe, e.g. `"dow_30"` (stateful also accepts `"my_portfolio"`). Mutually exclusive with `entity_ids`. |
+| `universe` | one of these | Named universe, e.g. `"dow_30"`. Mutually exclusive with `entity_ids`. |
 | `window_start` | yes | ISO 8601 UTC datetime, e.g. `"2026-06-08T12:00:00Z"`. |
 | `window_end` | yes | ISO 8601 UTC datetime, e.g. `"2026-06-09T12:00:00Z"`. |
-| `ranking_metric` | no | *Stateful only.* Generate a portfolio brief after completion, e.g. `"media_attention_momentum"`. |
-| `categories` | no | *Stateless only.* Source categories, e.g. `["news"]`. Defaults to `news`. |
 
 > **Re-runs always work via MCP.** Unlike the REST API (which rejects a window overlapping an
 > already-completed run), the MCP servers always run: the stateful server forces overlap
@@ -330,6 +326,11 @@ All endpoints live under **`http://localhost:8000/api/v1/`**.
 
 ### Run the pipeline
 
+Two endpoints launch pipeline runs:
+
+- **`run-parallel`** — for one-off or scheduled batches.
+- **`scan`** — for backfilling a historical record.
+
 #### Run Parallel
 
 `POST /api/v1/batch/run-parallel` runs the pipeline for a set of entities concurrently (up to the worker pool size) and returns a single **batch_id** to monitor progress.
@@ -342,7 +343,7 @@ All endpoints live under **`http://localhost:8000/api/v1/`**.
 
 Set the **window** in one of two ways:
 
-- **Explicit window** — pass `force_window_start` and `force_window_end` for a specific period. One day is ideal; wider windows degrade quality and cost (see [Tuning](#tuning-sources-window-and-throughput)).
+- **Explicit window** — pass `force_window_start` and `force_window_end` for a specific period. One day is ideal; wider windows degrade quality and cost (see [Parameters](#parameters)).
 - **Automatic (`window_mode`)** — when no forced dates are given, the start is computed from the entity's run history (the end is always now):
   - `continuous` (default) — resume exactly where the previous run ended, with no gaps (the first run falls back to UTC midnight of the current day).
   - `update` — cover the trailing 24 hours (72 on Mondays, UTC), resuming from the previous run with no overlap. Self-initializing and ideal for daily monitoring.
@@ -426,13 +427,15 @@ curl -X POST http://localhost:8000/api/v1/scan \
   -d '{"universe": "dow_30", "start_date": "2026-04-01"}'
 ```
 
-#### Tuning: sources, window, and throughput
+#### Parameters
+
+Two parameters have the largest effect on both output quality and pipeline cost: the source set used during retrieval, and the date window each run covers. Both are worth configuring deliberately before running at scale.
 
 **Source selection.** `categories` accepts `news` (default) and `news_premium`. Premium sources are cleaner: fewer bullets per run, a higher share passing the relevance/novelty filters, and lower cost per published bullet. General news raises recall for thinly-covered entities but adds noise, more discards, and higher compute/grounding cost per published bullet, with diminishing returns for entities already well covered by premium.
 
 **Date window.** A 24-hour window is the recommended baseline. Wider windows degrade on four axes: prompt size (larger prompts risk hitting context limits), search coverage (each query has a result cap, so some developments are missed), cost (roughly proportional to news volume), and temporal coherence (multi-week windows mix different states of a developing situation). Per-run cost also falls naturally over time as the embedding novelty check catches more repeats early.
 
-**Throughput / rate limits.** Parallel entities share two process-wide limits: a **450 QPM** cap on Bigdata calls (enforced by a token bucket) and a connection semaphore capping concurrent in-flight Bigdata requests to **40** (`API_SIMULTANEOUS_REQUESTS`). OpenAI calls are throttled indirectly by `MAX_CONCURRENT_ENTITIES` (default 10). For universe-scale runs the throughput ceiling is roughly the QPM budget divided by the average search calls per entity per day; raise it by running multiple service instances with separate Bigdata API keys, each with its own 450 QPM budget.
+> **Concurrency & rate limits.** Parallel entities share two process-wide limits: a **450 QPM** cap on Bigdata calls (enforced by a token bucket) and a connection semaphore capping concurrent in-flight Bigdata requests to **40** (`API_SIMULTANEOUS_REQUESTS`). OpenAI calls are throttled indirectly by `MAX_CONCURRENT_ENTITIES` (default 10). For universe-scale runs the throughput ceiling is roughly the QPM budget divided by the average search calls per entity per day; raise it by running multiple service instances with separate Bigdata API keys, each with its own 450 QPM budget.
 
 ---
 
