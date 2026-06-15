@@ -9,8 +9,8 @@ The same pipeline is reachable through three front doors. Pick the one that fits
 | | Who it's for | What you do |
 |---|---|---|
 | **Web app** ([Part 1](#part-1-the-app)) | Humans, no coding | Browse briefs and run updates in the browser at `http://localhost:8000/app/desk/`. |
-| **REST API** ([Part 2](#part-2-the-api)) | Scripts, integrations, your own code | Trigger runs and read results over HTTP (`curl`, `requests`, etc.) against `http://localhost:8000/api/v1/`. |
-| **MCP** ([Part 3](#part-3-mcp)) | AI assistants (Claude, etc.) | Let an assistant run briefs and read results conversationally through MCP tools. |
+| **MCP**<br>([Part 2](#part-2-mcp)) | AI assistants (Claude, etc.) | Let an assistant run briefs and read results conversationally through MCP tools. |
+| **REST API** ([Part 3](#part-3-the-api)) | Scripts, integrations, your own code | Trigger runs and read results over HTTP (`curl`, `requests`, etc.) against `http://localhost:8000/api/v1/`. |
 
 All three run the **same pipeline**. The web app and MCP (stateful server) are just clients of the REST API; the only standalone variant is the self-contained stateless MCP server, which runs the pipeline in-process with no separate service or database.
 
@@ -24,7 +24,12 @@ All three run the **same pipeline**. The web app and MCP (stateful server) are j
   - [Portfolio](#portfolio)
   - [Costs](#costs)
   - [Scheduled runs (cron job)](#scheduled-runs-cron-job)
-- [Part 2: The API](#part-2-the-api)
+- [Part 2: MCP](#part-2-mcp)
+  - [Which server to use](#which-server-to-use)
+  - [Stateful server (briefs-mcp)](#stateful-server-briefs-mcp)
+  - [Stateless server (briefs-mcp-stateless)](#stateless-server-briefs-mcp-stateless)
+  - [MCP tools reference](#mcp-tools-reference)
+- [Part 3: The API](#part-3-the-api)
   - [Run the pipeline](#run-the-pipeline)
   - [Monitor a batch](#monitor-a-batch)
   - [Retrieve results](#retrieve-results)
@@ -33,11 +38,6 @@ All three run the **same pipeline**. The web app and MCP (stateful server) are j
   - [My portfolio (API)](#my-portfolio-api)
   - [Utilities](#utilities)
   - [Large-scale portfolio generation](#large-scale-portfolio-generation)
-- [Part 3: MCP](#part-3-mcp)
-  - [Which server to use](#which-server-to-use)
-  - [Stateful server (briefs-mcp)](#stateful-server-briefs-mcp)
-  - [Stateless server (briefs-mcp-stateless)](#stateless-server-briefs-mcp-stateless)
-  - [MCP tools reference](#mcp-tools-reference)
 - [Window modes](#window-modes)
 - [Pre-defined universes](#pre-defined-universes)
 - [Configuration reference](#configuration-reference)
@@ -137,11 +137,11 @@ The Portfolio view is where you build and manage the list of companies the app t
 **Keeping the portfolio current**: the portfolio is monitored by running the pipeline against the `my_portfolio` universe. There are two ways to do this:
 
 - **Automatically**, via the daily [cron job](#scheduled-runs-cron-job): enable it and the app runs on its own every weekday morning, so the latest briefs are already there when you open it. No action required.
-- **On demand**, via the API: trigger a run for the `my_portfolio` universe whenever you want a fresh update (see [Part 2](#part-2-the-api)).
+- **On demand**, via the API: trigger a run for the `my_portfolio` universe whenever you want a fresh update (see [Part 3](#part-3-the-api)).
 
 An incremental update covers the trailing **24 hours** since the previous run (extended to **72 hours on Mondays** to bridge the weekend gap); see [Window modes](#window-modes). After a run completes, briefs and narratives for all companies are available in The Brief.
 
-> In `PUBLIC_MODE` the add/remove buttons are disabled. Portfolio management and pipeline runs must be done via the API (see Part 2).
+> In `PUBLIC_MODE` the add/remove buttons are disabled. Portfolio management and pipeline runs must be done via the API (see Part 3).
 
 ---
 
@@ -178,7 +178,7 @@ If you have the cron job running and want to turn it off, simply start the app *
 
 Restart the container after changing it. To keep the cron container running but stop the daily trigger without rebuilding, you can also comment out the line in `crontab` and restart.
 
-With the cron off, trigger updates on demand via the API (see [Part 2](#part-2-the-api)) whenever you want a fresh run.
+With the cron off, trigger updates on demand via the API (see [Part 3](#part-3-the-api)) whenever you want a fresh run.
 
 `run_daily.sh` computes the window automatically:
 
@@ -200,7 +200,125 @@ To change the schedule, edit `crontab` (standard cron expression). To change the
 
 ---
 
-## Part 2: The API
+## Part 2: MCP
+
+Bigdata Briefs ships two [Model Context Protocol](https://modelcontextprotocol.io) servers so an AI assistant (such as Claude) can run briefs and read results through tools, in natural language. Both speak MCP over **stdio**.
+
+A typical exchange: the user asks *"brief me on Apple and Microsoft for yesterday"*; the assistant calls `start_briefs_run`, gets back a job/batch id and an ETA, waits, then calls `get_run_results` to fetch the bullets and narratives and shows them verbatim.
+
+### Which server to use
+
+| | `briefs-mcp` (stateful) | `briefs-mcp-stateless` |
+|---|---|---|
+| Backing | Thin HTTP client to a **running** REST service + database | Runs the pipeline **in-process**, no service, no database |
+| Start the app first? | Yes (Part 1 / Part 3) | No |
+| Results persist | Yes, in the database | No, held in memory (evicted ~10 min after completion) |
+| `my_portfolio` | Available | Not available (no DB), pass `entity_ids` instead |
+| Tools | `start_briefs_run`, `get_run_results`, `get_bullets`, `get_narratives` | `start_briefs_run`, `get_run_results` |
+| Best for | A shared/long-lived deployment you also browse in the web app | A self-contained, single-user setup with nothing else to run |
+
+Both are declared as console scripts in `pyproject.toml`:
+
+```
+briefs-mcp            = bigdata_briefs.mcp_server:main
+briefs-mcp-stateless  = bigdata_briefs.mcp_server_stateless:main
+```
+
+### Stateful server (`briefs-mcp`)
+
+This server makes HTTP calls to a running Bigdata Briefs service, so start the app first (see [Quickstart](#quickstart)), then point the MCP server at it.
+
+**Configuration (env vars or `.env`):**
+
+| Variable | Description | Default |
+|---|---|---|
+| `BRIEFS_API_URL` | Base URL of the running briefs app | `http://localhost:8000` |
+| `BRIEFS_API_KEY` | Pipeline API key, sent as `X-Api-Key`. Required when the server runs with `PUBLIC_MODE` on. | (empty) |
+
+**Register it with an MCP client** (e.g. Claude Desktop / Claude Code `mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "briefs": {
+      "command": "uv",
+      "args": ["run", "briefs-mcp"],
+      "env": {
+        "BRIEFS_API_URL": "http://localhost:8000",
+        "BRIEFS_API_KEY": "your-secret-key"
+      }
+    }
+  }
+}
+```
+
+### Stateless server (`briefs-mcp-stateless`)
+
+This server has **no separate service and no database**: the long-lived MCP process owns one shared rate limiter and worker pool, and runs the pipeline directly against your own Bigdata key. The intended model is **one MCP process per user**, each with its own keys, so the 450 QPM budget is correct by construction. Results are held in memory and evicted roughly 10 minutes after a job finishes, so fetch them shortly after completion.
+
+**Configuration (env vars or `.env`):**
+
+| Variable | Description |
+|---|---|
+| `BIGDATA_API_KEY` | Bigdata.com API key **(required)** |
+| `OPENAI_API_KEY` | OpenAI API key **(required)** |
+
+**Register it with an MCP client:**
+
+```json
+{
+  "mcpServers": {
+    "briefs-stateless": {
+      "command": "uv",
+      "args": ["run", "briefs-mcp-stateless"],
+      "env": {
+        "BIGDATA_API_KEY": "your-bigdata-api-key",
+        "OPENAI_API_KEY": "your-openai-api-key"
+      }
+    }
+  }
+}
+```
+
+### MCP tools reference
+
+Both servers expose `start_briefs_run` and `get_run_results`. They take the same shape but return a `batch_id` (stateful) or a `job_id` (stateless).
+
+#### `start_briefs_run`
+
+Starts the pipeline for a time window and returns immediately with an id and an estimated wait (roughly 2 minutes per entity). It does **not** block until the run finishes.
+
+| Argument | Required | Description |
+|---|---|---|
+| `entity_ids` | one of these | List of `rp_entity_id`s, e.g. `["D8442A", "E09E2B"]`. Mutually exclusive with `universe`. |
+| `universe` | one of these | Named universe, e.g. `"dow_30"` (stateful also accepts `"my_portfolio"`). Mutually exclusive with `entity_ids`. |
+| `window_start` | yes | ISO 8601 UTC datetime, e.g. `"2026-06-08T12:00:00Z"`. |
+| `window_end` | yes | ISO 8601 UTC datetime, e.g. `"2026-06-09T12:00:00Z"`. |
+| `ranking_metric` | no | *Stateful only.* Generate a portfolio brief after completion, e.g. `"media_attention_momentum"`. |
+| `categories` | no | *Stateless only.* Source categories, e.g. `["news"]`. Defaults to `news`. |
+
+> **Re-runs always work via MCP.** Unlike the REST API (which rejects a window overlapping an
+> already-completed run), the MCP servers always run: the stateful server forces overlap
+> (`force_overlap=true`), and the stateless server keeps no history to overlap with. You can
+> re-run the same window at any time.
+
+> **Default source category is `news`.** The stateful tool does not expose `categories`, so it
+> always runs on `news`; the stateless tool accepts `categories` but also defaults to `news`.
+
+#### `get_run_results`
+
+Poll for status. While the run is in progress it returns entity counts; once complete it returns the bullets and narratives for each entity (the assistant is instructed to show this verbatim). Pass the id returned by `start_briefs_run` (`batch_id` for stateful, `job_id` for stateless); the stateful tool also accepts the `window_start` / `window_end` to disambiguate the exact run.
+
+#### `get_bullets` / `get_narratives` (stateful only)
+
+Read-only retrieval that never triggers a run, backed by the database:
+
+- `get_bullets(entity_ids=None, max_runs=1)`: published bullets per entity (defaults to the latest run; pass `None` for all runs).
+- `get_narratives(entity_ids=None, universe=None, from_date=None, to_date=None)`: editorial narratives per entity, optionally filtered by date range.
+
+---
+
+## Part 3: The API
 
 Use the API directly when you want to run the pipeline for entities or universes outside of `my_portfolio`.
 
@@ -212,9 +330,22 @@ All endpoints live under **`http://localhost:8000/api/v1/`**.
 
 ### Run the pipeline
 
-#### `POST /api/v1/batch/run-parallel`
+#### Run Parallel
 
-Submits a list of entity IDs (or a named universe) to the pipeline. All entities run concurrently up to the configured worker pool size. Returns a single **batch_id** to monitor progress.
+`POST /api/v1/batch/run-parallel` runs the pipeline for a set of entities concurrently (up to the worker pool size) and returns a single **batch_id** to monitor progress.
+
+**Target** the entities in one of three ways:
+
+- **`entity_ids`** — a list of specific entities, e.g. `["0157B1", "D64C6D"]`.
+- **`universe`** — a named universe, e.g. `"dow_30"` or `"my_portfolio"`.
+- **Neither** — omit both to run every entity in the database.
+
+Set the **window** in one of two ways:
+
+- **Explicit window** — pass `force_window_start` and `force_window_end` for a specific period. One day is ideal; wider windows degrade quality and cost (see [Tuning](#tuning-sources-window-and-throughput)).
+- **Automatic (`window_mode`)** — when no forced dates are given, the start is computed from the entity's run history (the end is always now):
+  - `continuous` (default) — resume exactly where the previous run ended, with no gaps (the first run falls back to UTC midnight of the current day).
+  - `update` — cover the trailing 24 hours (72 on Mondays, UTC), resuming from the previous run with no overlap. Self-initializing and ideal for daily monitoring.
 
 **Request body parameters:**
 
@@ -252,9 +383,9 @@ curl -X POST http://localhost:8000/api/v1/batch/run-parallel \
   }'
 ```
 
-#### `POST /api/v1/scan`
+#### Scan: build a historical record
 
-Builds or backfills a historical record for a portfolio. Takes a single `entity_id` or a `universe` plus a date range, splits the range into windows, and processes them sequentially, producing a separate brief per window. For each entity the effective start is resolved from the last completed run, so re-running over an already-covered range is safe: windows that already have a run are skipped. For multi-day ranges, prefer `scan` over `run-parallel` (which is best used one day at a time).
+`POST /api/v1/scan` builds or backfills a historical record for a portfolio. Takes a single `entity_id` or a `universe` plus a date range, splits the range into windows, and processes them sequentially, producing a separate brief per window. For each entity the effective start is resolved from the last completed run, so re-running over an already-covered range is safe: windows that already have a run are skipped. For multi-day ranges, prefer `scan` over `run-parallel` (which is best used one day at a time).
 
 **Request body parameters:**
 
@@ -544,124 +675,6 @@ For briefs across large portfolios (hundreds of companies), see the [Large-Scale
 - export results to JSON and Excel
 
 It is well suited to portfolio managers and analysts monitoring many companies at once, and shows how to organize batch processing for scheduling across time zones or running concurrent service instances.
-
----
-
-## Part 3: MCP
-
-Bigdata Briefs ships two [Model Context Protocol](https://modelcontextprotocol.io) servers so an AI assistant (such as Claude) can run briefs and read results through tools, in natural language. Both speak MCP over **stdio**.
-
-A typical exchange: the user asks *"brief me on Apple and Microsoft for yesterday"*; the assistant calls `start_briefs_run`, gets back a job/batch id and an ETA, waits, then calls `get_run_results` to fetch the bullets and narratives and shows them verbatim.
-
-### Which server to use
-
-| | `briefs-mcp` (stateful) | `briefs-mcp-stateless` |
-|---|---|---|
-| Backing | Thin HTTP client to a **running** REST service + database | Runs the pipeline **in-process**, no service, no database |
-| Start the app first? | Yes (Part 1 / Part 2) | No |
-| Results persist | Yes, in the database | No, held in memory (evicted ~10 min after completion) |
-| `my_portfolio` | Available | Not available (no DB), pass `entity_ids` instead |
-| Tools | `start_briefs_run`, `get_run_results`, `get_bullets`, `get_narratives` | `start_briefs_run`, `get_run_results` |
-| Best for | A shared/long-lived deployment you also browse in the web app | A self-contained, single-user setup with nothing else to run |
-
-Both are declared as console scripts in `pyproject.toml`:
-
-```
-briefs-mcp            = bigdata_briefs.mcp_server:main
-briefs-mcp-stateless  = bigdata_briefs.mcp_server_stateless:main
-```
-
-### Stateful server (`briefs-mcp`)
-
-This server makes HTTP calls to a running Bigdata Briefs service, so start the app first (see [Quickstart](#quickstart)), then point the MCP server at it.
-
-**Configuration (env vars or `.env`):**
-
-| Variable | Description | Default |
-|---|---|---|
-| `BRIEFS_API_URL` | Base URL of the running briefs app | `http://localhost:8000` |
-| `BRIEFS_API_KEY` | Pipeline API key, sent as `X-Api-Key`. Required when the server runs with `PUBLIC_MODE` on. | (empty) |
-
-**Register it with an MCP client** (e.g. Claude Desktop / Claude Code `mcp.json`):
-
-```json
-{
-  "mcpServers": {
-    "briefs": {
-      "command": "uv",
-      "args": ["run", "briefs-mcp"],
-      "env": {
-        "BRIEFS_API_URL": "http://localhost:8000",
-        "BRIEFS_API_KEY": "your-secret-key"
-      }
-    }
-  }
-}
-```
-
-### Stateless server (`briefs-mcp-stateless`)
-
-This server has **no separate service and no database**: the long-lived MCP process owns one shared rate limiter and worker pool, and runs the pipeline directly against your own Bigdata key. The intended model is **one MCP process per user**, each with its own keys, so the 450 QPM budget is correct by construction. Results are held in memory and evicted roughly 10 minutes after a job finishes, so fetch them shortly after completion.
-
-**Configuration (env vars or `.env`):**
-
-| Variable | Description |
-|---|---|
-| `BIGDATA_API_KEY` | Bigdata.com API key **(required)** |
-| `OPENAI_API_KEY` | OpenAI API key **(required)** |
-
-**Register it with an MCP client:**
-
-```json
-{
-  "mcpServers": {
-    "briefs-stateless": {
-      "command": "uv",
-      "args": ["run", "briefs-mcp-stateless"],
-      "env": {
-        "BIGDATA_API_KEY": "your-bigdata-api-key",
-        "OPENAI_API_KEY": "your-openai-api-key"
-      }
-    }
-  }
-}
-```
-
-### MCP tools reference
-
-Both servers expose `start_briefs_run` and `get_run_results`. They take the same shape but return a `batch_id` (stateful) or a `job_id` (stateless).
-
-#### `start_briefs_run`
-
-Starts the pipeline for a time window and returns immediately with an id and an estimated wait (roughly 2 minutes per entity). It does **not** block until the run finishes.
-
-| Argument | Required | Description |
-|---|---|---|
-| `entity_ids` | one of these | List of `rp_entity_id`s, e.g. `["D8442A", "E09E2B"]`. Mutually exclusive with `universe`. |
-| `universe` | one of these | Named universe, e.g. `"dow_30"` (stateful also accepts `"my_portfolio"`). Mutually exclusive with `entity_ids`. |
-| `window_start` | yes | ISO 8601 UTC datetime, e.g. `"2026-06-08T12:00:00Z"`. |
-| `window_end` | yes | ISO 8601 UTC datetime, e.g. `"2026-06-09T12:00:00Z"`. |
-| `ranking_metric` | no | *Stateful only.* Generate a portfolio brief after completion, e.g. `"media_attention_momentum"`. |
-| `categories` | no | *Stateless only.* Source categories, e.g. `["news"]`. Defaults to `news`. |
-
-> **Re-runs always work via MCP.** Unlike the REST API (which rejects a window overlapping an
-> already-completed run), the MCP servers always run: the stateful server forces overlap
-> (`force_overlap=true`), and the stateless server keeps no history to overlap with. You can
-> re-run the same window at any time.
-
-> **Default source category is `news`.** The stateful tool does not expose `categories`, so it
-> always runs on `news`; the stateless tool accepts `categories` but also defaults to `news`.
-
-#### `get_run_results`
-
-Poll for status. While the run is in progress it returns entity counts; once complete it returns the bullets and narratives for each entity (the assistant is instructed to show this verbatim). Pass the id returned by `start_briefs_run` (`batch_id` for stateful, `job_id` for stateless); the stateful tool also accepts the `window_start` / `window_end` to disambiguate the exact run.
-
-#### `get_bullets` / `get_narratives` (stateful only)
-
-Read-only retrieval that never triggers a run, backed by the database:
-
-- `get_bullets(entity_ids=None, max_runs=1)`: published bullets per entity (defaults to the latest run; pass `None` for all runs).
-- `get_narratives(entity_ids=None, universe=None, from_date=None, to_date=None)`: editorial narratives per entity, optionally filtered by date range.
 
 ---
 
