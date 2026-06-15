@@ -32,6 +32,7 @@ All three run the **same pipeline**. The web app and MCP (stateful server) are j
   - [Universes](#universes)
   - [My portfolio (API)](#my-portfolio-api)
   - [Utilities](#utilities)
+  - [Large-scale portfolio generation](#large-scale-portfolio-generation)
 - [Part 3: MCP](#part-3-mcp)
   - [Which server to use](#which-server-to-use)
   - [Stateful server (briefs-mcp)](#stateful-server-briefs-mcp)
@@ -294,6 +295,14 @@ curl -X POST http://localhost:8000/api/v1/scan \
   -d '{"universe": "dow_30", "start_date": "2026-04-01"}'
 ```
 
+#### Tuning: sources, window, and throughput
+
+**Source selection.** `categories` accepts `news` (default) and `news_premium`. Premium sources are cleaner: fewer bullets per run, a higher share passing the relevance/novelty filters, and lower cost per published bullet. General news raises recall for thinly-covered entities but adds noise, more discards, and higher compute/grounding cost per published bullet, with diminishing returns for entities already well covered by premium.
+
+**Date window.** A 24-hour window is the recommended baseline. Wider windows degrade on four axes: prompt size (larger prompts risk hitting context limits), search coverage (each query has a result cap, so some developments are missed), cost (roughly proportional to news volume), and temporal coherence (multi-week windows mix different states of a developing situation). Per-run cost also falls naturally over time as the embedding novelty check catches more repeats early.
+
+**Throughput / rate limits.** Parallel entities share two process-wide limits: a **450 QPM** cap on Bigdata calls (enforced by a token bucket) and a connection semaphore capping concurrent in-flight Bigdata requests to **40** (`API_SIMULTANEOUS_REQUESTS`). OpenAI calls are throttled indirectly by `MAX_CONCURRENT_ENTITIES` (default 10). For universe-scale runs the throughput ceiling is roughly the QPM budget divided by the average search calls per entity per day; raise it by running multiple service instances with separate Bigdata API keys, each with its own 450 QPM budget.
+
 ---
 
 ### Monitor a batch
@@ -522,6 +531,19 @@ curl -X POST http://localhost:8000/api/v1/utilities/delete-date \
   -H "Content-Type: application/json" \
   -d '{"date": "2026-04-22"}'
 ```
+
+---
+
+### Large-scale portfolio generation
+
+For briefs across large portfolios (hundreds of companies), see the [Large-Scale Portfolio Briefs Generation](https://github.com/Bigdata-com/bigdata-cookbook/blob/large-brief-v2/Briefs_Generation_Large_Scale/portfolio_briefs_generation_v2.ipynb) notebook in the bigdata-cookbook repository. It drives this service's API programmatically and demonstrates how to:
+
+- process large numbers of companies in configurable batches
+- load company identifiers from CSV files
+- monitor batch processing with status polling
+- export results to JSON and Excel
+
+It is well suited to portfolio managers and analysts monitoring many companies at once, and shows how to organize batch processing for scheduling across time zones or running concurrent service instances.
 
 ---
 
