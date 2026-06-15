@@ -37,7 +37,9 @@ COPY --chown=bigdata:bigdata crontab ./crontab
 COPY --chown=bigdata:bigdata start.sh ./start.sh
 COPY --chown=bigdata:bigdata run_daily.sh ./run_daily.sh
 
-RUN chmod +x /code/start.sh /code/run_daily.sh
+# Strip any CR (\r) so scripts checked out on Windows (CRLF) still exec in the Linux container
+RUN sed -i 's/\r$//' /code/start.sh /code/run_daily.sh /code/crontab \
+    && chmod +x /code/start.sh /code/run_daily.sh
 
 RUN uv sync --no-dev
 
