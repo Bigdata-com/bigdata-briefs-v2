@@ -112,6 +112,52 @@ class TestSaveNovelBulletPoints:
         assert stored[0].embedding_decision == "rewrite"
         assert stored[0].search_action == "keep"
 
+    def _store_with_search_verdict(self, *, verdict, overall_verdict):
+        deps = make_deps()
+        rec = bullet_to_record(make_bullet(is_active=True))
+        rec.novelty_search = NoveltySearchBlock(
+            search=SearchNoveltyMetadata(
+                verdict=verdict,
+                rewritten_text=None,
+                duration_seconds=0.1,
+                overall_verdict=overall_verdict,
+            )
+        )
+        state = _state(bullet_points=[record_to_bullet(rec)])
+        save_novel_bullet_points(state, make_config(deps))
+        return deps.generated_bullet_storage.store.call_args[0][0]
+
+    def test_fully_novel_when_verdict_novel(self):
+        stored = self._store_with_search_verdict(verdict="keep", overall_verdict="novel")
+        assert stored[0].is_fully_novel is True
+
+    def test_not_fully_novel_for_novel_with_context(self):
+        # novel_with_context is rewritten (search_action="rewrite"), so the flag must
+        # key on overall_verdict, not on a (never-true) search_action=="keep" gate.
+        stored = self._store_with_search_verdict(
+            verdict="rewrite", overall_verdict="novel_with_context"
+        )
+        assert stored[0].is_fully_novel is False
+
+    def test_not_fully_novel_for_partial_update_with_context(self):
+        stored = self._store_with_search_verdict(
+            verdict="rewrite", overall_verdict="partial_update_with_context"
+        )
+        assert stored[0].is_fully_novel is False
+
+    def test_not_fully_novel_for_multi_partial_update(self):
+        stored = self._store_with_search_verdict(
+            verdict="rewrite", overall_verdict="multi_partial_update"
+        )
+        assert stored[0].is_fully_novel is False
+
+    def test_fully_novel_for_partial_update(self):
+        # partial_update is rewritten but the result is fully novel material.
+        stored = self._store_with_search_verdict(
+            verdict="rewrite", overall_verdict="partial_update"
+        )
+        assert stored[0].is_fully_novel is True
+
     def test_decisions_are_none_when_no_novelty_metadata(self):
         deps = make_deps()
         bp = make_bullet(is_active=True)
