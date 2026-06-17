@@ -676,7 +676,9 @@ def _convert_bp(bp: dict, source_refs: dict) -> dict:
     search_action = s.get("verdict")
     is_active = bp.get("is_active", True)
     overall_verdict = s.get("overall_verdict")
-    is_fully_novel = not (is_active and overall_verdict in ("novel_with_context", "partial_update_with_context", "multi_partial_update"))
+    # Fully novel only when the bullet was published as-is (verdict "keep").
+    # Any rewrite means part of the content restated already-known information.
+    is_fully_novel = not (is_active and search_action == "rewrite")
 
     ne_rewrite = (ne.get("rewrite") or {}).get("text_after")
     search_rewrite = s.get("rewritten_text")

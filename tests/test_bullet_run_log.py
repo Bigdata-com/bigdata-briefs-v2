@@ -222,6 +222,8 @@ def test_flush_discarded_novelty_embedding(engine):
 def test_flush_is_fully_novel(engine):
     run_id = uuid.uuid4()
     bp = _make_active_bp("amber")
+    # Any rewrite → not fully novel, regardless of overall_verdict.
+    bp["novelty_search"]["search"]["verdict"] = "rewrite"
     bp["novelty_search"]["search"]["overall_verdict"] = "novel_with_context"
     _flush_bullet_run_log(engine, run_id, "E1", {"bullet_points": [bp]})
 

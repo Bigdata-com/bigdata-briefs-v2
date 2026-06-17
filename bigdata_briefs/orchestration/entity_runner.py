@@ -463,9 +463,10 @@ def _flush_bullet_run_log(eng: Engine, run_id: uuid.UUID, entity_id: str, final_
         j = ne.get("judgment") or {}
 
         overall_verdict = s.get("overall_verdict")
-        # mixed / partial_update_with_context / multi_partial_update: rewritten with known context → amber
-        # novel_noisy / partial_update: result is fully novel after rewrite → green
-        is_fully_novel = not (is_active and overall_verdict in ("novel_with_context", "partial_update_with_context", "multi_partial_update"))
+        # Fully novel only when the bullet was published as-is (verdict "keep",
+        # i.e. overall_verdict "novel"). Any rewrite means part of the content
+        # restated already-known information → not fully novel (amber).
+        is_fully_novel = not (is_active and s.get("verdict") == "rewrite")
 
         ne_rewrite = (ne.get("rewrite") or {}).get("text_after")
         search_rewrite = s.get("rewritten_text")

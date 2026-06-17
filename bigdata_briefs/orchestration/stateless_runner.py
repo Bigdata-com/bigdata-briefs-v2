@@ -210,12 +210,9 @@ def _build_entity_report(entity: Entity, final_state: dict) -> dict:
                 text=bp.get("text") or "",
                 citations=citations,
                 search_action=verdict,
-                # Fully novel unless kept with a mixed claim-level verdict
-                # (at least one claim already known in the evidence).
-                is_fully_novel=not (
-                    verdict == "keep"
-                    and search.get("overall_verdict") == "novel_with_context"
-                ),
+                # Fully novel only when published as-is (verdict "keep"). Any
+                # rewrite means part of the content restated already-known info.
+                is_fully_novel=verdict != "rewrite",
             )
         )
 

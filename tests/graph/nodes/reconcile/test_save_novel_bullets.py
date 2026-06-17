@@ -131,32 +131,20 @@ class TestSaveNovelBulletPoints:
         stored = self._store_with_search_verdict(verdict="keep", overall_verdict="novel")
         assert stored[0].is_fully_novel is True
 
-    def test_not_fully_novel_for_novel_with_context(self):
-        # novel_with_context is rewritten (search_action="rewrite"), so the flag must
-        # key on overall_verdict, not on a (never-true) search_action=="keep" gate.
-        stored = self._store_with_search_verdict(
-            verdict="rewrite", overall_verdict="novel_with_context"
-        )
-        assert stored[0].is_fully_novel is False
-
-    def test_not_fully_novel_for_partial_update_with_context(self):
-        stored = self._store_with_search_verdict(
-            verdict="rewrite", overall_verdict="partial_update_with_context"
-        )
-        assert stored[0].is_fully_novel is False
-
-    def test_not_fully_novel_for_multi_partial_update(self):
-        stored = self._store_with_search_verdict(
-            verdict="rewrite", overall_verdict="multi_partial_update"
-        )
-        assert stored[0].is_fully_novel is False
-
-    def test_fully_novel_for_partial_update(self):
-        # partial_update is rewritten but the result is fully novel material.
-        stored = self._store_with_search_verdict(
-            verdict="rewrite", overall_verdict="partial_update"
-        )
-        assert stored[0].is_fully_novel is True
+    def test_not_fully_novel_when_rewritten(self):
+        # Any rewrite (regardless of overall_verdict) means part of the content
+        # restated already-known information → not fully novel.
+        for verdict in (
+            "novel_with_context",
+            "partial_update_with_context",
+            "multi_partial_update",
+            "partial_update",
+            "novel_noisy",
+        ):
+            stored = self._store_with_search_verdict(
+                verdict="rewrite", overall_verdict=verdict
+            )
+            assert stored[0].is_fully_novel is False, verdict
 
     def test_decisions_are_none_when_no_novelty_metadata(self):
         deps = make_deps()

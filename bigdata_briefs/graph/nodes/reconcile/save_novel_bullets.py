@@ -88,16 +88,11 @@ def save_novel_bullet_points(
         is_fully_novel = True
         if record.novelty_search and record.novelty_search.search:
             search_action = record.novelty_search.search.verdict
-            # Not fully novel when the bullet carries genuinely new material but also
-            # restates something already reported (mixed claim novelty): the search step
-            # rewrote it with the known part as context. Keyed on overall_verdict alone —
-            # all three "with_context" verdicts imply a rewrite (search_action="rewrite"),
-            # so this must not be gated on search_action. Mirrors entity_runner / ui.
-            is_fully_novel = record.novelty_search.search.overall_verdict not in (
-                "novel_with_context",
-                "partial_update_with_context",
-                "multi_partial_update",
-            )
+            # Fully novel only when the bullet was published as-is (verdict "keep",
+            # i.e. overall_verdict "novel" — nothing was already known). Any rewrite
+            # means part of the content restated information already reported, so the
+            # bullet is not fully novel. Mirrors entity_runner / ui.
+            is_fully_novel = search_action != "rewrite"
 
         # Resolve citation IDs → {id, headline, text} using source_references.
         # Every ID should be resolvable (grounding already removed invalid refs),
