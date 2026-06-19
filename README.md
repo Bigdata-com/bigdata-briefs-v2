@@ -29,6 +29,8 @@ All three run the **same pipeline**. The web app and MCP (stateful server) are j
   - [Stateful server (briefs-mcp)](#stateful-server-briefs-mcp)
   - [Stateless server (briefs-mcp-stateless)](#stateless-server-briefs-mcp-stateless)
   - [MCP tools reference](#mcp-tools-reference)
+  - [Result format](#result-format)
+  - [Time zones](#time-zones)
 - [Part 3: The API](#part-3-the-api)
   - [Run the pipeline](#run-the-pipeline)
   - [Monitor a batch](#monitor-a-batch)
@@ -212,15 +214,19 @@ To change the schedule, edit `crontab` (standard cron expression). To change the
 
 Bigdata Briefs ships two [Model Context Protocol](https://modelcontextprotocol.io) servers so an AI assistant (such as Claude) can run briefs and read results through tools, in natural language. Both speak MCP over **stdio**.
 
-A typical exchange: the user asks *"brief me on Apple and Microsoft for yesterday"*; the assistant calls `start_briefs_run`, gets back a job/batch id and an ETA, waits, then calls `get_run_results` to fetch the bullets and narratives and shows them verbatim.
+A typical exchange: the user asks *"brief me on Apple and Microsoft for yesterday"*; the assistant calls `start_briefs_run`, which returns immediately with a job/batch id and an ETA (roughly 2 minutes per entity). The assistant tells the user to check back, then calls `get_run_results` to fetch the bullets and narratives and shows them verbatim. While a run is still in progress, `get_run_results` reports per-entity progress through the pipeline phases (`search`, `bullet_generation`, `grounding`, `novelty`, `finalizing`, `done`).
 
 ### Which server to use
 
 | | `briefs-mcp` (stateful) | `briefs-mcp-stateless` |
 |---|---|---|
 | Backing | Thin HTTP client to a **running** REST service + database | Runs the pipeline **in-process**, no service, no database |
-| Results persist | Yes, in the database | No, held in memory (evicted ~10 min after completion) |
+| Results persist | Yes, in the database (re-readable any time) | No, held in memory (evicted ~10 min after completion) |
+| Novelty | Search + embedding history across past runs | Search only (no past-run history) |
+| Result identifier | `batch_id` | `job_id` |
 | Tools | `start_briefs_run`, `get_run_results`, `get_bullets`, `get_narratives` | `start_briefs_run`, `get_run_results` |
+| `my_portfolio` | Available (DB-backed) | Not available (pass explicit `entity_ids`) |
+| Narratives / portfolio brief | Yes | No |
 | Best for | A shared/long-lived deployment you also browse in the web app | A self-contained, single-user setup with nothing else to run |
 
 Both are declared as console scripts in `pyproject.toml`:
@@ -248,7 +254,7 @@ This server makes HTTP calls to a running Bigdata Briefs service, so start the a
   "mcpServers": {
     "briefs": {
       "command": "uv",
-      "args": ["run", "briefs-mcp"],
+      "args": ["--directory", "/absolute/path/to/bigdata-briefs-v2", "run", "briefs-mcp"],
       "env": {
         "BRIEFS_API_URL": "http://localhost:8000",
         "BRIEFS_API_KEY": "your-secret-key"
@@ -257,6 +263,8 @@ This server makes HTTP calls to a running Bigdata Briefs service, so start the a
   }
 }
 ```
+
+> Set `--directory` (in both configs) to the absolute path of your cloned repo (run `pwd` inside it) so the MCP client can launch `uv` from any working directory.
 
 ### Stateless server (`briefs-mcp-stateless`)
 
@@ -276,7 +284,7 @@ This server has **no separate service and no database**: the long-lived MCP proc
   "mcpServers": {
     "briefs-stateless": {
       "command": "uv",
-      "args": ["run", "briefs-mcp-stateless"],
+      "args": ["--directory", "/absolute/path/to/bigdata-briefs-v2", "run", "briefs-mcp-stateless"],
       "env": {
         "BIGDATA_API_KEY": "your-bigdata-api-key",
         "OPENAI_API_KEY": "your-openai-api-key"
@@ -297,17 +305,19 @@ Starts the pipeline for a time window and returns immediately with an id and an 
 | Argument | Required | Description |
 |---|---|---|
 | `entity_ids` | one of these | List of `rp_entity_id`s, e.g. `["D8442A", "E09E2B"]`. Mutually exclusive with `universe`. |
-| `universe` | one of these | Named universe, e.g. `"dow_30"`. Mutually exclusive with `entity_ids`. |
+| `universe` | one of these | Named universe, e.g. `"dow_30"`. Mutually exclusive with `entity_ids`. Stateless accepts the CSV universes only (`dow_30`, `eurostoxx_50`, `top_us_10/100/500`, `top_eu_100/500`); `my_portfolio` is stateful-only. |
 | `window_start` | yes | ISO 8601 UTC datetime, e.g. `"2026-06-08T12:00:00Z"`. |
 | `window_end` | yes | ISO 8601 UTC datetime, e.g. `"2026-06-09T12:00:00Z"`. |
+| `categories` | no | **Stateless only.** Source categories, e.g. `["news"]`. Defaults to `news`. |
+| `ranking_metric` | no | **Stateful only.** Generates a portfolio brief for the top 5 companies after completion, e.g. `"media_attention_momentum"`. |
 
 > **Re-runs always work via MCP.** Unlike the REST API (which rejects a window overlapping an
 > already-completed run), the MCP servers always run: the stateful server forces overlap
 > (`force_overlap=true`), and the stateless server keeps no history to overlap with. You can
 > re-run the same window at any time.
 
-> **Default source category is `news`.** The stateful tool does not expose `categories`, so it
-> always runs on `news`; the stateless tool accepts `categories` but also defaults to `news`.
+> **Both default to `news`.** The stateful tool does not expose `categories` at all, so it always
+> runs on `news`; the stateless tool's `categories` argument also defaults to `news`.
 
 #### `get_run_results`
 
@@ -319,6 +329,50 @@ Read-only retrieval that never triggers a run, backed by the database:
 
 - `get_bullets(entity_ids=None, max_runs=1)`: published bullets per entity (defaults to the latest run; pass `None` for all runs).
 - `get_narratives(entity_ids=None, universe=None, from_date=None, to_date=None)`: editorial narratives per entity, optionally filtered by date range.
+
+### Result format
+
+When a run completes, both servers return the briefs prefixed with a verbatim marker and instruct the assistant to show the content exactly as returned, without rephrasing, translating, or summarizing. Each bullet lists up to 3 sources.
+
+The **stateless** server reports `material developments` and tags any bullet that is not fully novel (`is_fully_novel=false`, meaning at least one of its claims was already covered by earlier evidence) with `[partial update]`:
+
+```
+[VERBATIM CONTENT - copy exactly as shown, do not rephrase, translate or summarize]
+Completed — 2 succeeded, 0 failed
+============================================================
+Apple Inc. (D8442A)
+3 material developments, 7 discarded
+1. Apple raised its FY guidance...
+   - Reuters - Apple lifts outlook (https://example.com/...)
+2. Services hit record revenue...  [partial update]
+   - Bloomberg - Apple Services record (https://example.com/...)
+```
+
+The **stateful** server reports `bullets saved` and adds the run window and the editorial narrative for each entity:
+
+```
+Completed — 2 succeeded, 0 failed
+============================================================
+Visa Inc. (93D207)
+Window: 2026-06-04T12:00:00 -> 2026-06-05T12:00:00
+4 bullets saved, 11 discarded
+
+Narrative:
+Visa teams with Brale to pilot stablecoin settlements...
+
+Bullets:
+1. Visa Inc. announced a collaboration with Brale...
+   - Visa and Brale Explore Private Stablecoin Settlement (https://investor.visa.com/...)
+```
+
+### Time zones
+
+Window arguments are always ISO 8601 **UTC**, so convert local times before passing them. For US Eastern Time:
+
+| Time zone | UTC offset | Example |
+|---|---|---|
+| ET (summer, EDT) | UTC-4 | 8:00 AM EDT = `12:00:00Z` |
+| ET (winter, EST) | UTC-5 | 8:00 AM EST = `13:00:00Z` |
 
 ---
 
