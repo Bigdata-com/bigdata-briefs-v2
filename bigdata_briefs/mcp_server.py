@@ -17,6 +17,8 @@ import requests
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
+from bigdata_briefs.settings import settings
+
 load_dotenv()
 
 mcp = FastMCP("briefs")
@@ -144,7 +146,10 @@ def start_briefs_run(
     batch = _api("POST", "batch/run-parallel", json=run_body)
     batch_id: str = batch["batch_id"]
     total: int = batch.get("total", 1)
-    eta_minutes = total * _MINUTES_PER_ENTITY
+    # Entities run up to MAX_CONCURRENT_ENTITIES in parallel, so the wall-clock
+    # ETA is wave-based (matches the stateless server), not linear in `total`.
+    waves = (total + settings.MAX_CONCURRENT_ENTITIES - 1) // settings.MAX_CONCURRENT_ENTITIES
+    eta_minutes = waves * _MINUTES_PER_ENTITY
 
     return (
         f"Run started.\n"

@@ -214,7 +214,7 @@ To change the schedule, edit `crontab` (standard cron expression). To change the
 
 Bigdata Briefs ships two [Model Context Protocol](https://modelcontextprotocol.io) servers so an AI assistant (such as Claude) can run briefs and read results through tools, in natural language. Both speak MCP over **stdio**.
 
-A typical exchange: the user asks *"brief me on Apple and Microsoft for yesterday"*; the assistant calls `start_briefs_run`, which returns immediately with a job/batch id and an ETA (roughly 2 minutes per entity). The assistant tells the user to check back, then calls `get_run_results` to fetch the bullets and narratives and shows them verbatim. While a run is still in progress, `get_run_results` reports per-entity progress through the pipeline phases (`search`, `bullet_generation`, `grounding`, `novelty`, `finalizing`, `done`).
+A typical exchange: the user asks *"brief me on Apple and Microsoft for yesterday"*; the assistant calls `start_briefs_run`, which returns immediately with a job/batch id and an ETA (each company takes up to ~2 minutes, with up to 10 running in parallel, so roughly 2 minutes per group of 10). The assistant tells the user to check back, then calls `get_run_results` to fetch the bullets and narratives and shows them verbatim. While a run is still in progress, `get_run_results` reports per-entity progress through the pipeline phases (`search`, `bullet_generation`, `grounding`, `novelty`, `finalizing`, `done`).
 
 ### Which server to use
 
@@ -300,7 +300,7 @@ Both servers expose `start_briefs_run` and `get_run_results`. They take the same
 
 #### `start_briefs_run`
 
-Starts the pipeline for a time window and returns immediately with an id and an estimated wait (roughly 2 minutes per entity). It does **not** block until the run finishes.
+Starts the pipeline for a time window and returns immediately with an id and an estimated wait. Each company takes up to ~2 minutes, and up to 10 companies run concurrently (`MAX_CONCURRENT_ENTITIES`), so the wall-clock time is roughly 2 minutes per group of 10. It does **not** block until the run finishes.
 
 | Argument | Required | Description |
 |---|---|---|
