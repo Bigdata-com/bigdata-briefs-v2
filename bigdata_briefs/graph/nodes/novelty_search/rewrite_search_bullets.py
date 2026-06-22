@@ -1,10 +1,10 @@
 """
 Node: novelty_search_rewrite
 
-Decide keep/rewrite/discard per ogni bullet attivo.
-Scrive il risultato finale in state (NoveltySearchBlock.search).
-Applica il verdetto (deattiva/aggiorna testo).
-Svuota deps._search_cache alla fine.
+Decides keep/rewrite/discard for each active bullet.
+Writes the final result to state (NoveltySearchBlock.search).
+Applies the verdict (deactivates/updates the text).
+Clears deps._search_cache at the end.
 
 Service type: llm
 """

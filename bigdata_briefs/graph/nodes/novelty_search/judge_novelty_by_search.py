@@ -1,9 +1,9 @@
 """
 Node: novelty_search_judgment
 
-Valuta la novelty di ogni claim per ogni bullet attivo.
-Un LLM call per claim (seriale nel thread). ThreadPoolExecutor per i bullet.
-Risultati → deps._search_cache[trace_id] (chiave "claim_verdicts", "overall_verdict").
+Evaluates the novelty of each claim for each active bullet.
+One LLM call per claim (serial within the thread). ThreadPoolExecutor for the bullets.
+Results → deps._search_cache[trace_id] (keys "claim_verdicts", "overall_verdict").
 
 Service type: llm
 """

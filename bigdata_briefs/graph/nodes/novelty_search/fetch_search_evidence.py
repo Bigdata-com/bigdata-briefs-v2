@@ -1,9 +1,9 @@
 """
 Node: novelty_search_fetch
 
-Esegue la Bigdata.com search per ogni bullet attivo.
-asyncio.run() per thread — event loop fresco per ogni worker thread.
-Risultati → deps._search_cache[trace_id] (chiave "results_per_part", "merged_results").
+Runs the Bigdata.com search for each active bullet.
+asyncio.run() per thread - a fresh event loop for each worker thread.
+Results → deps._search_cache[trace_id] (keys "results_per_part", "merged_results").
 
 Service type: search
 """
