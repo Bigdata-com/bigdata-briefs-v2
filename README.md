@@ -2,6 +2,8 @@
 
 A LangGraph pipeline that generates structured, novelty-filtered brief reports for a universe of companies. For each entity and date window, the service retrieves news evidence from the Bigdata API, extracts material bullet points, and filters them for relevance and novelty before writing them to the database. Results are exposed through a web app, a REST API, and an MCP server.
 
+> **Want to see it first?** A read-only demo instance is hosted at **[the-brief.labs.bigdata.com/app/desk/](https://the-brief.labs.bigdata.com/app/desk/)** — real companies, real briefs, updated daily. It is just a preview of the app; to use it on your own data, follow the setup below and run your own instance.
+
 ## Three ways to use it
 
 The same pipeline is reachable through three front doors. Pick the one that fits how you work:
@@ -67,7 +69,7 @@ For a detailed description of each phase, see the [pipeline reference guide](htt
 
 ## Part 1: The App
 
-The app is a read-and-run desk available at **`http://localhost:8000/app/desk/`**. It is built around **My Portfolio**: a custom list of companies you configure once and then monitor daily. The main navigation has three sections: **The Brief**, **My Portfolio**, and **Costs**.
+The app is a read-and-run desk. Once you run your own instance (see [Quickstart](#quickstart)) it is available at **`http://localhost:8000/app/desk/`**. It is built around **My Portfolio**: a custom list of companies you configure once and then monitor daily. The main navigation has three sections: **The Brief**, **My Portfolio**, and **Costs**.
 
 ### Prerequisites
 
