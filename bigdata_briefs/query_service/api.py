@@ -53,6 +53,9 @@ def _get_date_range_from_payload(payload: dict) -> str:
 MAX_REQUESTS_PER_MINUTE = (
     460  # Backend rate limit (500 max, using 460 for maximum safety margin)
 )
+
+# All selectable source categories for the UI category filter
+AVAILABLE_SOURCE_CATEGORIES: list[str] = ["news", "news_premium"]
 REFRESH_FREQUENCY_RATE_LIMIT = 5  # Time in seconds to pro-rate the rate limiter, lower values = smoother requests, more overhead
 TIME_BEFORE_RETRY_RATE_LIMITER = 1.0  # Time in seconds before retrying the request
 
@@ -286,6 +289,7 @@ class APIQueryService(BaseQueryService):
             rerank_threshold=rerank_threshold,
             source_rank_boost=source_rank_boost,
             freshness_boost=freshness_boost,
+            search_mode="fast",
         )
 
         step_name = f"exploratory_{topic_index}" if topic_index is not None else "exploratory"
@@ -320,24 +324,19 @@ class APIQueryService(BaseQueryService):
     def run_exploratory_search(
         self,
         entity: Entity,
-        topics: list[str],
         report_dates: ReportDates,
         executor: ThreadPoolExecutor,
         source_filter: list[str] | None = None,
         categories: list[str] | None = None,
         sentiment_threshold: float | None = settings.EXPLORATORY_SENTIMENT_THRESHOLD,
         chunk_limit: int | None = settings.API_CHUNKS_LIMIT_EXPLORATORY,
-        use_topics: bool = True,
         rerank_threshold: float | None = settings.API_RERANK_EXPLORATORY,
         source_rank_boost: int | None = settings.API_SOURCE_RANK_BOOST,
         freshness_boost: int | None = settings.API_FRESHNESS_BOOST,
         debug_logger: "DebugLogger | None" = None,
     ) -> list[Result]:
-        # Concept workflow: single query with 10x chunk_limit
-        increased_chunk_limit = chunk_limit * 10 if chunk_limit else 150
         logger.info(
-            f"Concept workflow for {entity.name}: "
-            f"single query with chunk_limit={increased_chunk_limit}"
+            f"Exploratory search for {entity.name}: chunk_limit={chunk_limit}"
         )
         return self._run_single_exploratory_search(
             entity_id=entity.id,
@@ -345,7 +344,7 @@ class APIQueryService(BaseQueryService):
             source_filter=source_filter,
             categories=categories,
             sentiment_threshold=sentiment_threshold,
-            chunk_limit=increased_chunk_limit,
+            chunk_limit=chunk_limit,
             rerank_threshold=rerank_threshold,
             source_rank_boost=source_rank_boost,
             freshness_boost=freshness_boost,
@@ -387,6 +386,7 @@ class APIQueryService(BaseQueryService):
             source_rank_boost=source_rank_boost,
             freshness_boost=freshness_boost,
             headline_search=headline_search,
+            search_mode="fast",
         )
 
         # Build step name with theme and concept for better debug logging
@@ -1077,6 +1077,7 @@ def build_query(
     source_rank_boost: int | None,
     freshness_boost: int | None,
     headline_search: bool = False,
+    search_mode: str | None = None,
 ) -> dict:
     if source_rank_boost is None:
         source_rank_boost = settings.API_SOURCE_RANK_BOOST
@@ -1122,6 +1123,8 @@ def build_query(
             ]
         }
 
+    query["ranking_params"]["content_diversification"] = {"enabled": False}
+
     if rerank_threshold is None:
         query["ranking_params"]["reranker"] = {"enabled": False}
     else:
@@ -1141,4 +1144,7 @@ def build_query(
             "values": categories,
         }
 
-    return {"query": query}
+    result: dict = {"query": query}
+    if search_mode:
+        result["search_mode"] = search_mode
+    return result

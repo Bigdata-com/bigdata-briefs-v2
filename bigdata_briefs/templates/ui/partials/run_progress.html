@@ -1,0 +1,39 @@
+<div
+  id="run-progress"
+  hx-get="/ui/partials/run-status?batch_id={{ batch_id }}"
+  hx-trigger="every 3s"
+  hx-target="this"
+  hx-swap="outerHTML"
+>
+  <div class="card">
+    <div class="card-body">
+      <div class="progress-wrap">
+        <div class="progress-label">
+          {% if done == 0 %}
+            Starting…
+          {% elif done == total %}
+            Finalising…
+          {% else %}
+            {{ done }} of {{ total }} completed
+          {% endif %}
+        </div>
+        <div class="progress-bar-bg">
+          <div
+            class="progress-bar-fill"
+            style="width:{{ (done / total * 100) | int if total else 0 }}%"
+          ></div>
+        </div>
+      </div>
+
+      <form
+        hx-post="/ui/batch/stop"
+        hx-target="#run-progress"
+        hx-swap="outerHTML"
+        style="margin-top:.75rem"
+      >
+        <input type="hidden" name="batch_id" value="{{ batch_id }}"/>
+        <button type="submit" class="btn btn-danger btn-sm">Stop</button>
+      </form>
+    </div>
+  </div>
+</div>

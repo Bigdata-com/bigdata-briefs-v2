@@ -24,15 +24,15 @@ class BulletPointEmbedding(BaseModel):
     status_embedding: bool | None = None
     report_window_start: datetime | None = None
     report_window_end: datetime | None = None
-    _is_novel: bool = True
+    _is_fully_novel: bool = True
 
-    def is_novel(self):
+    def is_fully_novel(self):
         if self.novelty is not None:
             return self.novelty
-        return self._is_novel
+        return self._is_fully_novel
 
     def set_novel(self, value: bool):
-        self._is_novel = value
+        self._is_fully_novel = value
         self.novelty = value
 
 
@@ -41,6 +41,8 @@ class CitationDetail(BaseModel):
     id: str           # e.g. "CQS:REF0"
     headline: str     # article / document title
     text: str         # chunk text used as evidence
+    url: str | None = None  # original article URL
+    source_name: str = ""  # publisher name (e.g. "Benzinga", "MT Newswires")
 
 
 class GeneratedBulletPoint(BaseModel):
@@ -65,9 +67,9 @@ class GeneratedBulletPoint(BaseModel):
     citations: list[CitationDetail] | None = None
     embedding_decision: str | None = None  # "keep" | "rewrite" | "discard"
     search_action: str | None = None       # "keep" | "rewrite" | "discard" | None
-    # True when novelty_search verdict=="keep" but overall_verdict=="mixed":
+    # False when novelty_search verdict=="keep" but overall_verdict=="mixed":
     # the bullet passed but at least one of its claims was already known.
-    not_fully_novel: bool = False
+    is_fully_novel: bool = True
 
 
 @dataclass

@@ -260,14 +260,15 @@ class StartEndDate(BaseModel):
     def get_date_phrase_for_prompt(self) -> str:
         """Return a context-aware date phrase for the bullets_generation header.
 
-        Single day  → 'Today is Monday, April 21, 2026'
-        Multi-day   → 'We are analyzing the period from April 21, 2026 to April 22, 2026'
+        Single day  → 'Today is Monday, April 21, 2026 (temporal reference only — do not use this date as bullet content)'
+        Multi-day   → 'We are analyzing the period from ... (temporal reference only ...)'
         """
+        suffix = " (temporal reference only — do not include this date in bullet content unless it appears in a source excerpt)"
         if self.is_single_day():
-            return f"Today is {self.start.strftime('%A, %B %d, %Y')}"
+            return f"Today is {self.start.strftime('%A, %B %d, %Y')}{suffix}"
         return (
             f"We are analyzing the period from {self.get_start_date_formatted()}"
-            f" to {self.get_end_date_formatted()}"
+            f" to {self.get_end_date_formatted()}{suffix}"
         )
 
     def get_start_date_formatted(self) -> str:
@@ -289,6 +290,15 @@ class StartEndDate(BaseModel):
     def get_date_filter_instructions(self, *, indent: str = "      ") -> str:
         start_s = self.get_start_date_formatted()
         end_s = self.get_end_date_formatted()
+        temporal_ref_warning = (
+            "IMPORTANT: the date information above is provided ONLY as a temporal reference "
+            "to help you determine what is recent and what is not. Do NOT use it as a fact "
+            "to include inside a bullet point. The reporting date or fiscal quarter must never "
+            "appear as content in a bullet unless it is explicitly stated in one of the source "
+            "excerpts in <context>. If a source excerpt contains a date or fiscal period, "
+            "you may report it — but only because it comes from the source, not from this "
+            "reference date."
+        )
         undated = (
             "If a fact has no explicit date, exclude it if it appears to describe "
             "a past event rather than a current development. However, if a past event "
@@ -303,6 +313,7 @@ class StartEndDate(BaseModel):
                 f"NEVER present factual data (figures, holdings, prices, results) as of a date "
                 f"after {start_s}. If a source mentions a figure dated after today, report it "
                 "as the most recently known figure rather than attributing it to a future date.",
+                temporal_ref_warning,
                 "Do NOT generate bullets that only describe past events. Each bullet must be anchored "
                 "to a current development. Past facts may be referenced as context within a bullet, "
                 "but the bullet itself must report something new or current.",
@@ -314,6 +325,7 @@ class StartEndDate(BaseModel):
             lines = (
                 f"The reporting period is {start_s} to {end_s}. Only report developments that "
                 "occurred, were disclosed, or are scheduled during this period.",
+                temporal_ref_warning,
                 "Do NOT generate bullets that only describe past events. Each bullet must be anchored "
                 "to a current development within the reporting period. Past facts may be referenced "
                 "as context within a bullet, but the bullet itself must report something new or current.",
@@ -886,11 +898,17 @@ class StepUsage(BaseModel):
     # Cost and token metrics
     llm_cost_usd: float = 0.0
     llm_tokens: int = 0
+    llm_prompt_tokens: int = 0
+    llm_completion_tokens: int = 0
     llm_calls: int = 0
     embedding_cost_usd: float = 0.0
     embedding_tokens: int = 0
     duration_seconds: float = 0.0
     
+    # Bigdata API metrics
+    api_calls: int = 0
+    api_query_units: float = 0.0
+
     # Operational metrics
     chunks_retrieved: int = 0
     bullets_generated: int = 0
@@ -906,6 +924,8 @@ class StepUsage(BaseModel):
         result = {
             "llm_cost_usd": round(self.llm_cost_usd, 6),
             "llm_tokens": self.llm_tokens,
+            "llm_prompt_tokens": self.llm_prompt_tokens,
+            "llm_completion_tokens": self.llm_completion_tokens,
             "llm_calls": self.llm_calls,
             "embedding_cost_usd": round(self.embedding_cost_usd, 6),
             "embedding_tokens": self.embedding_tokens,
@@ -914,6 +934,8 @@ class StepUsage(BaseModel):
         }
         # Only include non-zero operational metrics
         ops = {}
+        if self.api_calls: ops["api_calls"] = self.api_calls
+        if self.api_query_units: ops["api_query_units"] = round(self.api_query_units, 4)
         if self.chunks_retrieved: ops["chunks_retrieved"] = self.chunks_retrieved
         if self.bullets_generated: ops["bullets_generated"] = self.bullets_generated
         if self.bullets_discarded: ops["bullets_discarded"] = self.bullets_discarded

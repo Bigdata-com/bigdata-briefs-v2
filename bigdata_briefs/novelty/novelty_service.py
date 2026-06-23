@@ -194,7 +194,7 @@ class LLMNoveltyResult:
     decision: str  # "KEEP", "DISCARD", "REWRITE"
     reason: str
     final_text: str  # original_text if KEEP, rewritten_text if REWRITE, empty if DISCARD
-    is_novel: bool
+    is_fully_novel: bool
     # Per-evaluator trace: retrieved bullets and LLM judgment for each system (if available)
     evaluator_details: list[dict] | None = None
     # Set to "step2_empty" when Step 2 overrode a REWRITE to DISCARD (is_empty=True),
@@ -278,7 +278,7 @@ class NoveltyFilteringService:
                     decision="KEEP",
                     reason="No evaluators configured",
                     final_text=t,
-                    is_novel=True,
+                    is_fully_novel=True,
                     evaluator_details=synthetic_detail,
                 )
                 for t in texts
@@ -348,15 +348,15 @@ class NoveltyFilteringService:
                     except Exception as e:
                         bidx, ename = futures[future]
                         logger.warning(
-                            f"Evaluator {ename} failed for bullet {bidx}: {e}. Treating as KEEP."
+                            f"Evaluator {ename} failed for bullet {bidx}: {e}. Discarding bullet."
                         )
                         all_tasks.append(
                             (
                                 bidx,
                                 ename,
                                 NoveltyEvaluatorResult(
-                                    decision="KEEP",
-                                    reason=str(e),
+                                    decision="DISCARD",
+                                    reason=f"Evaluator {ename} failed: {e}",
                                     rewritten_text=None,
                                     evaluator_name=ename,
                                 ),
@@ -459,21 +459,21 @@ class NoveltyFilteringService:
                         final_text = ""
                         discard_source = "step2_relevance"
 
-            is_novel = decision != "DISCARD"
+            is_fully_novel = decision != "DISCARD"
             evaluator_details = [_evaluator_result_to_detail(r) for r in ev_results]
             final_results.append(
                 LLMNoveltyResult(
                     original_text=texts[idx],
                     decision=decision,
                     reason=combined_reason,
-                    final_text=final_text if is_novel else "",
-                    is_novel=is_novel,
+                    final_text=final_text if is_fully_novel else "",
+                    is_fully_novel=is_fully_novel,
                     evaluator_details=evaluator_details,
                     discard_source=discard_source,
                     attempted_rewrite_text=attempted_rewrite_text,
                 )
             )
-            if is_novel:
+            if is_fully_novel:
                 kept_texts.append(final_text)
 
         logger.info(

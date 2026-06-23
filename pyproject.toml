@@ -13,6 +13,9 @@ dependencies = [
     "jinja2==3.1.6",
     "openai>=1.95.0",
     "numpy>=2.2.4",
+    "pandas>=2.2.0",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
     "pyyaml>=6.0.2",
     "json-repair>=0.40.0",
     "structlog>=25.4.0",
@@ -26,6 +29,7 @@ dependencies = [
     "uvicorn[standard]>=0.30.0",
     "python-multipart>=0.0.9",
     "aiofiles>=23.0.0",
+    "mcp>=1.27.0",
 ]
 
 [dependency-groups]
@@ -38,6 +42,8 @@ dev = [
 
 [project.scripts]
 run-entity = "bigdata_briefs.run_entity:main"
+briefs-mcp = "bigdata_briefs.mcp_server:main"
+briefs-mcp-stateless = "bigdata_briefs.mcp_server_stateless:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["bigdata_briefs"]

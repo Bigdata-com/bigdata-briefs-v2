@@ -41,14 +41,17 @@ class RuntimeDependencies:
     ``trace_id`` and cleared after ``persist_novel_embeddings``.
     """
 
-    engine: "Engine"
+    # ``engine`` and the embedding/storage services are ``None`` in the stateless
+    # run path (no DB). Annotations are widened to ``| None`` so passing ``None``
+    # is type-correct; the stateful builder still populates every field as before.
+    engine: "Engine | None"
     query_service: "BaseQueryService"
     llm_client: "LLMClient"
     brief_service: "BriefPipelineService"
     novelty_service: "NoveltyFilteringService"
-    embedding_client: "EmbeddingClient"
-    embedding_storage: "EmbeddingStorage"
-    generated_bullet_storage: "SQLiteGeneratedBulletPointStorage"
+    embedding_client: "EmbeddingClient | None"
+    embedding_storage: "EmbeddingStorage | None"
+    generated_bullet_storage: "SQLiteGeneratedBulletPointStorage | None"
     debug_logger: "DebugLogger | None" = None
     entity_metrics: "EntityStepMetrics | None" = None
     # Shared Bigdata QPM limiter. When None (CLI / legacy callers), rate-limiting

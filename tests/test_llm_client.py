@@ -9,6 +9,7 @@ from bigdata_briefs.llm_client import (
 from bigdata_briefs.llm_client import (
     openai as llm_client_openai,
 )
+from bigdata_briefs.settings import settings
 from bigdata_briefs.utils import time as utils_time
 
 
@@ -164,10 +165,9 @@ def test_call_with_retries_success_after_failure(
 def test_call_with_retries_but_failure(
     monkeypatch, mock_llm_client, mock_system_message, mock_messages
 ):
-    # Mock all calls to fail
-    mock_llm_client.client.responses.parse.side_effect = [
-        Exception("API Error"),
-    ] * 3
+    # Mock all calls to fail — use a single exception (not a list) so it never
+    # runs out regardless of how many retry attempts LLM_RETRIES specifies.
+    mock_llm_client.client.responses.parse.side_effect = Exception("API Error")
     monkeypatch.setattr(utils_time, "sleep", lambda _: None)
 
     with pytest.raises(Exception, match="API Error"):
@@ -179,6 +179,6 @@ def test_call_with_retries_but_failure(
             response_format=DummyResponseFormat,
         )
 
-    assert mock_llm_client.client.responses.parse.call_count == 3, (
-        "Expected 3 retries but got a different count"
+    assert mock_llm_client.client.responses.parse.call_count == settings.LLM_RETRIES, (
+        f"Expected {settings.LLM_RETRIES} attempts but got a different count"
     )

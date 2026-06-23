@@ -62,8 +62,8 @@ def fetch_new_novelty_ok_bullets(
 ) -> list[dict[str, Any]]:
     """Bullets written for this report window that passed novelty (keep/rewrite / novelty True).
 
-    Excludes the novelty-search ``mixed`` pre-rewrite mirror row (``added_past_evidence_from ==
-    \"rewrite\"``) so counts match one row per LangGraph verdict (novel + mixed), not two per mixed.
+    Excludes the novelty-search ``novel_with_context`` pre-rewrite mirror row (``added_past_evidence_from ==
+    \"rewrite\"``) so counts match one row per LangGraph verdict (novel + novel_with_context), not two per novel_with_context.
     """
     ws, we = current_window.start, current_window.end
     window_match = and_(

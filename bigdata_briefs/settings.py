@@ -25,10 +25,11 @@ class Settings(BaseSettings):
 
     BIGDATA_API_KEY: str | Literal["<UNSET>"] = UNSET
     OPENAI_API_KEY: str | Literal["<UNSET>"] = UNSET
-    # FastAPI layer: set to a non-empty string to require X-API-Key header on all routes.
-    # Leave empty to disable authentication (e.g. internal/local use).
-    PIPELINE_API_KEY: str = ""
-
+    # Which API surface(s) to mount. ``both`` (default) preserves today's behavior
+    # (every stateful router) and additionally mounts the stateless router.
+    # ``stateful`` = legacy SQLite-backed pipeline only. ``stateless`` = database-less
+    # search-only path only (no DB engine is ever opened).
+    BRIEFS_MODE: Literal["stateful", "stateless", "both"] = "both"
     # Data storage configuration (override with ``DB_STRING`` in ``.env`` if needed)
     DB_STRING: str = _DEFAULT_DB_SQLITE_URL
     # Pipeline JSON state directory for ``PipelineRunner`` when using entity orchestrator CLI.
@@ -50,7 +51,7 @@ class Settings(BaseSettings):
     # Novelty configuration (LLM novelty always runs when the pipeline reaches novelty check)
     MAX_NOVELTY_WORKERS: int = 10  # Max parallel LLM calls for novelty check
     NOVELTY_MODEL: str = "text-embedding-3-large"
-    NOVELTY_LOOKBACK_DAYS: int = 14
+    NOVELTY_LOOKBACK_DAYS: int = 30
 
     # Novelty-via-search (LangGraph) after brief LLM novelty; ``novelty-via-search`` dist / ``novelty_via_search`` package.
     # Must remain true (validated); do not set ``NOVELTY_SEARCH_ENABLED=false`` in env.
@@ -89,10 +90,10 @@ class Settings(BaseSettings):
     # Start conservative (OpenAI TPM is usually the real ceiling) and tune via
     # GET /api/v1/rate/status.
     MAX_CONCURRENT_ENTITIES: int = 10
-    API_CHUNKS_LIMIT_EXPLORATORY: int = 15
+    API_CHUNKS_LIMIT_EXPLORATORY: int = 60
     API_RERANK_EXPLORATORY: float = 0.8
     EXPLORATORY_SENTIMENT_THRESHOLD: float = 0.0
-    API_CHUNK_LIMIT_FOLLOWUP: int = 15
+    API_CHUNK_LIMIT_FOLLOWUP: int = 10
     FOLLOWUP_SENTIMENT_THRESHOLD: float = 0.0
     API_SOURCE_RANK_BOOST: int = 10
     API_FRESHNESS_BOOST: int = 8
@@ -116,9 +117,9 @@ class Settings(BaseSettings):
     RUN_RANGE_DAY_TIMEOUT_SECONDS: int = 1800  # hard wall-clock limit per day (30 min)
 
     # When workflow passes rerank_concept_sources=True (see QueryService.run_concept_queries_*).
-    RERANK_CONCEPT_CHUNK_LIMIT: int = 45  # Chunks to fetch per concept when reranking
+    RERANK_CONCEPT_CHUNK_LIMIT: int = 30  # Chunks to fetch per concept when reranking
     RERANK_CONCEPT_THRESHOLD: float = 0.7  # Lower threshold to get more candidates
-    RERANK_CONCEPT_LIMIT_PER_CONCEPT: int = 15  # Final limit per concept after reranking
+    RERANK_CONCEPT_LIMIT_PER_CONCEPT: int = 10  # Final limit per concept after reranking
     
     # Same-text deduplication configuration
     # When True, chunks with identical text but different sources are merged into a single prompt entry
@@ -134,14 +135,45 @@ class Settings(BaseSettings):
     # Set as JSON string in environment: ENTITY_LISTS='{"sp500": ["D8442A", ...], "tech": [...]}'
     ENTITY_LISTS: dict[str, list[str]] = {}
 
+    # UI scan controls — set UI_SCAN_ENABLED=1 in env to allow triggering runs from the browser.
+    # Default False: the app is read-only (safe for shared / Fly.io deployments).
+    UI_SCAN_ENABLED: bool = False
+
+    # Demo-only "Start update" button on the Portfolio page. It does NOT run anything:
+    # clicking it shows a "Contact support" call-to-action. Intended for presentation/
+    # marketing demos. Set SHOW_PORTFOLIO_UPDATE_DEMO=1 to show it. Default False (hidden).
+    SHOW_PORTFOLIO_UPDATE_DEMO: bool = False
+
+    # Public mode — set PUBLIC_MODE=1 for a shared/external deployment.
+    # Disables write actions in the UI (run, portfolio add/remove).
+    # API key is never sent to the browser. Direct API calls with a valid
+    # PIPELINE_API_KEY still work.
+    PUBLIC_MODE: bool = False
+
+    # REST API key — set PIPELINE_API_KEY in env/secrets to protect write endpoints.
+    # When empty (default) auth is skipped, safe for local dev.
+    PIPELINE_API_KEY: str = ""
+
+    # Set ENABLE_DOCS=1 to expose /docs, /redoc and /openapi.json. Off by default.
+    ENABLE_DOCS: bool = False
+
+    # Path to the sentiment_tool repository (used for portfolio brief ranking).
+    # Defaults to vendor/sentiment_tool inside the project directory.
+    SENTIMENT_TOOL_PATH: str = str(PROJECT_DIRECTORY / "vendor" / "sentiment_tool")
+
     @classmethod
     def load_from_env(cls) -> "Settings":
         return cls()
 
     @model_validator(mode="after")
     def validate_api_keys(self) -> "Settings":
+        import warnings
         if self.BIGDATA_API_KEY == UNSET or self.OPENAI_API_KEY == UNSET:
-            raise ValueError("BIGDATA_API_KEY and OPENAI_API_KEY must be set.")
+            warnings.warn(
+                "BIGDATA_API_KEY and OPENAI_API_KEY are not set — pipeline runs will fail. "
+                "Set them in .env before triggering a run.",
+                stacklevel=2,
+            )
         if not self.NOVELTY_SEARCH_ENABLED:
             raise ValueError(
                 "NOVELTY_SEARCH_ENABLED must be true: novelty-via-search cannot be disabled."

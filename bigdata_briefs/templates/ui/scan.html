@@ -1,0 +1,109 @@
+{% extends "ui/base.html" %}
+{% block title %}Historical Scan — Bigdata Briefs{% endblock %}
+{% block nav_scan %}active{% endblock %}
+
+{% block content %}
+<script>
+const ENTITIES_BY_UNIVERSE = {{ entities_by_universe_json | safe }};
+
+function filterByUniverse() {
+  const universe = document.getElementById('universe-select').value;
+  const entitySelect = document.getElementById('entity-select');
+  const allowed = universe ? new Set(ENTITIES_BY_UNIVERSE[universe] || []) : null;
+  let first = true;
+  for (const opt of entitySelect.options) {
+    if (!opt.value) continue;
+    const show = !allowed || allowed.has(opt.value);
+    opt.style.display = show ? '' : 'none';
+    if (show && first) { entitySelect.value = opt.value; first = false; }
+  }
+  if (allowed) entitySelect.value = '';
+}
+</script>
+
+<div style="display:grid;grid-template-columns:360px 1fr;gap:1.5rem;align-items:start">
+
+  <!-- ── Left: form ── -->
+  <div class="card">
+    <div class="card-body">
+      <h1 class="card-title">Historical Scan</h1>
+      <p style="font-size:.88rem;color:var(--muted);margin:-.5rem 0 1.25rem">
+        Runs the pipeline day by day. Select a single entity or an entire universe.
+        Resumes automatically from the last completed run.
+      </p>
+
+      <form
+        hx-post="/ui/scan/run"
+        hx-target="#scan-output"
+        hx-swap="innerHTML"
+      >
+        {% if universe_names %}
+        <div class="field">
+          <label for="universe-select">Universe <span style="font-weight:400;color:var(--muted)">(optional — filters the list below)</span></label>
+          <select id="universe-select" name="universe_name" onchange="filterByUniverse()">
+            <option value="">— all entities —</option>
+            {% for name in universe_names %}
+            <option value="{{ name }}">{{ name }}</option>
+            {% endfor %}
+          </select>
+          <p class="field-hint">Selecting a universe and leaving entity empty scans all entities in it.</p>
+        </div>
+        {% endif %}
+
+        <div class="field">
+          <label for="entity-select">Entity <span style="font-weight:400;color:var(--muted)">(leave empty to scan full universe)</span></label>
+          <select id="entity-select" name="entity_id">
+            <option value="">— all entities in selected universe —</option>
+            {% for eid, name in entities %}
+            <option value="{{ eid }}">{{ name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="start-date">Start date</label>
+          <input type="date" id="start-date" name="start_date" required max="{{ today }}"/>
+          <p class="field-hint">
+            Scan runs from 00:00:00 UTC of this date. Resumes from last window end if runs exist.
+          </p>
+        </div>
+
+        <div class="field">
+          <label for="end-date">
+            End date
+            <span style="font-weight:400;color:var(--muted)">(optional — defaults to now)</span>
+          </label>
+          <input type="date" id="end-date" name="end_date" max="{{ today }}"/>
+          <p class="field-hint">
+            If set, the last window ends at 23:59:59 UTC of this day.
+          </p>
+        </div>
+
+        <div class="field" style="margin-top:1rem">
+          <label style="display:block;font-size:.85rem;font-weight:600;margin-bottom:.5rem;color:#334155">Source categories</label>
+          <div style="display:flex;flex-direction:column;gap:.35rem">
+            {% for cat in ["news", "news_premium", "filings", "transcripts"] %}
+            <label style="display:flex;align-items:center;gap:.5rem;font-size:.88rem;cursor:pointer;font-weight:400">
+              <input type="checkbox" name="source_categories" value="{{ cat }}" style="width:.95rem;height:.95rem;cursor:pointer"
+                {% if cat == "news" %}checked{% endif %}/>
+              {{ cat }}
+            </label>
+            {% endfor %}
+          </div>
+          <p class="field-hint">Select one or more. Default: news.</p>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:.5rem">
+          Start scan
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Right: output ── -->
+  <div id="scan-output">
+    <p style="color:var(--muted);font-size:.9rem">Results will appear here once the scan starts.</p>
+  </div>
+
+</div>
+{% endblock %}

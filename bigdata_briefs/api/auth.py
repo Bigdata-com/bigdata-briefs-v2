@@ -1,31 +1,22 @@
-"""API key authentication dependency."""
+"""API authentication — API key required when PIPELINE_API_KEY is set."""
 
 from __future__ import annotations
 
-from fastapi import HTTPException, Query, Security, status
-from fastapi.security import APIKeyHeader
-
+from fastapi import Header, HTTPException, status
 from bigdata_briefs.settings import settings
 
-_api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
+async def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
+    """Validate X-Api-Key header when PIPELINE_API_KEY is configured.
 
-async def require_api_key(
-    api_key_header: str | None = Security(_api_key_header),
-    api_key: str | None = Query(default=None, alias="api_key", include_in_schema=False),
-) -> None:
-    """Validate API key from X-API-Key header or ?api_key= query parameter.
-
-    If PIPELINE_API_KEY is empty, authentication is skipped (open access).
-    The query param variant allows opening HTML endpoints directly in the browser.
+    If PIPELINE_API_KEY is not set (empty string), auth is skipped — safe for
+    local development. On production set it via env/secrets.
     """
-    configured = settings.PIPELINE_API_KEY
-    if not configured:
+    expected = getattr(settings, "PIPELINE_API_KEY", "")
+    if not expected:
         return
-    provided = api_key_header or api_key
-    if provided != configured:
+    if x_api_key != expected:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing API key.",
-            headers={"WWW-Authenticate": "ApiKey"},
         )

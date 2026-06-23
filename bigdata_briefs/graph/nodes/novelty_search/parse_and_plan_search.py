@@ -1,9 +1,9 @@
 """
 Node: novelty_search_parse_and_plan
 
-Decompone ogni bullet attivo in claim atomici e genera search query.
-Usa LLMClient sync con ThreadPoolExecutor.
-Risultati → deps._search_cache[trace_id] (chiave "claims", "sentence_parts").
+Decomposes each active bullet into atomic claims and generates search queries.
+Uses the sync LLMClient with a ThreadPoolExecutor.
+Results → deps._search_cache[trace_id] (keys "claims", "sentence_parts").
 
 Service type: llm
 """

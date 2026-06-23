@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bigdata Briefs · Morning Note</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=9" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/static/favicon.png?v=9" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="views.css" />
+  <link rel="stylesheet" href="views-extras.css" />
+  <link rel="stylesheet" href="run.css" />
+  <link rel="stylesheet" href="extras.css" />
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script src="run-data.js" async></script>
+  <script src="extras-data.js" async></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="shared.jsx"></script>
+  <script type="text/babel" src="brief-view.jsx"></script>
+  <script type="text/babel" src="archive-view.jsx"></script>
+  <script type="text/babel" src="history-details-view.jsx"></script>
+  <script type="text/babel" src="portfolio-view.jsx"></script>
+  <script type="text/babel" src="cost-view.jsx"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "density": "regular",
+      "fontScale": 100,
+      "dark": false,
+      "showDiscarded": true,
+      "dropcap": true,
+      "accent": "#B23B1F",
+      "view": "brief",
+      "headerStyle": "stacked",
+      "briefSplit": "75 / 25",
+      "briefLayout": "below"
+    }/*EDITMODE-END*/;
+
+    function App() {
+      const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      const [view, setView] = useState("brief");
+      const [showDiscarded, setShowDiscarded] = useState(t.showDiscarded);
+
+      // Lifted shared state: portfolio, landing summaries, upcoming events, last run date, cost
+      const _initialPortfolio = window.DATA.portfolio || null;
+      const _initialPortfolioIds = _initialPortfolio ? new Set(_initialPortfolio.map(p => p.entity_id)) : null;
+      const [appPortfolioIds, setAppPortfolioIds] = useState(_initialPortfolioIds);
+      const [appPortfolio, setAppPortfolio] = useState(_initialPortfolio);
+      const [appLandingSummaries, setAppLandingSummaries] = useState(window.DATA.companySummaries || {});
+      const [appEvents, setAppEvents] = useState(null);
+      const [lastRunDate, setLastRunDate] = useState(window.DATA.lastRunDate || null);
+      const [appCostData, setAppCostData] = useState(window.EXTRAS?.cost || null);
+      const [appEntityRuns, setAppEntityRuns] = useState([]);
+
+      // Full refresh — called on visibility change when run date has changed
+      function fetchAppData() {
+        fetch("/api/frontend/portfolio")
+          .then(r => r.json())
+          .then(data => {
+            const list = data.portfolio || [];
+            setAppPortfolio(list);
+            setAppPortfolioIds(new Set(list.map(p => p.entity_id)));
+          })
+          .catch(() => {});
+        fetch("/api/frontend/companies/summaries")
+          .then(r => r.json())
+          .then(data => { if (data.summaries) setAppLandingSummaries(data.summaries); })
+          .catch(() => {});
+        _fetchSecondaryData();
+      }
+
+      // Fetch data not available in window.DATA (events, cost, last-run-date)
+      function _fetchSecondaryData() {
+        const selectedDate = (window.DATA.todaysBrief?.windowEnd || "").slice(0, 10) || null;
+        const params = selectedDate ? `?date=${encodeURIComponent(selectedDate)}&limit=8` : "?limit=8";
+        fetch(`/api/frontend/upcoming-events${params}`)
+          .then(r => r.json())
+          .then(data => setAppEvents(data))
+          .catch(() => {});
+        fetch("/api/frontend/cost/breakdown")
+          .then(r => r.json())
+          .then(data => {
+            if (data.breakdown) {
+              setAppCostData(data.breakdown);
+              const eid = data.breakdown.entityId;
+              if (eid) {
+                fetch(`/api/frontend/cost/runs-by-entity/${encodeURIComponent(eid)}`)
+                  .then(r => r.json())
+                  .then(d => setAppEntityRuns(Array.isArray(d.runs) ? d.runs : []))
+                  .catch(() => {});
+              }
+            }
+          })
+          .catch(() => {});
+      }
+
+      // On mount: only fetch data NOT already in window.DATA (events, cost)
+      useEffect(() => { _fetchSecondaryData(); }, []);
+
+      // Refresh on tab focus if the run date has changed
+      useEffect(() => {
+        function onVisibility() {
+          if (document.visibilityState !== "visible") return;
+          fetch("/api/frontend/last-run-date")
+            .then(r => r.json())
+            .then(data => {
+              const newDate = data.date || null;
+              if (newDate && newDate !== lastRunDate) {
+                setLastRunDate(newDate);
+                fetchAppData();
+              }
+            })
+            .catch(() => {});
+        }
+        document.addEventListener("visibilitychange", onVisibility);
+        return () => document.removeEventListener("visibilitychange", onVisibility);
+      }, [lastRunDate]);
+
+      // Theme + accent + font scale applied to the document root
+      useEffect(() => {
+        document.documentElement.dataset.theme = t.dark ? "dark" : "light";
+        document.documentElement.style.setProperty("--accent", t.accent);
+        document.documentElement.style.fontSize = (t.fontScale / 100 * 16) + "px";
+      }, [t.dark, t.accent, t.fontScale]);
+
+      useEffect(() => { setShowDiscarded(t.showDiscarded); }, [t.showDiscarded]);
+
+      useEffect(() => {
+        const map = {
+          "50 / 50": "minmax(0, 1fr) minmax(0, 1fr)",
+          "66 / 33": "minmax(0, 1fr) minmax(0, 2fr)",
+          "70 / 30": "minmax(0, 3fr) minmax(0, 7fr)",
+          "75 / 25": "minmax(0, 1fr) minmax(0, 3fr)",
+        };
+        const val = map[t.briefSplit] || map["66 / 33"];
+        document.documentElement.style.setProperty("--brief-split", val);
+      }, [t.briefSplit]);
+
+      return (
+        <React.Fragment>
+          <Masthead view={view} setView={setView} theme={t.dark ? "dark" : "light"} setTheme={(v) => setTweak("dark", v === "dark")} headerStyle={t.headerStyle} setHeaderStyle={(v) => setTweak("headerStyle", v)} />
+
+          <div className="page">
+            <div className="page-inner">
+              {(view === "brief" || view === "overview" || view === "overview-audit" || view === "overview-archive") && (
+                <BriefView
+                  density={t.density}
+                  showDiscarded={showDiscarded}
+                  setShowDiscarded={(v) => { setShowDiscarded(v); setTweak("showDiscarded", v); }}
+                  dropcap={t.dropcap}
+                  setView={setView}
+                  view={view}
+                  briefLayout="below"
+                  setBriefLayout={() => {}}
+                  appPortfolioIds={appPortfolioIds}
+                  appLandingSummaries={appLandingSummaries}
+                  appEvents={appEvents}
+                />
+              )}
+              {view === "history"   && <ArchiveView tweaks={t} />}
+              {view === "history-details" && <HistoryDetailsView tweaks={t} />}
+              {view === "portfolio" && <PortfolioView tweaks={t} appPortfolio={appPortfolio} setView={setView} />}
+              {view === "cost"      && <CostView tweaks={t} appCostData={appCostData} appEntityRuns={appEntityRuns} />}
+            </div>
+          </div>
+
+          <TweaksPanel title="Tweaks">
+            <TweakSection label="Reading" />
+            <TweakRadio label="Density" value={t.density}
+                        options={["compact", "regular", "comfy"]}
+                        onChange={(v) => setTweak("density", v)} />
+            <TweakSlider label="Font scale" value={t.fontScale} min={85} max={120} step={5} unit="%"
+                         onChange={(v) => setTweak("fontScale", v)} />
+            <TweakToggle label="Drop cap on lead" value={t.dropcap}
+                         onChange={(v) => setTweak("dropcap", v)} />
+            <TweakToggle label="Show editor's cut" value={t.showDiscarded}
+                         onChange={(v) => setTweak("showDiscarded", v)} />
+
+            <TweakSection label="Theme" />
+            <TweakToggle label="Dark mode" value={t.dark}
+                         onChange={(v) => setTweak("dark", v)} />
+            <TweakColor label="Masthead accent" value={t.accent}
+                        onChange={(v) => setTweak("accent", v)} />
+
+            <TweakSection label="Masthead layout" />
+            <TweakRadio label="Style" value={t.headerStyle}
+                        options={["paren-lockup", "inline", "stacked"]}
+                        onChange={(v) => setTweak("headerStyle", v)} />
+
+            <TweakSection label="Brief landing" />
+            <TweakSelect label="Column split" value={t.briefSplit}
+                        options={["50 / 50", "66 / 33", "70 / 30", "75 / 25"]}
+                        onChange={(v) => setTweak("briefSplit", v)} />
+
+            <TweakSection label="View" />
+            <TweakSelect label="Section" value={view}
+                        options={["brief", "portfolio", "cost", "history", "history-details"]}
+                        onChange={(v) => setView(v)} />
+          </TweaksPanel>
+        </React.Fragment>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>

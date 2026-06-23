@@ -1,0 +1,6 @@
+# Keep shell scripts and cron files LF so the Linux container can exec them,
+# even when the repo is checked out on Windows (which would otherwise use CRLF).
+*.sh text eol=lf
+start.sh text eol=lf
+run_daily.sh text eol=lf
+crontab text eol=lf

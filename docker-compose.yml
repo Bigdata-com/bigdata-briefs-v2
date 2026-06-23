@@ -1,0 +1,30 @@
+services:
+
+  # MCP mode: API only, no cron. Use this when running briefs via Claude MCP tools.
+  # docker compose up
+  briefs:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - briefs-data:/data
+
+  # Production mode: API + daily cron job at 12:01 UTC (Mon-Fri).
+  # docker compose --profile cron up
+  briefs-cron:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - ENABLE_CRON=1
+    volumes:
+      - briefs-data:/data
+    profiles:
+      - cron
+
+volumes:
+  briefs-data:

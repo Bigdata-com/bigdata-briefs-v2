@@ -93,16 +93,22 @@ class SearchNoveltyMetadata(BaseModel):
     # preserved for debugging and the discarded-bullets trace endpoint.
     details: dict | None = None
     # Aggregate novelty verdict across all claims.
-    # novel            — all claims fully novel; published as-is
-    # mixed            — novel + old/partially_novel context; rewriter restructures with old clause + pivot marker
-    # mixed_noise      — novel + only trivial/unsupported noise; rewriter strips noise, keeps novel text
-    # mixed_weak       — only partially_novel claims; discarded
-    # discard_not_new  — all claims old or trivial; discarded
-    # discard_unsupported — at least one unsupported inference; discarded
+    # novel                  — all claims fully novel; published as-is
+    # mixed                  — novel + old/partially_novel context; rewrite with pivot marker
+    # novel_noisy            — novel + only trivial/unsupported noise; strip noise, keep novel text
+    # partial_update — 1 partially_novel claim (no old); rewrite with known-context clause
+    # partial_update_with_context          — partially_novel + old; rewrite with old clause + pivot
+    # multi_partial_update  — 2+ partially_novel, no old; rewrite synthesising shared baseline
+    # discard_not_new        — all claims old or trivial; discarded
+    # discard_unsupported    — at least one unsupported inference; discarded
     # Populated by rewrite_search_bullets; used by save_novel_bullets to flag
-    # not_fully_novel bullets (overall_verdict == "mixed" and not discarded).
+    # is_fully_novel=False bullets (overall_verdict in mixed family and not discarded).
+    # discard_step_error     — a novelty-search step failed (e.g. Bigdata 5xx); the
+    #                          bullet is discarded defensively rather than crashing the run.
     overall_verdict: Literal[
-        "novel", "mixed", "mixed_noise", "mixed_weak", "discard_not_new", "discard_unsupported", "old"
+        "novel", "novel_with_context", "novel_noisy",
+        "partial_update", "partial_update_with_context", "multi_partial_update",
+        "discard_not_new", "discard_unsupported", "old", "discard_step_error"
     ] | None = None
 
 
@@ -204,7 +210,6 @@ class BriefGraphState(TypedDict):
     config: dict                        # source_filter, categories, flags, etc.
 
     # ── Phase 1 outputs ───────────────────────────────────────────────────────
-    initial_check_result: dict          # {has_results: bool, result_count: int}
     exploratory_chunks: list[dict]      # serialized Result objects
     current_quarter_title: str          # "" or "Q1 2026" etc.
     extracted_concepts: dict            # serialized ConceptExtraction
@@ -249,7 +254,6 @@ def record_to_bullet(record: BulletPointRecord) -> dict:
 def make_empty_state_defaults() -> dict:
     """Return default values for optional state fields (for partial invocations)."""
     return {
-        "initial_check_result": {},
         "exploratory_chunks": [],
         "current_quarter_title": "",
         "extracted_concepts": {},

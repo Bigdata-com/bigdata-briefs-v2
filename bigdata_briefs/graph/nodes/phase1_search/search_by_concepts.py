@@ -56,7 +56,6 @@ def execute_parallel_concept_queries(
     freshness_boost = cfg.get("freshness_boost")
     rerank_concept_sources = cfg.get("rerank_concept_sources", False)
     headline_search = cfg.get("headline_search", False)
-
     total_concepts = sum(len(cat.concepts) for cat in concepts.categories)
 
     # Size the pool to the shared connection semaphore. The 450 QPM limit is
@@ -80,6 +79,11 @@ def execute_parallel_concept_queries(
         )
 
     total_chunks = sum(len(r.chunks) for r in all_results) if all_results else 0
+
+    if deps.entity_metrics:
+        if total_chunks:
+            deps.entity_metrics.track_chunks(total_chunks, attributee_step="concept_search")
+        deps.entity_metrics.track_api_call(total_concepts, attributee_step="concept_search")
 
     wall_ms = (time.monotonic() - t0) * 1000
     metrics = NodeMetricsRecord(

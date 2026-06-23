@@ -85,15 +85,14 @@ def save_novel_bullet_points(
             embedding_decision = record.novelty_embedding.judgment.decision
 
         search_action = None
-        not_fully_novel = False
+        is_fully_novel = True
         if record.novelty_search and record.novelty_search.search:
             search_action = record.novelty_search.search.verdict
-            # Flag bullets that passed (keep) but have mixed claim novelty:
-            # at least one claim was already known in the evidence.
-            not_fully_novel = (
-                search_action == "keep"
-                and record.novelty_search.search.overall_verdict == "mixed"
-            )
+            # Fully novel only when the bullet was published as-is (verdict "keep",
+            # i.e. overall_verdict "novel" — nothing was already known). Any rewrite
+            # means part of the content restated information already reported, so the
+            # bullet is not fully novel. Mirrors entity_runner / ui.
+            is_fully_novel = search_action != "rewrite"
 
         # Resolve citation IDs → {id, headline, text} using source_references.
         # Every ID should be resolvable (grounding already removed invalid refs),
@@ -107,6 +106,7 @@ def save_novel_bullet_points(
                     headline=(citation_lookup.get(cit_id) or {}).get("headline", ""),
                     text=(citation_lookup.get(cit_id) or {}).get("text", ""),
                     source_name=(citation_lookup.get(cit_id) or {}).get("source_name", ""),
+                    url=(citation_lookup.get(cit_id) or {}).get("url"),
                 )
                 for cit_id in record.citations
             ]
@@ -124,11 +124,14 @@ def save_novel_bullet_points(
                 citations=citation_details,
                 embedding_decision=embedding_decision,
                 search_action=search_action,
-                not_fully_novel=not_fully_novel,
+                is_fully_novel=is_fully_novel,
             )
         )
 
-    deps.generated_bullet_storage.store(to_store)
+    # Persisting published bullets is a stateful-only concern. In the stateless run
+    # path generated_bullet_storage is None and the report is assembled from state.
+    if deps.generated_bullet_storage is not None:
+        deps.generated_bullet_storage.store(to_store)
 
     active_count = len(to_store)
     pipeline_status = PIPELINE_STATUS_RUNNING if active_count > 0 else PIPELINE_STATUS_NO_DATA

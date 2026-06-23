@@ -1,13 +1,11 @@
 """
 Brief 2.0 LangGraph Pipeline
 
-Composes all 24 canonical nodes into a StateGraph.
+Composes all canonical nodes into a StateGraph.
 
 Graph topology:
 
-  START → initialize_pipeline → initial_check
-    ─[no_data]────────────────────────────────────────────────────────→ END
-    ─[continue]→ exploratory_search
+  START → initialize_pipeline → exploratory_search
       ─[no_data]──────────────────────────────────────────────────────→ END
       ─[continue]→ quarter_info → concept_extraction → concept_search
         → concept_search_postprocessing
@@ -17,11 +15,9 @@ Graph topology:
             ─[continue]→ entity_grounding_check
               → embed_and_retrieve
               → novelty_judgment_embedding
-              → rewrite_embedding
-              → relevance_check_embedding
-              → persist_novel_embeddings
-              → novelty_search_parse_and_plan
-              → novelty_search_fetch
+              → persist_novel_embeddings          ← rewrite_embedding and
+              → novelty_search_parse_and_plan       relevance_check_embedding
+              → novelty_search_fetch                removed (see note below)
               → novelty_search_judgment
               → novelty_search_rewrite
               → relevance_score_search
@@ -32,6 +28,16 @@ Graph topology:
                   → standalone_validation
                   → build_report → END
                 ─[build_report]─────────────────────────────────→ build_report → END
+
+NOTE — rewrite_embedding and relevance_check_embedding are disabled:
+  The embedding novelty check exists solely to decide keep / discard / rewrite.
+  Bullets marked "discard" are deactivated immediately by novelty_judgment_embedding.
+  Bullets marked "rewrite" (partially novel) are kept active with their original text
+  and passed directly to the novelty-via-search phase, which judges them with real
+  evidence and applies the appropriate pivot-structure rewrite. Running the embedding
+  rewriter first would produce an intermediate rewritten text that the search phase
+  would then re-judge and potentially rewrite again — wasted LLM calls with no benefit.
+  The nodes still exist in the codebase but are not wired into the graph.
 """
 
 from __future__ import annotations
@@ -46,7 +52,6 @@ from bigdata_briefs.graph.constants import (
     NODE_EMBED_AND_RETRIEVE,
     NODE_ENTITY_GROUNDING_CHECK,
     NODE_EXPLORATORY_SEARCH,
-    NODE_INITIAL_CHECK,
     NODE_INITIALIZE_PIPELINE,
     NODE_NOVELTY_JUDGMENT_EMBEDDING,
     NODE_NOVELTY_SEARCH_FETCH,
@@ -56,9 +61,7 @@ from bigdata_briefs.graph.constants import (
     NODE_PERSIST_NOVEL_EMBEDDINGS,
     NODE_QUARTER_INFO,
     NODE_REDUNDANCY_CHECK,
-    NODE_RELEVANCE_CHECK_EMBEDDING,
     NODE_RELEVANCE_SCORE_SEARCH,
-    NODE_REWRITE_EMBEDDING,
     NODE_SAVE_NOVEL_BULLETS,
     NODE_STANDALONE_VALIDATION,
     NODE_THEMATIC_CONSOLIDATION,
@@ -73,9 +76,6 @@ from bigdata_briefs.graph.nodes.initialize.initialize_pipeline import initialize
 from bigdata_briefs.graph.nodes.grounding.validate_entity_grounding import (
     classify_grounding_validity,
 )
-from bigdata_briefs.graph.nodes.novelty_embedding.check_rewrite_relevance import (
-    score_embedding_rewrite_relevance,
-)
 from bigdata_briefs.graph.nodes.novelty_embedding.embed_and_retrieve_candidates import (
     compute_embeddings_and_retrieve_candidates,
 )
@@ -85,9 +85,8 @@ from bigdata_briefs.graph.nodes.novelty_embedding.judge_novelty_by_embedding imp
 from bigdata_briefs.graph.nodes.novelty_embedding.persist_novel_embeddings import (
     persist_embeddings_of_novel_bullets,
 )
-from bigdata_briefs.graph.nodes.novelty_embedding.rewrite_non_novel_bullets import (
-    rewrite_partially_novel_bullets,
-)
+# rewrite_non_novel_bullets and check_rewrite_relevance not imported:
+# those nodes are disabled (see module docstring).
 from bigdata_briefs.graph.nodes.novelty_search.check_search_rewrite_relevance import (
     score_search_rewrite_relevance,
 )
@@ -102,9 +101,6 @@ from bigdata_briefs.graph.nodes.novelty_search.judge_novelty_by_search import (
 )
 from bigdata_briefs.graph.nodes.novelty_search.rewrite_search_bullets import (
     rewrite_search_bullets,
-)
-from bigdata_briefs.graph.nodes.phase1_search.check_entity_data import (
-    verify_entity_has_search_results,
 )
 from bigdata_briefs.graph.nodes.phase1_search.deduplicate_and_filter import (
     deduplicate_and_filter_concept_results,
@@ -145,13 +141,6 @@ from bigdata_briefs.settings import settings
 
 
 # ── Conditional edge functions ─────────────────────────────────────────────────
-
-
-def _route_initial_check(state: BriefGraphState) -> str:
-    """Route to END when no data found, else continue to exploratory search."""
-    if state.get("pipeline_status") == PIPELINE_STATUS_NO_DATA:
-        return ROUTE_NO_DATA
-    return ROUTE_CONTINUE
 
 
 def _route_exploratory_search(state: BriefGraphState) -> str:
@@ -199,21 +188,32 @@ def _route_save_novel_bullets(state: BriefGraphState) -> str:
 # ── Graph builder ──────────────────────────────────────────────────────────────
 
 
-def build_brief_graph() -> StateGraph:
+def build_brief_graph(*, stateless: bool = False) -> StateGraph:
     """
     Construct and return the Brief 2.0 StateGraph (uncompiled).
 
     Call ``.compile()`` on the returned graph to get an executable graph.
+
+    When ``stateless=False`` (default) the graph is identical to the legacy
+    SQLite-backed pipeline. When ``stateless=True`` the two DB-coupled stages are
+    omitted:
+      * ``initialize_pipeline`` (only creates DB schema) — START wires straight to
+        ``exploratory_search``.
+      * the embedding novelty trio (``embed_and_retrieve`` →
+        ``novelty_judgment_embedding`` → ``persist_novel_embeddings``) — grounding
+        wires straight to ``novelty_search_parse_and_plan``, leaving search-novelty
+        as the sole novelty gate.
+    All other nodes are shared verbatim between the two modes.
     """
     g = StateGraph(BriefGraphState)
 
     L = with_node_log  # shorthand
 
-    # ── Initialization ───────────────────────────────────────────────────────
-    g.add_node(NODE_INITIALIZE_PIPELINE, L(NODE_INITIALIZE_PIPELINE, initialize_pipeline))
+    # ── Initialization (stateful only: DB schema creation) ────────────────────
+    if not stateless:
+        g.add_node(NODE_INITIALIZE_PIPELINE, L(NODE_INITIALIZE_PIPELINE, initialize_pipeline))
 
     # ── Phase 1: Search ──────────────────────────────────────────────────────
-    g.add_node(NODE_INITIAL_CHECK, L(NODE_INITIAL_CHECK, verify_entity_has_search_results))
     g.add_node(NODE_EXPLORATORY_SEARCH, L(NODE_EXPLORATORY_SEARCH, execute_broad_topic_search))
     g.add_node(NODE_QUARTER_INFO, L(NODE_QUARTER_INFO, resolve_fiscal_quarter_from_calendar))
     g.add_node(NODE_CONCEPT_EXTRACTION, L(NODE_CONCEPT_EXTRACTION, extract_thematic_concepts_from_chunks))
@@ -227,12 +227,14 @@ def build_brief_graph() -> StateGraph:
     # ── Grounding ─────────────────────────────────────────────────────────────
     g.add_node(NODE_ENTITY_GROUNDING_CHECK, L(NODE_ENTITY_GROUNDING_CHECK, classify_grounding_validity))
 
-    # ── Novelty Embedding ────────────────────────────────────────────────────
-    g.add_node(NODE_EMBED_AND_RETRIEVE, L(NODE_EMBED_AND_RETRIEVE, compute_embeddings_and_retrieve_candidates))
-    g.add_node(NODE_NOVELTY_JUDGMENT_EMBEDDING, L(NODE_NOVELTY_JUDGMENT_EMBEDDING, evaluate_novelty_by_embedding_similarity))
-    g.add_node(NODE_REWRITE_EMBEDDING, L(NODE_REWRITE_EMBEDDING, rewrite_partially_novel_bullets))
-    g.add_node(NODE_RELEVANCE_CHECK_EMBEDDING, L(NODE_RELEVANCE_CHECK_EMBEDDING, score_embedding_rewrite_relevance))
-    g.add_node(NODE_PERSIST_NOVEL_EMBEDDINGS, L(NODE_PERSIST_NOVEL_EMBEDDINGS, persist_embeddings_of_novel_bullets))
+    # ── Novelty Embedding (stateful only: reads/writes embedding history) ─────
+    if not stateless:
+        g.add_node(NODE_EMBED_AND_RETRIEVE, L(NODE_EMBED_AND_RETRIEVE, compute_embeddings_and_retrieve_candidates))
+        g.add_node(NODE_NOVELTY_JUDGMENT_EMBEDDING, L(NODE_NOVELTY_JUDGMENT_EMBEDDING, evaluate_novelty_by_embedding_similarity))
+        # NODE_REWRITE_EMBEDDING and NODE_RELEVANCE_CHECK_EMBEDDING intentionally omitted:
+        # the embedding phase only discards old bullets; partially-novel ones go to novelty
+        # search with their original text so the search phase can judge and rewrite them.
+        g.add_node(NODE_PERSIST_NOVEL_EMBEDDINGS, L(NODE_PERSIST_NOVEL_EMBEDDINGS, persist_embeddings_of_novel_bullets))
 
     # ── Novelty via Search ───────────────────────────────────────────────────
     g.add_node(NODE_NOVELTY_SEARCH_PARSE_AND_PLAN, L(NODE_NOVELTY_SEARCH_PARSE_AND_PLAN, parse_and_plan_search))
@@ -254,18 +256,16 @@ def build_brief_graph() -> StateGraph:
 
     # ── Edges ─────────────────────────────────────────────────────────────────
 
-    # START → initialize_pipeline → initial_check
-    g.add_edge(START, NODE_INITIALIZE_PIPELINE)
-    g.add_edge(NODE_INITIALIZE_PIPELINE, NODE_INITIAL_CHECK)
+    # START → initialize_pipeline → exploratory_search (initial_check removed:
+    # exploratory_search already routes to END when no data is found).
+    # Stateless skips initialize_pipeline (DB schema creation) and starts at search.
+    if not stateless:
+        g.add_edge(START, NODE_INITIALIZE_PIPELINE)
+        g.add_edge(NODE_INITIALIZE_PIPELINE, NODE_EXPLORATORY_SEARCH)
+    else:
+        g.add_edge(START, NODE_EXPLORATORY_SEARCH)
 
-    # initial_check (conditional)
-    g.add_conditional_edges(
-        NODE_INITIAL_CHECK,
-        _route_initial_check,
-        {ROUTE_NO_DATA: END, ROUTE_CONTINUE: NODE_EXPLORATORY_SEARCH},
-    )
-
-    # exploratory_search (conditional)
+    # exploratory_search (conditional) — acts as the existence check
     g.add_conditional_edges(
         NODE_EXPLORATORY_SEARCH,
         _route_exploratory_search,
@@ -291,17 +291,17 @@ def build_brief_graph() -> StateGraph:
         {ROUTE_NO_DATA: END, ROUTE_CONTINUE: NODE_ENTITY_GROUNDING_CHECK},
     )
 
-    # Grounding → Novelty Embedding: linear chain
-    g.add_edge(NODE_ENTITY_GROUNDING_CHECK, NODE_EMBED_AND_RETRIEVE)
-    g.add_edge(NODE_EMBED_AND_RETRIEVE, NODE_NOVELTY_JUDGMENT_EMBEDDING)
-    g.add_edge(NODE_NOVELTY_JUDGMENT_EMBEDDING, NODE_REWRITE_EMBEDDING)
-    g.add_edge(NODE_REWRITE_EMBEDDING, NODE_RELEVANCE_CHECK_EMBEDDING)
+    # Grounding → Novelty Embedding → persist (rewrite + relevance check steps removed).
+    # Stateless omits the embedding trio and wires grounding straight to search novelty.
+    if not stateless:
+        g.add_edge(NODE_ENTITY_GROUNDING_CHECK, NODE_EMBED_AND_RETRIEVE)
+        g.add_edge(NODE_EMBED_AND_RETRIEVE, NODE_NOVELTY_JUDGMENT_EMBEDDING)
+        g.add_edge(NODE_NOVELTY_JUDGMENT_EMBEDDING, NODE_PERSIST_NOVEL_EMBEDDINGS)
+        g.add_edge(NODE_PERSIST_NOVEL_EMBEDDINGS, NODE_NOVELTY_SEARCH_PARSE_AND_PLAN)
+    else:
+        g.add_edge(NODE_ENTITY_GROUNDING_CHECK, NODE_NOVELTY_SEARCH_PARSE_AND_PLAN)
 
-    # Embedding persistence (right after embedding-novelty phase)
-    g.add_edge(NODE_RELEVANCE_CHECK_EMBEDDING, NODE_PERSIST_NOVEL_EMBEDDINGS)
-
-    # Novelty Search: linear chain (4 nodes)
-    g.add_edge(NODE_PERSIST_NOVEL_EMBEDDINGS, NODE_NOVELTY_SEARCH_PARSE_AND_PLAN)
+    # Novelty Search: linear chain
     g.add_edge(NODE_NOVELTY_SEARCH_PARSE_AND_PLAN, NODE_NOVELTY_SEARCH_FETCH)
     g.add_edge(NODE_NOVELTY_SEARCH_FETCH, NODE_NOVELTY_SEARCH_JUDGMENT)
     g.add_edge(NODE_NOVELTY_SEARCH_JUDGMENT, NODE_NOVELTY_SEARCH_REWRITE)
@@ -330,6 +330,10 @@ def build_brief_graph() -> StateGraph:
     return g
 
 
-def compile_brief_graph():
-    """Return a compiled, executable Brief pipeline graph."""
-    return build_brief_graph().compile()
+def compile_brief_graph(*, stateless: bool = False):
+    """Return a compiled, executable Brief pipeline graph.
+
+    ``stateless=False`` (default) returns the legacy SQLite-backed pipeline.
+    ``stateless=True`` returns the database-less, search-only-novelty variant.
+    """
+    return build_brief_graph(stateless=stateless).compile()

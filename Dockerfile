@@ -12,7 +12,11 @@ RUN apk update && apk add --no-cache \
     sqlite-dev \
     gcc \
     musl-dev \
-    git
+    git \
+    coreutils
+
+RUN curl -sSL https://github.com/aptible/supercronic/releases/download/v0.2.33/supercronic-linux-amd64 \
+    -o /usr/local/bin/supercronic && chmod +x /usr/local/bin/supercronic
 
 RUN adduser -D bigdata && \
     mkdir /code /data && \
@@ -28,10 +32,17 @@ WORKDIR /code
 
 COPY --chown=bigdata:bigdata pyproject.toml uv.lock README.md LICENSE ./
 COPY --chown=bigdata:bigdata bigdata_briefs ./bigdata_briefs
+COPY --chown=bigdata:bigdata vendor ./vendor
+COPY --chown=bigdata:bigdata crontab ./crontab
+COPY --chown=bigdata:bigdata start.sh ./start.sh
+COPY --chown=bigdata:bigdata run_daily.sh ./run_daily.sh
+
+# Strip any CR (\r) so scripts checked out on Windows (CRLF) still exec in the Linux container
+RUN sed -i 's/\r$//' /code/start.sh /code/run_daily.sh /code/crontab \
+    && chmod +x /code/start.sh /code/run_daily.sh
 
 RUN uv sync --no-dev
 
 ENV DB_STRING="sqlite:////data/bigdata_briefs.db"
 
-CMD ["uv", "run", "uvicorn", "bigdata_briefs.api.app:app", \
-     "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["/code/start.sh"]

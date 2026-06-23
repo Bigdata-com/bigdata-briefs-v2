@@ -1,0 +1,48 @@
+<div
+  id="scan-progress"
+  hx-get="/ui/partials/scan-status?scan_id={{ scan_id }}"
+  hx-trigger="every 3s"
+  hx-target="this"
+  hx-swap="outerHTML"
+>
+  <div class="card">
+    <div class="card-body">
+      {% if entity_name %}
+      <div style="font-weight:700;margin-bottom:.75rem">{{ entity_name }}</div>
+      {% endif %}
+      {% if effective_start and end %}
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:.75rem">
+        {{ effective_start }} → {{ end }}
+      </div>
+      {% endif %}
+
+      <div class="progress-wrap">
+        <div class="progress-label">
+          {% if windows_done == 0 %}
+            Starting…
+          {% elif windows_done == windows_total %}
+            Finalising…
+          {% else %}
+            Day {{ windows_done }} of {{ windows_total }}
+          {% endif %}
+        </div>
+        <div class="progress-bar-bg">
+          <div
+            class="progress-bar-fill"
+            style="width:{{ (windows_done / windows_total * 100) | int if windows_total else 0 }}%"
+          ></div>
+        </div>
+      </div>
+
+      <form
+        hx-post="/ui/scan/stop"
+        hx-target="#scan-progress"
+        hx-swap="outerHTML"
+        style="margin-top:.75rem"
+      >
+        <input type="hidden" name="scan_id" value="{{ scan_id }}"/>
+        <button type="submit" class="btn btn-danger btn-sm">Stop</button>
+      </form>
+    </div>
+  </div>
+</div>

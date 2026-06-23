@@ -592,8 +592,8 @@ class LLMNoveltyJudge:
                 )
                 if attempt >= max_attempts - 1:
                     return NoveltyEvaluatorResult(
-                        decision="KEEP",
-                        reason=f"Error during novelty Step 1 (after {max_attempts} attempts): {last_error!s}",
+                        decision="DISCARD",
+                        reason=f"Step 1 failed after {max_attempts} attempts: {last_error!s}",
                         rewritten_text=None,
                         evaluator_name=evaluator_name,
                         evidence_ids=[],
@@ -601,7 +601,7 @@ class LLMNoveltyJudge:
 
         if result is None:
             return NoveltyEvaluatorResult(
-                decision="KEEP",
+                decision="DISCARD",
                 reason="Step 1 produced no result (unexpected).",
                 rewritten_text=None,
                 evaluator_name=evaluator_name,
@@ -730,7 +730,7 @@ class LLMNoveltyJudge:
                         _debug_path,
                         last_error,
                     )
-                    return original_text, "REWRITE"
+                    return "", "DISCARD"
 
         if result is None:
             _date = context.current_date.strftime("%Y-%m-%d")
@@ -758,7 +758,7 @@ class LLMNoveltyJudge:
                 bullet_index,
                 _debug_path,
             )
-            return original_text, "REWRITE"
+            return "", "DISCARD"
 
         if result.is_empty:
             _novelty_step2_empty_count += 1
@@ -864,9 +864,10 @@ def make_three_window_evaluators(
     threshold: float = 0.5,
     top_k: int = 10,
 ) -> tuple[list[RetrieverPlusJudgeEvaluator], LLMNoveltyJudge]:
-    """Build three parallel evaluators: novelty window, remaining window, full history.
+    """Build evaluators for novelty-via-embedding judgment.
 
-    All three share the same LLMNoveltyJudge instance.
+    Only the recent-window evaluator (NOVELTY_LOOKBACK_DAYS) is active.
+    The remaining-window and full-history evaluators are disabled.
     Returns (evaluators, judge) so the caller can pass the judge to run_step2_rewrite.
     """
     judge = LLMNoveltyJudge(llm_client)
@@ -881,28 +882,6 @@ def make_three_window_evaluators(
             ),
             judge,
             name="llm_novelty_window",
-        ),
-        RetrieverPlusJudgeEvaluator(
-            EmbeddingRetrieverRemainingWindow(
-                embedding_client,
-                storage,
-                threshold=threshold,
-                top_k=top_k,
-                name="llm_remaining_window",
-            ),
-            judge,
-            name="llm_remaining_window",
-        ),
-        RetrieverPlusJudgeEvaluator(
-            EmbeddingRetrieverNoWindow(
-                embedding_client,
-                storage,
-                threshold=threshold,
-                top_k=top_k,
-                name="llm_full_history",
-            ),
-            judge,
-            name="llm_full_history",
         ),
     ]
     return evaluators, judge

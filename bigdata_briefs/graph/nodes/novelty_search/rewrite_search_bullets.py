@@ -1,10 +1,10 @@
 """
 Node: novelty_search_rewrite
 
-Decide keep/rewrite/discard per ogni bullet attivo.
-Scrive il risultato finale in state (NoveltySearchBlock.search).
-Applica il verdetto (deattiva/aggiorna testo).
-Svuota deps._search_cache alla fine.
+Decides keep/rewrite/discard for each active bullet.
+Writes the final result to state (NoveltySearchBlock.search).
+Applies the verdict (deactivates/updates the text).
+Clears deps._search_cache at the end.
 
 Service type: llm
 """
@@ -31,9 +31,13 @@ from bigdata_briefs.graph.nodes.novelty_search._search_impl import (
     _NSClaimVerdict,
     _NSRewriteResponseMixed,
     _NSSearchResult,
-    _REWRITE_PROMPT_MIXED,
-    _REWRITE_PROMPT_MIXED_NOISE,
+    _REWRITE_PROMPT_NOVEL_WITH_CONTEXT,
+    _REWRITE_PROMPT_NOVEL_NOISY,
+    _REWRITE_PROMPT_PARTIAL_UPDATE_WITH_CONTEXT,
+    _REWRITE_PROMPT_MULTI_PARTIAL_UPDATE,
+    _REWRITE_PROMPT_PARTIAL_UPDATE,
     _ns_build_rewrite_claims_and_verdicts,
+    _ns_build_rewrite_claims_with_reasoning,
     _ns_timestamp_to_date,
 )
 from bigdata_briefs.graph.state import (
@@ -99,31 +103,38 @@ def rewrite_search_bullets(
             ],
         }
 
+    updated = list(bullet_points)
+
     # Collect entries that have verdict data in the cache
     active_entries: list[tuple[int, str, str]] = []
     for i in active_indices:
         record = bullet_to_record(bullet_points[i])
         if deps.get_search_data(record.trace_id, "claim_verdicts") is None:
-            logger.debug(
-                "[novelty_search_rewrite] bullet=%d no verdict data in cache — skipping",
+            logger.warning(
+                "[novelty_search_rewrite] bullet=%d no verdict data in cache — discarding",
                 i,
             )
+            record.is_active = False
+            record.failure = BulletFailure(
+                node_id=NODE_NOVELTY_SEARCH_REWRITE,
+                error_type="MissingVerdictData",
+                error_message="No verdict data found in search cache — novelty judgment was skipped or failed.",
+            )
+            updated[i] = record_to_bullet(record)
             continue
         active_entries.append((i, record.trace_id, record.text or ""))
-
-    updated = list(bullet_points)
     results: dict[int, dict | Exception] = {}
     max_workers = max(1, settings.NOVELTY_SEARCH_MAX_CONCURRENT)
 
     def _rewrite_one(bullet_idx: int, trace_id: str, sentence: str) -> dict:
         """Rewrite one bullet; returns result dict.
 
-        Only the "mixed" verdict reaches the LLM (with _REWRITE_PROMPT_MIXED).
-        All other verdicts — novel, mixed_weak, discard_unsupported, discard_not_new —
-        are resolved in Python without an LLM call:
+        Verdicts resolved in Python without an LLM call:
           - novel         → keep as-is
-          - mixed_weak    → discard (insufficient novelty to justify a rewrite)
           - discard_*     → discard
+        Verdicts that go through the LLM rewriter:
+          - novel_with_context, novel_noisy, partial_update_with_context, partial_update → existing paths
+          - multi_partial_update → new path using _REWRITE_PROMPT_MULTI_PARTIAL_UPDATE
         """
         claims: list[_NSClaim] = deps.get_search_data(trace_id, "claims")
         claim_verdicts: list[_NSClaimVerdict] = deps.get_search_data(trace_id, "claim_verdicts")
@@ -166,13 +177,8 @@ def rewrite_search_bullets(
                 "overall_verdict_reason": "All claims fully novel — published as-is.",
             }
 
-        if overall_verdict in ("mixed_weak", "discard_unsupported", "discard_not_new"):
-            if overall_verdict == "mixed_weak":
-                reason = (
-                    "Bullet discarded: only partially_novel claims, no fully novel "
-                    "material — insufficient to justify a rewrite."
-                )
-            elif overall_verdict == "discard_unsupported":
+        if overall_verdict in ("discard_unsupported", "discard_not_new"):
+            if overall_verdict == "discard_unsupported":
                 reason = "Bullet discarded: contains unsupported inference or opinion."
             else:
                 reason = "Bullet discarded: no materially new information."
@@ -190,22 +196,72 @@ def rewrite_search_bullets(
                 "overall_verdict_reason": reason,
             }
 
-        # --- LLM path: mixed (old context + pivot marker) or mixed_noise (strip only) ---
+        if overall_verdict == "discard_step_error":
+            step_error_reason = deps.get_search_data(trace_id, "step_error_reason") or "novelty check step failed"
+            reason = f"Bullet discarded: {step_error_reason}"
+            logger.warning(
+                "[novelty_search_rewrite] bullet=%d action=discard overall_verdict=discard_step_error: %s",
+                bullet_idx,
+                step_error_reason,
+            )
+            return {
+                **base_result,
+                "rewrite_action": "discard",
+                "rewritten_sentence": None,
+                "reason": reason,
+                "verdict_reason": reason,
+                "overall_verdict_reason": reason,
+            }
 
-        claims_and_verdicts_text = _ns_build_rewrite_claims_and_verdicts(
-            claims, claim_verdicts
-        )
+        # --- LLM path: mixed / novel_noisy / partial_update ---
 
-        prompt_template = (
-            _REWRITE_PROMPT_MIXED_NOISE
-            if overall_verdict == "mixed_noise"
-            else _REWRITE_PROMPT_MIXED
-        )
-        user_content = prompt_template.format(
-            entity_name=entity_name,
-            sentence=sentence,
-            claims_and_verdicts=claims_and_verdicts_text,
-        )
+        if overall_verdict == "partial_update":
+            # One claim that adds a specific new detail to a known topic.
+            # Pass the judge's reasoning so the rewriter knows what is known vs new
+            # without needing explicit old/novel labels.
+            reasoning_text = claim_verdicts[0].reasoning if claim_verdicts else ""
+            user_content = _REWRITE_PROMPT_PARTIAL_UPDATE.format(
+                entity_name=entity_name,
+                sentence=sentence,
+                reasoning=reasoning_text,
+            )
+        elif overall_verdict == "partial_update_with_context":
+            # old claims + partially_novel claims: old context into subordinate clause,
+            # partially_novel material introduced after the pivot marker.
+            claims_and_verdicts_text = _ns_build_rewrite_claims_and_verdicts(
+                claims, claim_verdicts
+            )
+            user_content = _REWRITE_PROMPT_PARTIAL_UPDATE_WITH_CONTEXT.format(
+                entity_name=entity_name,
+                sentence=sentence,
+                claims_and_verdicts=claims_and_verdicts_text,
+            )
+        elif overall_verdict == "multi_partial_update":
+            # Two or more partially_novel claims, no old anchor, no novel.
+            # Pass claim text + verdict + per-claim reasoning so the rewriter can
+            # synthesise the shared known baseline for the subordinate clause.
+            claims_with_reasoning_text = _ns_build_rewrite_claims_with_reasoning(
+                claims, claim_verdicts
+            )
+            user_content = _REWRITE_PROMPT_MULTI_PARTIAL_UPDATE.format(
+                entity_name=entity_name,
+                sentence=sentence,
+                claims_with_reasoning=claims_with_reasoning_text,
+            )
+        else:
+            claims_and_verdicts_text = _ns_build_rewrite_claims_and_verdicts(
+                claims, claim_verdicts
+            )
+            prompt_template = (
+                _REWRITE_PROMPT_NOVEL_NOISY
+                if overall_verdict == "novel_noisy"
+                else _REWRITE_PROMPT_NOVEL_WITH_CONTEXT
+            )
+            user_content = prompt_template.format(
+                entity_name=entity_name,
+                sentence=sentence,
+                claims_and_verdicts=claims_and_verdicts_text,
+            )
         rewrite_response = deps.llm_client.call_with_response_format(
             system=[],
             messages=[{"role": "user", "content": user_content}],
@@ -221,9 +277,10 @@ def rewrite_search_bullets(
             raise RuntimeError(f"rewrite returned None for bullet {bullet_idx}")
 
         logger.info(
-            "[novelty_search_rewrite] bullet=%d action=rewrite overall_verdict=%r",
+            "[novelty_search_rewrite] bullet=%d action=rewrite overall_verdict=%r prompt=%s",
             bullet_idx,
             overall_verdict,
+            "partial_update" if overall_verdict == "partial_update" else "novel_with_context",
         )
         return {
             **base_result,
@@ -350,7 +407,7 @@ def rewrite_search_bullets(
         started_at=started_at,
         ended_at=datetime.now(timezone.utc).isoformat(),
         wall_time_ms=wall_ms,
-        llm_calls=rewrite_count,  # only mixed/mixed_weak bullets reach the LLM
+        llm_calls=rewrite_count,
         extra={
             "keep": keep_count,
             "discard": discard_count,

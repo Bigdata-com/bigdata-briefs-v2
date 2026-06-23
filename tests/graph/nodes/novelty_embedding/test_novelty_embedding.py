@@ -273,7 +273,7 @@ class TestScoreEmbeddingRewriteRelevance:
         deps.novelty_service  # unused
 
         with (
-            patch("bigdata_briefs.graph.nodes.novelty_embedding.check_rewrite_relevance._run_relevance_check_on_rewrite", return_value=5),
+            patch("bigdata_briefs.graph.nodes.novelty_embedding.check_rewrite_relevance._run_relevance_check_on_rewrite", return_value=(5, "looks relevant")),
             patch("bigdata_briefs.graph.nodes.novelty_embedding.check_rewrite_relevance.settings") as ms,
         ):
             ms.INTRO_SECTION_MIN_RELEVANCE_SCORE = 2
@@ -290,7 +290,7 @@ class TestScoreEmbeddingRewriteRelevance:
         deps = make_deps()
 
         with (
-            patch("bigdata_briefs.graph.nodes.novelty_embedding.check_rewrite_relevance._run_relevance_check_on_rewrite", return_value=1),
+            patch("bigdata_briefs.graph.nodes.novelty_embedding.check_rewrite_relevance._run_relevance_check_on_rewrite", return_value=(1, "not relevant")),
             patch("bigdata_briefs.graph.nodes.novelty_embedding.check_rewrite_relevance.settings") as ms,
         ):
             ms.INTRO_SECTION_MIN_RELEVANCE_SCORE = 2

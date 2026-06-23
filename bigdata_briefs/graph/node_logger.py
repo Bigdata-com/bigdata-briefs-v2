@@ -24,7 +24,7 @@ def _format_window(start: str, end: str) -> str:
     """Return a compact human-readable window string from two ISO datetime strings.
 
     Same-day intra-day:  "2026-04-15 11:16→11:19"
-    Multi-day:           "2026-04-14→2026-04-15"
+    Multi-day:           "2026-04-14 11:16→2026-04-15 08:26"
     Missing:             ""
     """
     if not start or not end:
@@ -36,7 +36,7 @@ def _format_window(start: str, end: str) -> str:
     e_date, e_time = e[:10], e[11:]
     if s_date == e_date:
         return f"{s_date} {s_time}→{e_time}"
-    return f"{s_date}→{e_date}"
+    return f"{s_date} {s_time}→{e_date} {e_time}"
 
 
 # Extra keys that are too verbose or uninteresting for the one-line DONE summary.

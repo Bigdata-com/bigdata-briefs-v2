@@ -2,33 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from bigdata_briefs.orchestration.windows import WindowMode
-
-
-# ── Trigger run ───────────────────────────────────────────────────────────────
-
-
-class RunRequest(BaseModel):
-    """Body for POST /entities/{entity_id}/run."""
-
-    pipeline_config: dict[str, Any] | None = None  # None → load default from disk
-    state_dir: str | None = None
-    refresh_entity: bool = False
-    force_run: bool = False
-    force_window_start: datetime | None = None
-    force_window_end: datetime | None = None
-    window_mode: WindowMode = WindowMode.DAILY
-
-
-class RunSubmittedResponse(BaseModel):
-    run_id: str
-    entity_id: str
-    status: str = "accepted"
 
 
 # ── Run status ────────────────────────────────────────────────────────────────
@@ -77,6 +56,7 @@ class CitationDetail(BaseModel):
     headline: str
     text: str
     source_name: str = ""
+    url: str | None = None
 
 
 class BulletPointItem(BaseModel):
@@ -87,23 +67,10 @@ class BulletPointItem(BaseModel):
     citations: list[CitationDetail]
     embedding_decision: str | None  # keep | rewrite | discard
     search_action: str | None       # keep | rewrite | discard | None
-    # True when novelty_search kept the bullet (search_action=="keep") but the
+    # False when novelty_search kept the bullet (search_action=="keep") but the
     # overall claim-level verdict was "mixed" — i.e. at least one claim was already
-    # known in the evidence.  Fully novel bullets have this as False.
-    not_fully_novel: bool = False
-
-
-class LatestBulletsResponse(BaseModel):
-    """Bullet points from the latest successful run for an entity."""
-
-    entity_id: str
-    entity_name: str
-    run_id: str
-    report_window_start: datetime
-    report_window_end: datetime
-    run_created_at: datetime
-    bullet_count: int
-    bullets: list[BulletPointItem]
+    # known in the evidence.  Fully novel bullets have this as True.
+    is_fully_novel: bool = True
 
 
 # ── Delete entity ─────────────────────────────────────────────────────────────
@@ -170,7 +137,8 @@ class BatchParallelRunStatusResponse(BaseModel):
 class BatchRunRequest(BaseModel):
     """Body for POST /batch/run and POST /batch/run-parallel.
 
-    Either ``entity_ids`` or ``universe`` must be provided (not both).
+    ``entity_ids``, ``universe``, or neither may be provided (not both).
+    When neither is set, all entities tracked in the database are run.
     When ``universe`` is set, entity IDs are resolved from the named universe CSV.
     """
 
@@ -179,14 +147,15 @@ class BatchRunRequest(BaseModel):
         description=(
             "List of Bigdata entity IDs to process. "
             "Mutually exclusive with 'universe'. "
-            "Pass an empty list together with 'universe' to run a full pre-defined universe."
+            "Omit (or pass empty list) to run all entities in the database."
         ),
     )
     universe: str | None = Field(
         default=None,
         description=(
             "Name of a pre-defined entity universe to run instead of an explicit entity list. "
-            "Available values: dow_30, eurostoxx_50, top_us_100, top_us_500, top_eu_100, top_eu_500. "
+            "Use the stem of any CSV under data/universes/ (e.g. dow_30, eurostoxx_50, top_us_10, "
+            "top_us_100, top_us_500, top_eu_100, top_eu_500). "
             "Mutually exclusive with 'entity_ids'."
         ),
     )
@@ -208,55 +177,60 @@ class BatchRunRequest(BaseModel):
         ),
     )
     window_mode: WindowMode = Field(
-        default=WindowMode.DAILY,
+        default=WindowMode.CONTINUOUS,
         description=(
             "Controls how the search window is computed when no forced dates are provided. "
-            "'daily' (default): covers [UTC midnight of today → now]. If the pipeline already ran "
-            "today it resumes from where that run ended; if the last run was yesterday or earlier it "
-            "always resets to midnight of today. "
-            "'continuous': covers [end of last run → now], picking up exactly where the previous run "
-            "stopped regardless of which day it was. Falls back to [UTC midnight of today → now] if "
-            "no previous run exists. Use this mode to guarantee no gaps across consecutive runs."
+            "'continuous' (default): covers [end of last run → now], picking up exactly where the "
+            "previous run stopped. Falls back to [UTC midnight of today → now] if no previous run "
+            "exists. Use this mode to guarantee no gaps across consecutive runs. "
+            "'update': covers at most the 24 hours preceding now (72h on Mondays to bridge the "
+            "weekend gap), starting from the last run's end if it falls within that window."
         ),
     )
-
-
-class BatchRunResponse(BaseModel):
-    """One submission entry per entity."""
-
-    submitted: list[RunSubmittedResponse]
-    total: int
-
-
-# ── Batch status ─────────────────────────────────────────────────────────────
-
-
-class BatchStatusRequest(BaseModel):
-    """Body for POST /batch/status."""
-
-    run_ids: list[str]
-
-
-class BatchRunStatusItem(BaseModel):
-    """Status of a single run within a batch."""
-
-    run_id: str
-    entity_id: str | None = None
-    status: str              # running | succeeded | failed | not_found
-    error_message: str | None = None
-    started_at: datetime | None = None
-    completed_at: datetime | None = None
-
-
-class BatchStatusResponse(BaseModel):
-    """Aggregated progress of a batch run."""
-
-    total: int
-    succeeded: int
-    failed: int
-    running: int
-    not_found: int
-    runs: list[BatchRunStatusItem]
+    categories: list[str] | None = Field(
+        default=None,
+        description=(
+            "Override the source categories for exploratory and concept search. "
+            "Available values: news, news_premium. "
+            "When null, the default pipeline config categories are used (news)."
+        ),
+    )
+    force_overlap: bool = Field(
+        default=False,
+        description=(
+            "When true, skips the overlap check and runs the pipeline even if the requested "
+            "window overlaps an already-completed run for the same entity. Use this to re-run "
+            "or backfill a window that was already processed."
+        ),
+    )
+    generate_narrative: bool = Field(
+        default=False,
+        description=(
+            "When true, generates a per-entity editorial narrative after each entity's pipeline "
+            "completes (if at least one bullet was published). When false (default), no narrative is generated."
+        ),
+    )
+    compute_signals: bool = Field(
+        default=False,
+        description=(
+            "When true, computes and stores sentiment signals (media-attention / sentiment "
+            "z-scores and momentum) after the batch completes, using the sentiment_tool vendor "
+            "dependency. These signals only feed the web app's ranking (portfolio brief top-N) "
+            "and signal-history sparklines, so the default is false: plain API/MCP runs skip it. "
+            "The app sets it to true explicitly. Failures are isolated and never fail the batch."
+        ),
+    )
+    ranking_metric: str | None = Field(
+        default=None,
+        description=(
+            "When provided, generates a portfolio brief after the batch completes, ranking the "
+            "top 5 companies by the chosen metric. When null (default), no portfolio brief is generated. "
+            "Available metrics: "
+            "'media_attention_momentum': latest chunks_momentum_pct (media volume acceleration — higher means more acceleration); "
+            "'media_attention': |Δ chunks_zscore_mo| (day-over-day change in normalised media volume z-score); "
+            "'sentiment': |Δ sent_zscore_mo| (day-over-day change in sentiment z-score)."
+        ),
+    )
 
 
 # ── Batch bullets ─────────────────────────────────────────────────────────────
@@ -293,12 +267,24 @@ class EntityBulletsResult(BaseModel):
 
 
 class BatchBulletsRequest(BaseModel):
-    """Body for POST /batch/bullets.
+    """Body for POST /reports/bullets.
 
     If ``entity_ids`` is empty, all entities in the DB are returned.
+    ``max_runs`` controls how many runs per entity are returned:
+      - ``None`` (default) → all runs
+      - ``1``              → latest run only
+      - ``N``              → last N runs (newest first)
     """
 
     entity_ids: list[str] = []
+    max_runs: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Maximum number of runs to return per entity, newest first. "
+            "Omit (or pass null) to return all runs."
+        ),
+    )
 
 
 class BatchBulletsResponse(BaseModel):
@@ -349,7 +335,7 @@ class BulletDiscardDetail(BaseModel):
     evaluator_details: list[dict] | None = None
     # novelty_search: per-claim verdicts with evidence references
     claim_verdicts: list[ClaimVerdictDetail] | None = None
-    overall_verdict: str | None = None  # novel | mixed | mixed_weak | discard_not_new | discard_unsupported
+    overall_verdict: str | None = None  # novel | novel_with_context | novel_noisy | partial_update | partial_update_with_context | multi_partial_update | discard_not_new | discard_unsupported
     # novelty_search_relevance: LLM justification for the relevance score
     evaluator_reasoning: str | None = None
 
@@ -485,73 +471,118 @@ class ClearStaleRunsResponse(BaseModel):
     """Age (seconds) above which a running row was considered stale."""
 
 
-# ── Date-range run ───────────────────────────────────────────────────────────
+# ── Narratives ───────────────────────────────────────────────────────────────
 
 
-class DateRangeRunRequest(BaseModel):
-    """Body for POST /entities/{entity_id}/run-range."""
+class NarrativeItem(BaseModel):
+    """A single per-entity editorial narrative."""
 
-    start_date: date
-    end_date: date
-    pipeline_config: dict[str, Any] | None = None
-    state_dir: str | None = None
-    refresh_entity: bool = False
-    force_run: bool = False
-    window_mode: WindowMode = WindowMode.DAILY
-
-
-class DateRangeRunSubmittedItem(BaseModel):
-    date: str        # YYYY-MM-DD
     run_id: str
+    report_date: datetime
+    narrative_text: str
+    bullets_count: int
+    created_at: datetime
+
+
+class EntityNarrativesResult(BaseModel):
     entity_id: str
+    found: bool
+    narratives: list[NarrativeItem] = []
 
 
-class DateRangeRunResponse(BaseModel):
-    entity_id: str
-    total_days: int
-    submitted: list[DateRangeRunSubmittedItem]
+class BatchNarrativesRequest(BaseModel):
+    """Body for POST /reports/narratives.
 
-
-# ── Dry run ───────────────────────────────────────────────────────────────────
-
-
-class DryRunRequest(BaseModel):
-    """Body for POST /entities/{entity_id}/dry-run."""
-
-    force_window_start: datetime | None = None
-    force_window_end: datetime | None = None
-    window_mode: WindowMode = WindowMode.DAILY
-
-
-class DryRunResponse(BaseModel):
-    entity_id: str
-    window_start: datetime
-    window_end: datetime
-    previous_bullets: list[dict[str, Any]]
-
-
-# ── Rate limiter observability ────────────────────────────────────────────────
-
-
-class RateStatusResponse(BaseModel):
-    """Snapshot of the process-global Bigdata rate-limit budget and worker pool.
-
-    Use this to size ``MAX_CONCURRENT_ENTITIES`` empirically: run a parallel
-    batch and watch whether ``queries_in_recent_window`` pegs at
-    ``window_capacity`` (you're saturating the 450 QPM cap and should lower
-    concurrency or accept queuing).
+    ``entity_ids``, ``universe``, or neither may be provided (not both).
+    When neither is set, all entities in the DB are returned.
+    ``from_date`` / ``to_date`` filter by ``report_date``.
     """
 
-    # ── Bigdata 450 QPM window ──
-    queries_in_recent_window: int
-    window_capacity: int
-    window_seconds: float
+    entity_ids: list[str] = []
+    universe: str | None = None
+    from_date: datetime | None = None
+    to_date: datetime | None = None
 
-    # ── Connection pool ──
-    connection_sem_capacity: int
-    connection_sem_available: int | None  # None if the platform doesn't expose it
 
-    # ── Entity worker pool ──
-    max_concurrent_entities: int
-    entities_in_flight: int  # futures submitted and not yet done
-    entity_queue_depth: int  # futures waiting for a worker slot
+class BatchNarrativesResponse(BaseModel):
+    results: list[EntityNarrativesResult]
+    total_entities: int
+
+
+class DeleteDateResponse(BaseModel):
+    """Result of POST /admin/delete-date."""
+
+    date: str
+    """Calendar date that was deleted (YYYY-MM-DD)."""
+    runs_deleted: int
+    """Number of pipeline runs removed."""
+
+
+# ── Stateless API (database-less, search-only novelty) ─────────────────────────
+
+
+class StatelessBriefsRequest(BaseModel):
+    """Fan out the database-less pipeline across many entities (one window for all).
+
+    A single entity is just a list of length 1.
+    """
+
+    entity_ids: list[str]
+    window_start: datetime
+    window_end: datetime
+    categories: list[str] | None = None
+
+
+class StatelessCitation(BaseModel):
+    """A resolved source for a bullet. Mirrors CitationDetail's display fields,
+    without the internal CQS reference id or raw chunk text."""
+
+    source_name: str = ""
+    headline: str = ""
+    url: str | None = None
+
+
+class StatelessBullet(BaseModel):
+    """A single published bullet with its data attached directly.
+
+    Mirrors BulletPointItem (the per-bullet object used by /reports/bullets)."""
+
+    text: str
+    citations: list[StatelessCitation] = []
+    search_action: str | None = None       # keep | rewrite | discard | None
+    # True = fully novel; False = partially novel (some claim already known in evidence).
+    is_fully_novel: bool = True
+
+
+class StatelessEntityReport(BaseModel):
+    """One entity's brief for a single window. Mirrors the field conventions of
+    RunBulletsResult (counts + discarded-by-stage) flattened to the entity, since
+    a stateless run covers exactly one window."""
+
+    entity_id: str
+    entity_name: str | None = None
+    bullets_saved: int = 0
+    bullets_discarded: int = 0
+    bullets: list[StatelessBullet] = []
+    discarded_by_relevance: list[str] = []
+    discarded_by_grounding: list[str] = []
+    discarded_by_novelty: list[str] = []
+
+
+class StatelessJobAccepted(BaseModel):
+    job_id: str
+    total: int
+
+
+class StatelessJobStatus(BaseModel):
+    job_id: str
+    status: str  # running | finished
+    total: int
+    done: int
+    progress: dict[str, str]
+    """entity_id -> current phase: queued | search | bullet_generation | grounding |
+    novelty | finalizing | done | failed."""
+    results: dict[str, dict]
+    """entity_id -> SingleEntityReport dict (only finished entities)."""
+    errors: dict[str, str]
+    """entity_id -> error message (only failed entities)."""

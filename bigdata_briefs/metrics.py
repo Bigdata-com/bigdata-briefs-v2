@@ -269,10 +269,12 @@ class StepMetrics:
         with cls.lock:
             if step_name not in cls.usage_per_step:
                 cls.usage_per_step[step_name] = StepUsage(step_name=step_name)
-            
+
             step = cls.usage_per_step[step_name]
             step.llm_cost_usd += usage.cost_usd
             step.llm_tokens += usage.total_tokens
+            step.llm_prompt_tokens += usage.prompt_tokens
+            step.llm_completion_tokens += usage.completion_tokens
             step.llm_calls += usage.n_calls
 
     @classmethod
@@ -345,7 +347,7 @@ class _PipelineWallRecord:
 class EntityStepMetrics:
     """
     Per-entity step metrics tracker (instance-based, thread-safe).
-    
+
     Unlike StepMetrics (class-based), this creates a separate instance per entity,
     allowing correct tracking when entities are processed in parallel.
     """
@@ -358,6 +360,11 @@ class EntityStepMetrics:
         self.lock = Lock()
         self._pipeline_wall_records: list[_PipelineWallRecord] = []
         self._novelty_substep_wall: dict[str, dict[str, object]] = {}
+        self._llm_per_model: dict[str, LLMUsage] = {}
+        self._embedding_usage: EmbeddingsUsage | None = None
+        self._total_chunks: int = 0
+        self._total_api_calls: int = 0
+        self._total_query_units: float = 0.0
 
     def set_current_step(self, step_name: str | None):
         """Set the currently active step (called by track_step context manager)."""
@@ -528,31 +535,104 @@ class EntityStepMetrics:
             step = self.usage_per_step[step_name]
             step.llm_cost_usd += usage.cost_usd
             step.llm_tokens += usage.total_tokens
+            step.llm_prompt_tokens += usage.prompt_tokens
+            step.llm_completion_tokens += usage.completion_tokens
             step.llm_calls += usage.n_calls
+
+            # Per-model breakdown (used for cost estimation in SQLRunMetrics)
+            model = usage.model or "unknown"
+            if model not in self._llm_per_model:
+                self._llm_per_model[model] = usage.model_copy(deep=True)
+            else:
+                existing = self._llm_per_model[model]
+                self._llm_per_model[model] = LLMUsage(
+                    model=model,
+                    prompt_tokens=existing.prompt_tokens + usage.prompt_tokens,
+                    completion_tokens=existing.completion_tokens + usage.completion_tokens,
+                    total_tokens=existing.total_tokens + usage.total_tokens,
+                    n_calls=existing.n_calls + usage.n_calls,
+                    cost_usd=existing.cost_usd + usage.cost_usd,
+                )
 
     def track_embedding_usage(self, usage: EmbeddingsUsage):
         """Track embedding usage for the current step."""
         with self.lock:
+            # Always accumulate total embedding usage (used by SQLRunMetrics)
+            if self._embedding_usage is None:
+                self._embedding_usage = usage.model_copy(deep=True)
+            else:
+                existing = self._embedding_usage
+                self._embedding_usage = EmbeddingsUsage(
+                    model=existing.model,
+                    tokens=existing.tokens + usage.tokens,
+                    cost_usd=existing.cost_usd + usage.cost_usd,
+                )
+
             step_name = self._current_step
             if not step_name:
                 return
-            
+
             if step_name not in self.usage_per_step:
                 self.usage_per_step[step_name] = StepUsage(step_name=step_name)
-            
+
             step = self.usage_per_step[step_name]
             step.embedding_cost_usd += usage.cost_usd
             step.embedding_tokens += usage.tokens
 
-    def track_chunks(self, count: int):
-        """Track chunks retrieved for the current step."""
+    def get_llm_model_summary(self) -> list[dict]:
+        """Return per-model LLM usage as a list of dicts for JSON serialization."""
         with self.lock:
-            step_name = self._current_step
+            return [
+                {
+                    "model": u.model,
+                    "prompt_tokens": u.prompt_tokens,
+                    "completion_tokens": u.completion_tokens,
+                    "total_tokens": u.total_tokens,
+                    "n_calls": u.n_calls,
+                    "cost_usd": round(u.cost_usd, 6),
+                }
+                for u in self._llm_per_model.values()
+            ]
+
+    def get_embedding_summary(self) -> dict:
+        """Return embedding usage as a dict for JSON serialization."""
+        with self.lock:
+            if self._embedding_usage is None:
+                return {"model": "N/A", "tokens": 0, "cost_usd": 0.0}
+            u = self._embedding_usage
+            return {"model": u.model, "tokens": u.tokens, "cost_usd": round(u.cost_usd, 6)}
+
+    def track_chunks(self, count: int, *, attributee_step: str | None = None):
+        """Track chunks retrieved. Always accumulates the run total; also updates the step
+        breakdown when a step name is known (via attributee_step or the active track_step)."""
+        with self.lock:
+            self._total_chunks += count
+            step_name = attributee_step if attributee_step else self._current_step
             if not step_name:
                 return
             if step_name not in self.usage_per_step:
                 self.usage_per_step[step_name] = StepUsage(step_name=step_name)
             self.usage_per_step[step_name].chunks_retrieved += count
+
+    def track_api_call(
+        self,
+        n_calls: int,
+        query_units: float = 0.0,
+        *,
+        attributee_step: str | None = None,
+    ):
+        """Track Bigdata search API calls. Always accumulates run totals; also updates
+        the step breakdown when a step name is known."""
+        with self.lock:
+            self._total_api_calls += n_calls
+            self._total_query_units += query_units
+            step_name = attributee_step if attributee_step else self._current_step
+            if not step_name:
+                return
+            if step_name not in self.usage_per_step:
+                self.usage_per_step[step_name] = StepUsage(step_name=step_name)
+            self.usage_per_step[step_name].api_calls += n_calls
+            self.usage_per_step[step_name].api_query_units += query_units
 
     def track_bullets(
         self,

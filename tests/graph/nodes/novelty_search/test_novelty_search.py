@@ -14,7 +14,6 @@ _search_impl pure-function tests:
   - _ns_assign_simple_ids
   - _ns_reference_date_to_search_end
   - _ns_format_evidence_grouped_by_date_and_doc
-  - _ns_build_rewrite_prompt_sections
   - _ns_get_evidence_for_claim
 """
 
@@ -40,7 +39,6 @@ from bigdata_briefs.graph.nodes.novelty_search._search_impl import (
     _NSSearchResult,
     _NSSentencePart,
     _ns_assign_simple_ids,
-    _ns_build_rewrite_prompt_sections,
     _ns_compute_overall_verdict,
     _ns_format_evidence_grouped_by_date_and_doc,
     _ns_get_evidence_for_claim,
@@ -140,8 +138,12 @@ def _seed_cache_for_judgment(
         deps.store_search_data(trace_id, "results_per_part", [[]])
 
 
-def _seed_cache_for_rewrite(deps, trace_id: str, overall_verdict: str = "novel") -> None:
-    """Seed all intermediate data so the rewrite node can run."""
+def _seed_cache_for_rewrite(deps, trace_id: str, overall_verdict: str = "novel_with_context") -> None:
+    """Seed all intermediate data so the rewrite node can run.
+
+    Defaults to "novel_with_context" so tests that call the LLM path work out of the box.
+    Pass overall_verdict="novel" explicitly for tests that exercise the bypass path.
+    """
     _seed_cache_for_judgment(deps, trace_id, n_claims=1, with_evidence=True)
     claim_verdicts = [
         _NSClaimVerdict(
@@ -189,20 +191,28 @@ class TestNsComputeOverallVerdict:
         verdicts = [
             _NSClaimVerdict(claim_index=0, novelty="old", evidence_ids=[], reasoning=""),
         ]
-        assert _ns_compute_overall_verdict(verdicts) == "old"
+        assert _ns_compute_overall_verdict(verdicts) == "discard_not_new"
 
     def test_mixed_novel_and_old(self):
         verdicts = [
             _NSClaimVerdict(claim_index=0, novelty="novel", evidence_ids=[], reasoning=""),
             _NSClaimVerdict(claim_index=1, novelty="old", evidence_ids=[], reasoning=""),
         ]
-        assert _ns_compute_overall_verdict(verdicts) == "mixed"
+        assert _ns_compute_overall_verdict(verdicts) == "novel_with_context"
 
-    def test_partially_novel(self):
+    def test_partially_novel_single_claim(self):
+        # Single partially_novel claim now routes to the dedicated rewriter
         verdicts = [
             _NSClaimVerdict(claim_index=0, novelty="partially_novel", evidence_ids=[], reasoning=""),
         ]
-        assert _ns_compute_overall_verdict(verdicts) == "mixed"
+        assert _ns_compute_overall_verdict(verdicts) == "partial_update"
+
+    def test_partially_novel_multiple_claims(self):
+        verdicts = [
+            _NSClaimVerdict(claim_index=0, novelty="partially_novel", evidence_ids=[], reasoning=""),
+            _NSClaimVerdict(claim_index=1, novelty="partially_novel", evidence_ids=[], reasoning=""),
+        ]
+        assert _ns_compute_overall_verdict(verdicts) == "multi_partial_update"
 
     def test_empty_list_returns_old(self):
         assert _ns_compute_overall_verdict([]) == "old"
@@ -410,63 +420,6 @@ class TestNsGetEvidenceForClaim:
 
         output = _ns_get_evidence_for_claim(0, parts, results_per_part, all_results)
         assert output == [r_merged]
-
-
-class TestNsBuildRewritePromptSections:
-    def test_sections_contain_claim_text_and_verdict(self):
-        claims = [_NSClaim(text="Revenue grew.")]
-        verdicts = [
-            _NSClaimVerdict(
-                claim_index=0,
-                novelty="novel",
-                evidence_ids=[],
-                reasoning="No evidence found.",
-            )
-        ]
-        cv_text, evidence_text, reasoning_text = _ns_build_rewrite_prompt_sections(
-            claims, verdicts, {}
-        )
-        assert "Revenue grew." in cv_text
-        assert "novel" in cv_text
-        assert "No evidence found." in reasoning_text
-
-    def test_cited_evidence_included_in_all_evidence(self):
-        chunk = _make_search_result(simple_id="D1-C1", chunk_text="Cited chunk.")
-        claims = [_NSClaim(text="Claim text.")]
-        verdicts = [
-            _NSClaimVerdict(
-                claim_index=0,
-                novelty="old",
-                evidence_ids=["D1-C1"],
-                reasoning="Already in evidence.",
-            )
-        ]
-        _, evidence_text, _ = _ns_build_rewrite_prompt_sections(
-            claims, verdicts, {"D1-C1": chunk}
-        )
-        assert "Cited chunk." in evidence_text
-
-    def test_uncited_evidence_not_included(self):
-        chunk = _make_search_result(simple_id="D1-C1", chunk_text="Uncited chunk.")
-        claims = [_NSClaim(text="Claim text.")]
-        verdicts = [
-            _NSClaimVerdict(
-                claim_index=0,
-                novelty="novel",
-                evidence_ids=[],  # no citations
-                reasoning="No evidence.",
-            )
-        ]
-        _, evidence_text, _ = _ns_build_rewrite_prompt_sections(
-            claims, verdicts, {"D1-C1": chunk}
-        )
-        assert "Uncited chunk." not in evidence_text
-
-    def test_empty_claims_and_verdicts(self):
-        cv_text, evidence_text, reasoning_text = _ns_build_rewrite_prompt_sections([], [], {})
-        assert cv_text == ""
-        assert evidence_text == ""
-        assert reasoning_text == ""
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -913,8 +866,8 @@ class TestRewriteSearchBullets:
         assert result["node_metrics"][0]["extra"]["skipped"] is True
         assert deps._search_cache == {}
 
-    def test_no_verdict_in_cache_bullet_not_modified(self):
-        """Bullets with no verdict data in cache are silently skipped."""
+    def test_no_verdict_in_cache_bullet_discarded(self):
+        """Bullets with no verdict data in cache are discarded as unverified."""
         deps = make_deps()
         bp = make_bullet()
         # No cache seeded → claim_verdicts is None
@@ -932,20 +885,20 @@ class TestRewriteSearchBullets:
 
         # No LLM call since no cache entries
         deps.llm_client.call_with_response_format.assert_not_called()
-        # Bullet should be unchanged (still active)
-        assert result["bullet_points"][0]["is_active"] is True
+        # Bullet should be discarded — novelty check did not complete
+        assert result["bullet_points"][0]["is_active"] is False
+        assert result["bullet_points"][0]["failure"]["error_type"] == "MissingVerdictData"
 
     def test_keep_action_preserves_text_and_active(self):
         deps = make_deps()
         bp = make_bullet(text="Original text.")
-        _seed_cache_for_rewrite(deps, bp["trace_id"])
+        _seed_cache_for_rewrite(deps, bp["trace_id"], overall_verdict="novel")
         state = _state(
             bullet_points=[bp],
             entity_name="Apple",
             entity_id="E1",
             report_start_date="2025-01-15",
         )
-        deps.llm_client.call_with_response_format.return_value = self._mock_rewrite_response("keep")
 
         with patch(f"{_REWRITE_MODULE}.settings") as ms:
             ms.NOVELTY_SEARCH_ENABLED = True
@@ -958,16 +911,16 @@ class TestRewriteSearchBullets:
         assert updated["novelty_search"]["search"]["verdict"] == "keep"
 
     def test_discard_action_deactivates_bullet(self):
+        """discard_not_new verdict is handled via Python bypass (no LLM call)."""
         deps = make_deps()
         bp = make_bullet()
-        _seed_cache_for_rewrite(deps, bp["trace_id"])
+        _seed_cache_for_rewrite(deps, bp["trace_id"], overall_verdict="discard_not_new")
         state = _state(
             bullet_points=[bp],
             entity_name="Apple",
             entity_id="E1",
             report_start_date="2025-01-15",
         )
-        deps.llm_client.call_with_response_format.return_value = self._mock_rewrite_response("discard")
 
         with patch(f"{_REWRITE_MODULE}.settings") as ms:
             ms.NOVELTY_SEARCH_ENABLED = True
@@ -976,6 +929,7 @@ class TestRewriteSearchBullets:
 
         updated = result["bullet_points"][0]
         assert updated["is_active"] is False
+        deps.llm_client.call_with_response_format.assert_not_called()
         assert updated["novelty_search"]["search"]["verdict"] == "discard"
 
     def test_rewrite_action_updates_text(self):
@@ -1547,12 +1501,9 @@ class TestRewriteSearchBulletsParallel:
 
         n = self.N
         deps = make_deps()
-        deps.llm_client.call_with_response_format.return_value = _NSRewriteResponse(
-            action="keep", rewritten_sentence=None, reasoning="ok"
-        )
         bullets = [make_bullet(text=f"Bullet {i}.") for i in range(n)]
         for bp in bullets:
-            _seed_cache_for_rewrite(deps, bp["trace_id"])
+            _seed_cache_for_rewrite(deps, bp["trace_id"], overall_verdict="novel")
         state = _state(
             bullet_points=bullets,
             entity_name="Apple",

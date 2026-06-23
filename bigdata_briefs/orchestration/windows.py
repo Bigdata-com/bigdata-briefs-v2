@@ -13,27 +13,21 @@ MAX_LOOKBACK_HOURS = 24
 class WindowMode(str, Enum):
     """Controls how the start of the search window is determined.
 
-    daily (default)
-        Starts at UTC midnight of the current calendar day, unless the company
-        was already run earlier today — in that case starts from where that run
-        ended, to avoid reprocessing the same content twice.
-        A run from a previous calendar day never influences today's window start.
-
-    continuous
+    continuous (default)
         Starts exactly where the previous run's window ended, with no cap.
         Guarantees a gap-free timeline across consecutive runs.
         Falls back to UTC midnight of today on the very first run.
 
-    rolling_24h
-        Always covers the 24 hours preceding the current run, capped at
-        ``last_window_end`` to avoid re-querying already-searched content.
-        Equivalent to ``start = max(last_window_end, now - 24h)``.
-        Falls back to UTC midnight of today on the very first run.
+    update
+        Covers at most the 24 hours preceding ``end``, extended to 72 hours when
+        ``end`` falls on a Monday (UTC) to bridge the weekend gap.
+        If a previous run exists whose ``last_window_end`` falls within that
+        window, starts from there instead (avoiding redundant reprocessing).
+        If no previous run exists, covers the full lookback window (first-run friendly).
     """
 
-    DAILY = "daily"
     CONTINUOUS = "continuous"
-    ROLLING_24H = "rolling_24h"
+    UPDATE = "update"
 
 
 class WindowEndNotAfterStartError(ValueError):
@@ -54,7 +48,7 @@ def build_report_dates_for_entity_run(
     *,
     now: datetime,
     last_window_end: datetime | None,
-    window_mode: WindowMode = WindowMode.DAILY,
+    window_mode: WindowMode = WindowMode.CONTINUOUS,
 ) -> ReportDates:
     """
     Build ``ReportDates`` with half-open semantics ``[start, end)``.
@@ -67,28 +61,21 @@ def build_report_dates_for_entity_run(
     """
     end = _ensure_utc(now)
 
-    if window_mode == WindowMode.DAILY:
-        today_midnight = utc_midnight(end.date())
-        if last_window_end is not None and _ensure_utc(last_window_end) > today_midnight:
-            # Already run today: pick up from where the last run ended.
-            start = _ensure_utc(last_window_end)
-        else:
-            # First run of the day (or ever): start at midnight of today.
-            start = today_midnight
-
-    elif window_mode == WindowMode.CONTINUOUS:
+    if window_mode == WindowMode.CONTINUOUS:
         # Pick up exactly where the last run ended; no cap.
         if last_window_end is None:
             start = utc_midnight(end.date())
         else:
             start = _ensure_utc(last_window_end)
 
-    else:  # ROLLING_24H
-        # Cover the last 24 hours, capped at last_window_end to avoid overlap.
+    else:  # UPDATE
+        # Monday: extend lookback to 72h to bridge the weekend gap.
+        # All other days: standard 24h lookback.
+        lookback_hours = 72 if end.weekday() == 0 else MAX_LOOKBACK_HOURS
+        floor = end - timedelta(hours=lookback_hours)
         if last_window_end is None:
-            start = utc_midnight(end.date())
+            start = floor
         else:
-            floor = end - timedelta(hours=MAX_LOOKBACK_HOURS)
             start = max(_ensure_utc(last_window_end), floor)
 
     if end <= start:

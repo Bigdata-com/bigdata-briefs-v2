@@ -27,7 +27,7 @@ from bigdata_briefs.novelty.storage import (
 )
 from bigdata_briefs.orchestration.db import ensure_orchestration_schema
 from bigdata_briefs.orchestration.kg_entities import entity_from_kg_record, fetch_kg_entities_by_ids
-from bigdata_briefs.orchestration.models import SQLEntityOrchestrationState, SQLEntityPipelineRunLog
+from bigdata_briefs.orchestration.models import SQLBulletRunLog, SQLEntityOrchestrationState, SQLEntityPipelineRunLog, SQLRunMetrics, SQLRunNarrative
 from bigdata_briefs.orchestration.output import fetch_new_novelty_ok_bullets, fetch_previous_bullets
 from bigdata_briefs.orchestration.windows import WindowEndNotAfterStartError, WindowMode, build_report_dates_for_entity_run
 from bigdata_briefs.graph.dependencies import RuntimeDependencies
@@ -81,6 +81,24 @@ def _as_utc_aware(dt: datetime) -> datetime:
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
+
+
+def _persisted_report_dates_after_success(
+    report_dates: ReportDates,
+    completion: datetime,
+) -> ReportDates:
+    """When nominal ``report_dates.end`` is after ``completion`` on the same UTC day, persist ``end = completion``.
+
+    A forced calendar-day window often uses 23:59:59 while the pipeline finishes hours earlier.
+    Storing the nominal end would claim the entire UTC day is already covered and block
+    legitimate same-day incremental scans under overlap rules before local midnight.
+    """
+    rs = _as_utc_aware(report_dates.start)
+    re = _as_utc_aware(report_dates.end)
+    c = _as_utc_aware(completion)
+    if re.date() == c.date() and re > c:
+        return ReportDates(start=rs, end=c)
+    return report_dates
 
 
 def _get_or_create_orch_row(session: Session, entity_id: str) -> SQLEntityOrchestrationState:
@@ -145,6 +163,23 @@ class OrchestratorWindowOverlapError(RuntimeError):
     """Requested window overlaps a completed run for this entity."""
 
 
+def _effective_window_end(row: "SQLEntityPipelineRunLog") -> datetime:
+    """Effective end for overlap purposes: min(report_window_end, process_completed_at_utc).
+
+    Old runs stored ``report_window_end = 23:59:59`` even when the pipeline finished hours
+    earlier.  The actual work ended at ``process_completed_at_utc``, so any window starting
+    after that is safe.  New runs (after the entity_runner fix) already persist the real
+    completion time in ``report_window_end``, so this helper is a no-op for them.
+    """
+    we = _as_utc_aware(row.report_window_end)
+    if row.process_completed_at_utc is None:
+        return we
+    pc = _as_utc_aware(row.process_completed_at_utc)
+    if we.date() == pc.date() and we > pc:
+        return pc
+    return we
+
+
 def _assert_no_overlapping_run(
     session: Session,
     *,
@@ -162,7 +197,7 @@ def _assert_no_overlapping_run(
     re = _as_utc_aware(report_dates.end)
     for row in rows:
         existing_start = _as_utc_aware(row.report_window_start)
-        existing_end = _as_utc_aware(row.report_window_end)
+        existing_end = _effective_window_end(row)
         if rs < existing_end and existing_start < re:
             raise OrchestratorWindowOverlapError(
                 f"entity_id={entity_id!r} requested window [{rs.isoformat()}, {re.isoformat()}) "
@@ -344,6 +379,412 @@ def _node_metrics_to_step_summary(node_metrics: list[dict]) -> dict[str, bool]:
     }
 
 
+def _get_discard_stage(bp: dict) -> str | None:
+    """Return the pipeline stage that discarded this bullet, or None if active."""
+    if bp.get("is_active", True):
+        return None
+    rs = bp.get("relevance_scoring") or {}
+    if rs and not rs.get("passed", True):
+        return "relevance_score"
+    eg = (bp.get("entity_grounding") or {}).get("check") or {}
+    if eg.get("decision") == "invalid":
+        return "grounding"
+    ne = bp.get("novelty_embedding") or {}
+    j = ne.get("judgment") or {}
+    if j.get("decision") == "discard":
+        return "novelty_embedding"
+    rc = ne.get("relevance_check") or {}
+    if rc and not rc.get("passed", True):
+        return "novelty_embedding_relevance"
+    ns = bp.get("novelty_search") or {}
+    s = ns.get("search") or {}
+    if s.get("verdict") == "discard":
+        return "novelty_search"
+    src = ns.get("relevance_check") or {}
+    if src and not src.get("passed", True):
+        return "novelty_search_relevance"
+    return "unknown"
+
+
+def _build_doc_index(source_refs: dict) -> dict:
+    """Build {document_id[-chunk_id]: {headline,text,source_name,date}} from source_references."""
+    index: dict = {}
+    for ref in source_refs.values():
+        doc_id = str(ref.get("document_id") or "").strip()
+        chunk_id = ref.get("chunk_id")
+        if not doc_id:
+            continue
+        ts = str(ref.get("ts") or "").replace("T", " ")[:19]
+        entry = {
+            "headline": ref.get("headline") or "",
+            "text": ref.get("text") or "",
+            "source_name": ref.get("source_name") or "",
+            "date": ts,
+        }
+        if chunk_id is not None:
+            index.setdefault(f"{doc_id}-{chunk_id}", entry)
+        index.setdefault(doc_id, entry)
+    return index
+
+
+def _resolve_citation(cit_id: str, doc_index: dict) -> dict:
+    tail = cit_id.split(":", 1)[-1]
+    meta = doc_index.get(tail) or doc_index.get(tail.rsplit("-", 1)[0]) or {}
+    return {
+        "id": cit_id,
+        "headline": meta.get("headline") or "",
+        "text": meta.get("text") or "",
+        "source_name": meta.get("source_name") or "",
+        "date": meta.get("date") or "",
+    }
+
+
+def _flush_bullet_run_log(eng: Engine, run_id: uuid.UUID, entity_id: str, final_state: dict) -> None:
+    """Write one SQLBulletRunLog row per bullet, storing all display data so the UI
+    never needs to parse output_json again."""
+    bullet_points: list[dict] = final_state.get("bullet_points") or []
+    if not bullet_points:
+        return
+
+    source_refs: dict = final_state.get("source_references") or {}
+    doc_index = _build_doc_index(source_refs)
+    now = datetime.now(timezone.utc)
+    rows: list[SQLBulletRunLog] = []
+
+    for bp in bullet_points:
+        is_active: bool = bp.get("is_active", True)
+        ne = bp.get("novelty_embedding") or {}
+        ns_block = bp.get("novelty_search") or {}
+        s = ns_block.get("search") or {}
+        search_details = s.get("details") or {}
+        rs = bp.get("relevance_scoring") or {}
+        eg = (bp.get("entity_grounding") or {}).get("check") or {}
+        gen = bp.get("generation") or {}
+        j = ne.get("judgment") or {}
+
+        overall_verdict = s.get("overall_verdict")
+        # Fully novel only when the bullet was published as-is (verdict "keep",
+        # i.e. overall_verdict "novel"). Any rewrite means part of the content
+        # restated already-known information → not fully novel (amber).
+        is_fully_novel = not (is_active and s.get("verdict") == "rewrite")
+
+        ne_rewrite = (ne.get("rewrite") or {}).get("text_after")
+        search_rewrite = s.get("rewritten_text")
+        final_text = search_rewrite or ne_rewrite or bp.get("text", "")
+
+        # ── citations: resolve IDs → full metadata via doc_index ─────────────
+        citations = [
+            _resolve_citation(str(cid), doc_index)
+            for cid in (bp.get("citations") or [])
+        ]
+
+        # ── evaluator details (novelty embedding) ─────────────────────────────
+        evaluator_details = j.get("evaluator_details") or []
+
+        # ── novelty search claim verdicts + evidence map ──────────────────────
+        claim_verdicts = search_details.get("claim_verdicts") or []
+        evidence_map = search_details.get("evidence_map") or {}
+
+        # ── grounding citation IDs ────────────────────────────────────────────
+        grounding_citations = (
+            [str(c) for c in (bp.get("citations") or [])]
+            if _get_discard_stage(bp) == "grounding" else []
+        )
+
+        rows.append(SQLBulletRunLog(
+            run_id=run_id,
+            entity_id=entity_id,
+            trace_id=str(bp.get("trace_id") or ""),
+            is_active=is_active,
+            is_fully_novel=is_fully_novel,
+            discard_stage=_get_discard_stage(bp),
+            text=final_text,
+            original_text=str(gen.get("original_text") or bp.get("text") or ""),
+            theme=str(bp.get("theme") or ""),
+            relevance_score=rs.get("score"),
+            relevance_passed=rs.get("passed"),
+            relevance_reason=rs.get("reason"),
+            grounding_decision=eg.get("decision"),
+            grounding_reason=eg.get("reason"),
+            embedding_decision=j.get("decision"),
+            embedding_reason=j.get("reason"),
+            embedding_rewritten=bool(ne.get("rewrite")),
+            search_verdict=s.get("verdict"),
+            search_overall_verdict=overall_verdict,
+            search_reason=s.get("reason"),
+            search_duration_seconds=s.get("duration_seconds"),
+            search_relevance_score=(ns_block.get("relevance_check") or {}).get("score"),
+            search_relevance_reason=(ns_block.get("relevance_check") or {}).get("reasoning"),
+            citations_json=json.dumps(citations, default=str),
+            evaluator_details_json=json.dumps(evaluator_details, default=str),
+            claim_verdicts_json=json.dumps(claim_verdicts, default=str),
+            evidence_map_json=json.dumps(evidence_map, default=str),
+            grounding_citations_json=json.dumps(grounding_citations),
+            created_at=now,
+        ))
+
+    try:
+        with Session(eng) as session:
+            session.add_all(rows)
+            session.commit()
+    except Exception:
+        pass  # never let bullet log failures break the run
+
+
+_NARRATIVE_PROMPT_MANY = """\
+You are a financial news editor. Write one flowing sentence (max 32 words) that captures today's brief for {entity_name}.
+
+Rules:
+- Sound like a human desk note, not a template: never open with a tally or inventory line
+  (no "N new development(s):", "Two updates:", "Three things:", "Here are…", or similar).
+- You may weave several facts with commas, "and", "while", or a dash—still exactly one sentence.
+- Vary how you start: sometimes lead with the strongest fact, sometimes with short context—avoid
+  the same rhythm you would use for another ticker.
+- Include at least one concrete detail (figure, product, place, regulator, partner).
+- Present tense; no meta filler ("In summary", "Overall", "Notably").
+
+COMPANY: {entity_name}
+DATE: {report_date}
+BULLET COUNT (sense of scope only—do not echo as a headline): {bullets_count}
+
+BULLETS:
+{bullets_text}
+
+OUTPUT: one sentence only.
+"""
+
+_NARRATIVE_PROMPT_FEW = """\
+You are a financial news editor. Write one flowing sentence (max 32 words) for {entity_name}'s brief today.
+Use the source excerpts for context but do NOT lift bullet wording verbatim.
+
+Rules:
+- Same conversational desk voice: no opening tally ("N new developments:", "Several items:", etc.).
+- One sentence, present tense; at least one concrete anchor detail.
+- Vary structure and opener; subordinate clauses or a single em-dash are fine if it stays one sentence.
+
+COMPANY: {entity_name}
+DATE: {report_date}
+BULLET COUNT (scope only): {bullets_count}
+
+BULLETS:
+{bullets_text}
+
+SOURCE CONTEXT:
+{citations_text}
+
+OUTPUT: one sentence only.
+"""
+
+
+def _collect_todays_active_bullets(
+    eng: Engine,
+    entity_id: str,
+    report_date: datetime,
+) -> list[SQLBulletRunLog]:
+    """Return all active bullets for entity_id whose report window ends on the same UTC calendar day as report_date.
+
+    Aggregating by ``report_window_end`` (rather than ``process_completed_at_utc``)
+    lets backfill runs of historical days find their own bullets — a run executed
+    today for a window on 2026-04-20 belongs to the 2026-04-20 narrative.
+    """
+    if report_date.tzinfo is None:
+        report_date = report_date.replace(tzinfo=timezone.utc)
+    day_start = report_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    day_end = report_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    with Session(eng) as session:
+        run_rows = session.exec(
+            select(SQLEntityPipelineRunLog).where(
+                SQLEntityPipelineRunLog.entity_id == entity_id,
+                SQLEntityPipelineRunLog.status.in_(["succeeded", "no_data"]),
+                SQLEntityPipelineRunLog.report_window_end >= day_start,
+                SQLEntityPipelineRunLog.report_window_end <= day_end,
+            )
+        ).all()
+        if not run_rows:
+            return []
+        run_ids = [r.run_id for r in run_rows]
+
+        bullets = session.exec(
+            select(SQLBulletRunLog).where(
+                SQLBulletRunLog.run_id.in_(run_ids),
+                SQLBulletRunLog.is_active == True,  # noqa: E712
+            )
+        ).all()
+        return list(bullets)
+
+
+def _build_citations_text(bullets: list[SQLBulletRunLog], top_n: int = 5) -> str:
+    """Return formatted text of top_n citations ordered by relevance_score desc."""
+    scored: list[tuple[int, dict]] = []
+    seen_headlines: set[str] = set()
+
+    for b in sorted(bullets, key=lambda x: (x.relevance_score or 0), reverse=True):
+        for cit in json.loads(b.citations_json or "[]"):
+            headline = cit.get("headline", "").strip()
+            text = cit.get("text", "").strip()
+            source = cit.get("source_name", "").strip()
+            if not headline or headline in seen_headlines:
+                continue
+            seen_headlines.add(headline)
+            scored.append((b.relevance_score or 0, {
+                "headline": headline,
+                "source": source,
+                "text": text[:400],  # cap chunk length
+            }))
+            if len(scored) >= top_n:
+                break
+        if len(scored) >= top_n:
+            break
+
+    lines = []
+    for i, (_, cit) in enumerate(scored, 1):
+        lines.append(f"[{i}] {cit['source']} — {cit['headline']}\n{cit['text']}")
+    return "\n\n".join(lines)
+
+
+def _generate_and_flush_narrative(
+    eng: Engine,
+    run_id: uuid.UUID,
+    entity_id: str,
+    entity_name: str,
+    report_dates: ReportDates,
+    llm_client: Any,
+) -> None:
+    """Generate and store the editorial narrative for this run.
+
+    Collects all active bullets for the entity on the same calendar day,
+    calls the LLM, and writes one SQLRunNarrative row. Silently swallowed
+    on failure so it never breaks the run.
+    """
+    try:
+        from bigdata_briefs.llm_client import LLMClient
+        # Only generate a narrative if this run itself produced at least one active bullet.
+        with Session(eng) as _s:
+            own_active = _s.exec(
+                select(SQLBulletRunLog).where(
+                    SQLBulletRunLog.run_id == run_id,
+                    SQLBulletRunLog.is_active == True,  # noqa: E712
+                ).limit(1)
+            ).first()
+        if not own_active:
+            return
+
+        report_date = report_dates.end
+        bullets = _collect_todays_active_bullets(eng, entity_id, report_date)
+        if not bullets:
+            return
+
+        bullets_text = "\n".join(
+            f"- {b.text}" for b in bullets
+        )
+        use_citations = len(bullets) <= 3
+        citations_text = ""
+        if use_citations:
+            citations_text = _build_citations_text(bullets)
+
+        prompt_template = _NARRATIVE_PROMPT_FEW if use_citations else _NARRATIVE_PROMPT_MANY
+        user_content = prompt_template.format(
+            entity_name=entity_name,
+            report_date=report_date.strftime("%A, %d %B %Y"),
+            bullets_count=len(bullets),
+            bullets_text=bullets_text,
+            citations_text=citations_text,
+        )
+
+        if not isinstance(llm_client, LLMClient):
+            return
+
+        from pydantic import BaseModel as _BaseModel
+
+        class _NarrativeResponse(_BaseModel):
+            narrative: str
+
+        response = llm_client.call_with_response_format(
+            system=[{
+                "role": "system",
+                "content": (
+                    "You are a concise financial news editor. "
+                    "Each lede must read freshly written—no boilerplate openings or repeated cadence across companies."
+                ),
+            }],
+            messages=[{"role": "user", "content": user_content}],
+            model="gpt-4.1",
+            max_tokens=80,
+            text_format=_NarrativeResponse,
+            step_name="narrative_generation",
+        )
+        if response is None:
+            return
+        narrative_text = response.narrative
+
+        row = SQLRunNarrative(
+            run_id=run_id,
+            entity_id=entity_id,
+            report_date=report_date.replace(hour=0, minute=0, second=0, microsecond=0),
+            narrative_text=narrative_text.strip(),
+            bullets_count=len(bullets),
+            citations_included=use_citations,
+            created_at=datetime.now(timezone.utc),
+        )
+        with Session(eng) as session:
+            session.add(row)
+            session.commit()
+    except Exception:
+        pass  # never let narrative failures break the run
+
+
+def _flush_run_metrics(
+    eng: Engine,
+    run_id: uuid.UUID,
+    entity_id: str,
+    report_dates: ReportDates,
+    entity_metrics: EntityStepMetrics,
+    sources_scanned: int = 0,
+) -> None:
+    """Write one SQLRunMetrics row for the completed run.
+
+    Reads the already-accumulated data from ``entity_metrics`` — no LLM calls
+    are made here. Silently swallowed on failure so it never breaks the run.
+    """
+    try:
+        totals = entity_metrics.get_totals()
+        emb = entity_metrics.get_embedding_summary()
+        step_summary = entity_metrics.get_step_summary()
+        llm_models = entity_metrics.get_llm_model_summary()
+
+        with entity_metrics.lock:
+            chunks_total = entity_metrics._total_chunks
+
+        # Use the per-entity embedding accumulator for the totals so the cost
+        # is correct even when embeddings were tracked outside a named step.
+        total_llm_cost = totals["total_llm_cost_usd"]
+        total_emb_cost = round(emb["cost_usd"], 6)
+
+        row = SQLRunMetrics(
+            run_id=run_id,
+            entity_id=entity_id,
+            report_window_start=report_dates.start,
+            report_window_end=report_dates.end,
+            llm_per_model_json=json.dumps(llm_models, default=str),
+            embedding_model=emb["model"],
+            embedding_tokens=emb["tokens"],
+            embedding_cost_usd=total_emb_cost,
+            chunks_total=chunks_total,
+            sources_scanned=sources_scanned,
+            step_detail_json=json.dumps(step_summary, default=str),
+            total_llm_cost_usd=total_llm_cost,
+            total_embedding_cost_usd=total_emb_cost,
+            total_cost_usd=round(total_llm_cost + total_emb_cost, 6),
+            created_at=datetime.now(timezone.utc),
+        )
+        with Session(eng) as session:
+            session.add(row)
+            session.commit()
+    except Exception:
+        pass  # never let metrics flush failures break the run
+
+
 def run_entity_incremental(
     *,
     entity_id: str,
@@ -354,7 +795,9 @@ def run_entity_incremental(
     force_window_start: datetime | None = None,
     force_window_end: datetime | None = None,
     force_run: bool = False,
-    window_mode: WindowMode = WindowMode.DAILY,
+    window_mode: WindowMode = WindowMode.CONTINUOUS,
+    force_overlap: bool = False,
+    generate_narrative: bool = False,
     engine: Engine | None = None,
     kg_precache: dict[str, dict[str, Any]] | None = None,
     run_id: uuid.UUID | None = None,
@@ -433,7 +876,8 @@ def run_entity_incremental(
 
     with Session(eng) as session:
         try:
-            _assert_no_overlapping_run(session, entity_id=entity_id, report_dates=report_dates)
+            if not force_overlap:
+                _assert_no_overlapping_run(session, entity_id=entity_id, report_dates=report_dates)
         except OrchestratorWindowOverlapError as e:
             return EntityRunResult(
                 entity_id=entity_id,
@@ -548,6 +992,10 @@ def run_entity_incremental(
         log = session.get(SQLEntityPipelineRunLog, run_log.run_id) or session.merge(run_log)
         orch = _get_or_create_orch_row(session, entity_id)
         if pipeline_ok:
+            persisted_dates = _persisted_report_dates_after_success(report_dates, done)
+            log.report_window_start = persisted_dates.start
+            log.report_window_end = persisted_dates.end
+            session.add(log)
             _update_run_log_end(
                 session,
                 log,
@@ -559,7 +1007,7 @@ def run_entity_incremental(
             _apply_success_orchestration_state(
                 session,
                 orch,
-                report_dates=report_dates,
+                report_dates=persisted_dates,
                 kg_record=kg_record,
                 now=done,
             )
@@ -577,14 +1025,42 @@ def run_entity_incremental(
                 output_json=bullet_trace_json,  # preserve partial state even on failure
             )
 
+    persisted_for_downstream = (
+        _persisted_report_dates_after_success(report_dates, done) if pipeline_ok else report_dates
+    )
+
+    if final_state and pipeline_ok:
+        _flush_bullet_run_log(eng, run_log.run_id, entity_id, final_state)
+
+    if deps.entity_metrics is not None:
+        sources_scanned = len(final_state.get("source_references") or {}) if final_state else 0
+        _flush_run_metrics(
+            eng,
+            run_log.run_id,
+            entity_id,
+            persisted_for_downstream,
+            deps.entity_metrics,
+            sources_scanned=sources_scanned,
+        )
+
+    if pipeline_ok and generate_narrative:
+        _generate_and_flush_narrative(
+            eng,
+            run_log.run_id,
+            entity_id,
+            entity.name,
+            persisted_for_downstream,
+            deps.llm_client,
+        )
+
     previous = fetch_previous_bullets(eng, entity_id, report_dates)
     new_ok: list[dict[str, Any]] = []
     if pipeline_ok:
-        new_ok = fetch_new_novelty_ok_bullets(eng, entity_id, report_dates)
+        new_ok = fetch_new_novelty_ok_bullets(eng, entity_id, persisted_for_downstream)
 
     return EntityRunResult(
         entity_id=entity_id,
-        report_dates=report_dates,
+        report_dates=persisted_for_downstream,
         success=pipeline_ok,
         dry_run=False,
         previous_bullets=previous,

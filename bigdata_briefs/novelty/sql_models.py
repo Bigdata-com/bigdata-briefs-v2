@@ -56,8 +56,8 @@ class SQLGeneratedBulletPoint(SQLModel, table=True):
     citations: list[str] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
     embedding_decision: str | None = Field(default=None, nullable=True)
     search_action: str | None = Field(default=None, nullable=True)
-    # True when search verdict=="keep" but overall claim novelty is "mixed".
-    not_fully_novel: bool = Field(default=False)
+    # False when search verdict=="keep" but overall claim novelty is "mixed".
+    is_fully_novel: bool = Field(default=True)
 
 
 class SQLChunkTextHash(SQLModel, table=True):

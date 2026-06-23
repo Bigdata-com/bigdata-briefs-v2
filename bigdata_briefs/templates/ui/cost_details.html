@@ -1,0 +1,243 @@
+{% extends "ui/base.html" %}
+{% block title %}Cost Breakdown — Bigdata Briefs{% endblock %}
+{% block nav_details %}active{% endblock %}
+
+{% block content %}
+<style>
+  .page-header { margin-bottom: 2rem; }
+  .page-header h1 { margin: 0 0 .35rem; font-size: 1.5rem; font-weight: 800; letter-spacing: -.02em; }
+  .page-header .meta { font-size: .88rem; color: var(--muted); display: flex; gap: 1.25rem; flex-wrap: wrap; align-items: center; }
+  .back-link { display: inline-flex; align-items: center; gap: .35rem; font-size: .85rem; color: var(--accent); text-decoration: none; margin-bottom: 1.25rem; font-weight: 600; }
+  .back-link:hover { text-decoration: underline; }
+  .section-title { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 2rem 0 .65rem; }
+
+  /* Summary tiles */
+  .cost-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+  .cost-tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem 1.25rem; box-shadow: var(--card-shadow); }
+  .cost-tile .label { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: .4rem; }
+  .cost-tile .amount { font-size: 1.4rem; font-weight: 800; letter-spacing: -.02em; color: var(--text); font-variant-numeric: tabular-nums; }
+  .cost-tile .sub { font-size: .78rem; color: var(--muted); margin-top: .2rem; }
+  .cost-tile.total { border-color: var(--accent); background: #eff6ff; }
+  .cost-tile.total .amount { color: var(--accent); }
+
+  /* Tables */
+  .dt { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  .dt thead tr { border-bottom: 2px solid var(--border); }
+  .dt th { text-align: left; padding: .45rem .65rem; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); white-space: nowrap; }
+  .dt th.right, .dt td.right { text-align: right; }
+  .dt tbody tr { border-bottom: 1px solid var(--border-soft); }
+  .dt tbody tr:last-child { border-bottom: none; }
+  .dt td { padding: .45rem .65rem; vertical-align: middle; }
+  .dt tfoot td { padding: .5rem .65rem; font-weight: 700; border-top: 2px solid var(--border); }
+  .dt tfoot td.right { text-align: right; }
+  .model-tag { font-family: ui-monospace, monospace; font-size: .78rem; background: var(--pill-bg); border: 1px solid var(--border-soft); border-radius: 6px; padding: .12rem .4rem; color: #334155; }
+  .num { font-variant-numeric: tabular-nums; font-family: ui-monospace, monospace; font-size: .82rem; }
+  .muted { color: var(--muted); }
+
+  /* Bar chart */
+  .bar-wrap { display: flex; align-items: center; gap: .5rem; }
+  .bar-bg { flex: 1; height: 6px; background: var(--border-soft); border-radius: 99px; overflow: hidden; min-width: 50px; }
+  .bar-fill { height: 100%; border-radius: 99px; }
+  .bar-fill.llm { background: var(--accent); }
+  .bar-fill.api { background: #16a34a; }
+  .bar-pct { font-size: .72rem; color: var(--muted); width: 3rem; text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* Grouped breakdown */
+  .group-block { margin-bottom: 1.25rem; }
+  .group-header { display: flex; align-items: center; justify-content: space-between; padding: .5rem .75rem; background: var(--pill-bg); border: 1px solid var(--border-soft); border-radius: 8px 8px 0 0; font-size: .8rem; font-weight: 700; color: #334155; }
+  .group-header .group-totals { display: flex; gap: 1.25rem; font-size: .78rem; font-weight: 600; }
+  .group-header .group-totals span { color: var(--muted); font-weight: 400; }
+  .group-card { background: var(--surface); border: 1px solid var(--border-soft); border-top: none; border-radius: 0 0 8px 8px; overflow: hidden; }
+
+  .badge-ok { display:inline-block;font-size:.72rem;font-weight:700;padding:.15rem .45rem;border-radius:5px;color:#166534;background:#dcfce7;border:1px solid #86efac; }
+  .badge-fail { display:inline-block;font-size:.72rem;font-weight:700;padding:.15rem .45rem;border-radius:5px;color:#991b1b;background:#fee2e2;border:1px solid #fca5a5; }
+  .empty-state { padding: 2rem; text-align: center; color: var(--muted); font-size: .9rem; }
+</style>
+
+<a class="back-link" href="/ui/details">← Back to Details</a>
+
+<div class="page-header">
+  <h1>{{ entity_name }}</h1>
+  <div class="meta">
+    <span style="font-family:ui-monospace,monospace;font-size:.8rem">{{ entity_id }}</span>
+    <span>{{ window_start.strftime("%Y-%m-%d") }} → {{ window_end.strftime("%Y-%m-%d") }}</span>
+    {% if status == "succeeded" %}<span class="badge-ok">succeeded</span>{% else %}<span class="badge-fail">{{ status }}</span>{% endif %}
+    <span>{{ duration }}</span>
+  </div>
+</div>
+
+{% if not has_metrics %}
+<div class="card"><div class="empty-state">No cost metrics available for this run.<br><small>Metrics are collected starting from runs after the feature was deployed.</small></div></div>
+{% else %}
+
+{# ═══ SUMMARY TILES ═══ #}
+<div class="cost-summary">
+  <div class="cost-tile">
+    <div class="label">Compute tokens cost</div>
+    <div class="amount">${{ "%.4f"|format(total_llm_cost) }}</div>
+    <div class="sub">{{ llm_models|length }} model{% if llm_models|length != 1 %}s{% endif %}</div>
+  </div>
+  <div class="cost-tile">
+    <div class="label">Embeddings cost</div>
+    <div class="amount">${{ "%.4f"|format(total_emb_cost) }}</div>
+    <div class="sub">{{ "{:,}".format(embedding_tokens) }} tokens</div>
+  </div>
+  <div class="cost-tile">
+    <div class="label">Grounding tokens cost</div>
+    <div class="amount">${{ "%.4f"|format(chunk_cost) }}</div>
+    <div class="sub">{{ "{:,}".format(chunks_total) }} chunks × $0.0015</div>
+  </div>
+  <div class="cost-tile total">
+    <div class="label">Total</div>
+    <div class="amount">${{ "%.4f"|format(total_cost) }}</div>
+    <div class="sub">Compute + Grounding</div>
+  </div>
+</div>
+
+{# ═══ LLM BY MODEL ═══ #}
+<div class="section-title">Compute tokens — by model</div>
+<div class="card" style="overflow:hidden">
+{% if llm_models %}
+{% set llm_total = namespace(v=0) %}
+{% for m in llm_models %}{% set llm_total.v = llm_total.v + m.cost_usd %}{% endfor %}
+<table class="dt">
+  <thead><tr>
+    <th>Model</th><th class="right">Calls</th><th class="right">Input tkn</th><th class="right">Output tkn</th><th class="right">Total tkn</th><th class="right">Cost</th><th class="right" style="min-width:120px">% of Compute</th>
+  </tr></thead>
+  <tbody>
+  {% for m in llm_models|sort(attribute="cost_usd", reverse=True) %}
+  {% set pct = (m.cost_usd / llm_total.v * 100) if llm_total.v > 0 else 0 %}
+  <tr>
+    <td><span class="model-tag">{{ m.model }}</span></td>
+    <td class="right num">{{ m.n_calls }}</td>
+    <td class="right num">{{ "{:,}".format(m.prompt_tokens) }}</td>
+    <td class="right num">{{ "{:,}".format(m.completion_tokens) }}</td>
+    <td class="right num">{{ "{:,}".format(m.total_tokens) }}</td>
+    <td class="right num" style="font-weight:600">${{ "%.4f"|format(m.cost_usd) }}</td>
+    <td class="right"><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill llm" style="width:{{ pct|round(1) }}%"></div></div><span class="bar-pct">{{ "%.1f"|format(pct) }}%</span></div></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr><td>Total</td><td></td><td></td><td></td><td></td><td class="right">${{ "%.4f"|format(llm_total.v) }}</td><td></td></tr></tfoot>
+</table>
+{% else %}<div class="empty-state">No LLM calls recorded.</div>{% endif %}
+</div>
+
+{# ═══ EMBEDDINGS ═══ #}
+{% if embedding_tokens > 0 %}
+<div class="section-title">Embeddings</div>
+<div class="card" style="overflow:hidden">
+<table class="dt">
+  <thead><tr><th>Model</th><th class="right">Tokens</th><th class="right">Cost</th></tr></thead>
+  <tbody>
+  <tr>
+    <td><span class="model-tag">{{ embedding_model }}</span></td>
+    <td class="right num">{{ "{:,}".format(embedding_tokens) }}</td>
+    <td class="right num" style="font-weight:600">${{ "%.4f"|format(total_emb_cost) }}</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+{% endif %}
+
+{# ═══ BREAKDOWN BY TIPOLOGIA ═══ #}
+{% if step_groups %}
+<div class="section-title">Breakdown by category</div>
+
+{# ── LLM grouped ── #}
+<div style="margin-bottom:.5rem;font-size:.78rem;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.04em">Compute tokens</div>
+{% set llm_group_max = namespace(v=0) %}
+{% for g in step_groups %}{% if g.totals.llm_cost_usd + g.totals.embedding_cost_usd > llm_group_max.v %}{% set llm_group_max.v = g.totals.llm_cost_usd + g.totals.embedding_cost_usd %}{% endif %}{% endfor %}
+
+{% for g in step_groups %}
+{% set g_llm_total = g.totals.llm_cost_usd + g.totals.embedding_cost_usd %}
+{% if g_llm_total > 0 or g.totals.llm_calls > 0 %}
+<div class="group-block">
+  <div class="group-header">
+    <span>{{ g.label }}</span>
+    <div class="group-totals">
+      <span>calls: </span>{{ g.totals.llm_calls }}
+      &nbsp;·&nbsp;<span>in: </span>{{ "{:,}".format(g.totals.llm_prompt_tokens) }}
+      &nbsp;·&nbsp;<span>out: </span>{{ "{:,}".format(g.totals.llm_completion_tokens) }}
+      &nbsp;·&nbsp;<span>cost: </span><b>${{ "%.4f"|format(g_llm_total) }}</b>
+      {% set bar_pct = (g_llm_total / llm_group_max.v * 100) if llm_group_max.v > 0 else 0 %}
+      &nbsp;<div class="bar-bg" style="width:80px;display:inline-block;vertical-align:middle"><div class="bar-fill llm" style="width:{{ bar_pct|round(1) }}%"></div></div>
+    </div>
+  </div>
+  <div class="group-card">
+  <table class="dt">
+    <thead><tr>
+      <th>Step</th><th class="right">Calls</th><th class="right">Input tkn</th><th class="right">Output tkn</th><th class="right">Compute tokens cost</th><th class="right">Embed tkn</th><th class="right">Embed cost</th><th class="right">Total cost</th>
+    </tr></thead>
+    <tbody>
+    {% for name, s in g.steps|sort(attribute="1.total_cost_usd", reverse=True) %}
+    <tr>
+      <td style="font-family:ui-monospace,monospace;font-size:.78rem">{{ name }}</td>
+      <td class="right num">{% if s.llm_calls %}{{ s.llm_calls }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="right num">{% if s.llm_prompt_tokens %}{{ "{:,}".format(s.llm_prompt_tokens) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="right num">{% if s.llm_completion_tokens %}{{ "{:,}".format(s.llm_completion_tokens) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="right num">{% if s.llm_cost_usd > 0 %}<b>${{ "%.4f"|format(s.llm_cost_usd) }}</b>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="right num">{% if s.embedding_tokens %}{{ "{:,}".format(s.embedding_tokens) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="right num">{% if s.embedding_cost_usd > 0 %}${{ "%.4f"|format(s.embedding_cost_usd) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="right num" style="font-weight:600">${{ "%.4f"|format(s.total_cost_usd) }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+
+{# ── API grouped ── #}
+{% set has_api = namespace(v=false) %}
+{% for g in step_groups %}{% if g.totals.api_calls > 0 %}{% set has_api.v = true %}{% endif %}{% endfor %}
+{% if has_api.v %}
+<div style="margin-top:1.5rem;margin-bottom:.5rem;font-size:.78rem;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.04em">Bigdata API</div>
+{% set api_group_max = namespace(v=0) %}
+{% for g in step_groups %}{% if g.totals.api_calls > api_group_max.v %}{% set api_group_max.v = g.totals.api_calls %}{% endif %}{% endfor %}
+
+{% for g in step_groups %}
+{% if g.totals.api_calls > 0 %}
+<div class="group-block">
+  <div class="group-header">
+    <span>{{ g.label }}</span>
+    <div class="group-totals">
+      <span>requests: </span>{{ g.totals.api_calls }}
+      &nbsp;·&nbsp;<span>chunks: </span>{{ "{:,}".format(g.totals.chunks_retrieved) }}
+      &nbsp;·&nbsp;<span>query units: </span>{{ "%.2f"|format(g.totals.api_query_units) if g.totals.api_query_units else "—" }}
+      &nbsp;·&nbsp;<span>cost: </span><b>${{ "%.4f"|format(g.totals.chunks_retrieved * 0.0015) }}</b>
+      {% set bar_pct = (g.totals.api_calls / api_group_max.v * 100) if api_group_max.v > 0 else 0 %}
+      &nbsp;<div class="bar-bg" style="width:80px;display:inline-block;vertical-align:middle"><div class="bar-fill api" style="width:{{ bar_pct|round(1) }}%"></div></div>
+    </div>
+  </div>
+  <div class="group-card">
+  <table class="dt">
+    <thead><tr>
+      <th>Step</th><th class="right">Requests</th><th class="right">Chunks</th><th class="right">Query units</th><th class="right">Chunk cost</th>
+    </tr></thead>
+    <tbody>
+    {% for name, s in g.steps %}
+    {% set ops = s.operational if s.operational else {} %}
+    {% if ops.get("api_calls", 0) > 0 or ops.get("chunks_retrieved", 0) > 0 %}
+    <tr>
+      <td style="font-family:ui-monospace,monospace;font-size:.78rem">{{ name }}</td>
+      <td class="right num">{% if ops.get("api_calls") %}{{ ops.api_calls }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="right num">{% if ops.get("chunks_retrieved") %}{{ "{:,}".format(ops.chunks_retrieved) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="right num">{% if ops.get("api_query_units") %}{{ "%.2f"|format(ops.api_query_units) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="right num">${{ "%.4f"|format(ops.get("chunks_retrieved", 0) * 0.0015) }}</td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% endif %}{# step_groups #}
+
+{% endif %}{# has_metrics #}
+{% endblock %}

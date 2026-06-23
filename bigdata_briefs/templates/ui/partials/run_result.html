@@ -1,0 +1,7 @@
+<div id="run-result">
+  {% if results_html %}
+    {{ results_html | safe }}
+  {% else %}
+    <p style="color:var(--muted);font-size:.9rem">No results.</p>
+  {% endif %}
+</div>

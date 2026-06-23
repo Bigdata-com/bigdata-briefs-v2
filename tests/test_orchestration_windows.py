@@ -9,6 +9,7 @@ import pytest
 from bigdata_briefs.orchestration.windows import (
     MAX_LOOKBACK_HOURS,
     WindowEndNotAfterStartError,
+    WindowMode,
     build_report_dates_for_entity_run,
     utc_midnight,
 )
@@ -31,22 +32,22 @@ def test_incremental_within_24h_uses_last_window_end() -> None:
 
 
 def test_incremental_last_run_older_than_cap_uses_floor() -> None:
-    """Last run at 13:00 yesterday, now 15:00 → gap = 26 h > 24 h cap.
+    """UPDATE: last run at 13:00 yesterday, now 15:00 → gap = 26 h > 24 h cap.
     now - 24h = yesterday 15:00 > last (13:00) → start = yesterday 15:00."""
     now = datetime(2025, 3, 11, 15, 0, tzinfo=timezone.utc)
     last = datetime(2025, 3, 10, 13, 0, tzinfo=timezone.utc)  # 26 h ago
     expected_start = now - timedelta(hours=MAX_LOOKBACK_HOURS)
-    rd = build_report_dates_for_entity_run(now=now, last_window_end=last)
+    rd = build_report_dates_for_entity_run(now=now, last_window_end=last, window_mode=WindowMode.UPDATE)
     assert rd.start == expected_start
     assert rd.end == now
 
 
 def test_incremental_last_run_within_cap_but_recent() -> None:
-    """Last run at 17:00 yesterday, now 15:00 today → gap = 22 h < 24 h cap.
+    """UPDATE: last run at 17:00 yesterday, now 15:00 today → gap = 22 h < 24 h cap.
     now - 24h = yesterday 15:00 < last (17:00) → start = yesterday 17:00."""
     now = datetime(2025, 3, 11, 15, 0, tzinfo=timezone.utc)
     last = datetime(2025, 3, 10, 17, 0, tzinfo=timezone.utc)  # 22 h ago
-    rd = build_report_dates_for_entity_run(now=now, last_window_end=last)
+    rd = build_report_dates_for_entity_run(now=now, last_window_end=last, window_mode=WindowMode.UPDATE)
     assert rd.start == last
     assert rd.end == now
 

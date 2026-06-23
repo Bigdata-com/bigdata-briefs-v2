@@ -1,0 +1,1 @@
+1 12 * * 1-5  /code/run_daily.sh
