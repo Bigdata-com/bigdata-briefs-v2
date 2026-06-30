@@ -218,6 +218,16 @@ def batch_run_parallel(
     if not entity_ids:
         raise HTTPException(status_code=422, detail="No entity_ids to run.")
 
+    # Fail fast on a revoked/mistyped outbound key before fanning out the batch,
+    # instead of every entity failing deep in the pipeline. Cached (TTL), so this
+    # probes upstream at most once per minute regardless of batch size.
+    from bigdata_briefs import key_health
+    from bigdata_briefs.exceptions import InvalidAPIKeyError
+    try:
+        key_health.preflight_keys()
+    except InvalidAPIKeyError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
     _assert_no_running_entities(entity_ids)
 
     cfg_path = resolve_config_path(None)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -116,6 +117,15 @@ async def lifespan(app: FastAPI):
         f"max_entities={settings.MAX_CONCURRENT_ENTITIES})"
     )
 
+    # Validate outbound API keys (OpenAI, Bigdata) and log one line per key.
+    # Run off the event loop (sync httpx/openai probes) and never let it block
+    # startup: a key that is invalid/unreachable is logged, not raised.
+    try:
+        from bigdata_briefs import key_health
+        await asyncio.to_thread(key_health.log_key_health)
+    except Exception:
+        logger.exception("API key health check failed to run")
+
     try:
         yield
     finally:
@@ -206,6 +216,18 @@ def create_app() -> FastAPI:
     @app.get("/health", include_in_schema=False)
     async def health() -> JSONResponse:
         return JSONResponse({"status": "ok"})
+
+    @app.get("/health/keys", include_in_schema=False)
+    async def health_keys() -> JSONResponse:
+        """Outbound API key status (cached). 503 if any key is rejected.
+
+        Kept separate from /health on purpose: /health is the cheap liveness
+        probe and must not depend on OpenAI/Bigdata being reachable.
+        """
+        from bigdata_briefs import key_health
+        statuses = await asyncio.to_thread(key_health.check_all_keys)
+        payload = key_health.health_payload(statuses)
+        return JSONResponse(payload, status_code=200 if payload["ok"] else 503)
 
     # Stateful (SQLite-backed) surface — mounted unless running stateless-only.
     if settings.BRIEFS_MODE in ("stateful", "both"):
