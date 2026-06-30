@@ -503,6 +503,15 @@ def start_scan(
     if end_t:
         end = end.replace(hour=end_t.hour, minute=end_t.minute, second=0, microsecond=0)
 
+    # Fail fast on a revoked/mistyped outbound key before submitting any scan
+    # worker, instead of every window failing deep in the pipeline. Cached (TTL).
+    from bigdata_briefs import key_health
+    from bigdata_briefs.exceptions import InvalidAPIKeyError
+    try:
+        key_health.preflight_keys()
+    except InvalidAPIKeyError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
     if body.universe:
         entity_ids = _UNIVERSES.get(body.universe)
         if entity_ids is None:

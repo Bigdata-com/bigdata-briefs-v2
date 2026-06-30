@@ -42,7 +42,17 @@ def _headers() -> dict[str, str]:
 def _api(method: str, path: str, **kwargs: Any) -> Any:
     url = f"{_base_url()}/api/v1/{path.lstrip('/')}"
     resp = requests.request(method, url, headers=_headers(), timeout=120, **kwargs)
-    resp.raise_for_status()
+    if not resp.ok:
+        # Surface the server's ``detail`` (e.g. "OPENAI_API_KEY rejected (401)")
+        # so the MCP client sees an actionable reason instead of a bare
+        # "503 Server Error" — requests' own HTTPError drops the response body.
+        try:
+            detail = resp.json().get("detail") or resp.text
+        except ValueError:
+            detail = resp.text
+        raise RuntimeError(
+            f"Briefs API {method} /{path.lstrip('/')} failed ({resp.status_code}): {detail}"
+        )
     return resp.json()
 
 
