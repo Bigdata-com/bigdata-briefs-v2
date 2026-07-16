@@ -188,6 +188,16 @@ def main() -> None:
         if not r.success and not args.dry_run:
             exit_code = 1
 
+    if not args.dry_run and results:
+        try:
+            from bigdata_briefs.notifications.assemble import digest_from_entity_run_results
+            from bigdata_briefs.notifications.resend_client import maybe_send_brief_email
+
+            eng = create_engine(settings.DB_STRING, echo=False)
+            maybe_send_brief_email(digest_from_entity_run_results(eng, results))
+        except Exception as e:
+            print(f"Email notification failed: {e}", file=sys.stderr)
+
     if args.as_json:
         payload = [
             {
