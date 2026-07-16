@@ -293,12 +293,25 @@ def batch_run_parallel(
                             )
                     except Exception:
                         logger.exception("Post-batch pipeline (signals + portfolio brief) failed")
-                        return
                     try:
                         from bigdata_briefs.api.app import invalidate_desk_cache
                         invalidate_desk_cache()
                     except Exception:
                         logger.exception("Desk cache invalidation after batch failed")
+                    try:
+                        from bigdata_briefs.notifications.assemble import digest_from_stateful_runs
+                        from bigdata_briefs.notifications.resend_client import maybe_send_brief_email
+
+                        digest = digest_from_stateful_runs(
+                            engine,
+                            entity_ids=entity_ids,
+                            run_id_by_entity={
+                                eid: rid for eid, rid in zip(entity_ids, _batch_run_ids)
+                            },
+                        )
+                        maybe_send_brief_email(digest)
+                    except Exception:
+                        logger.exception("Post-batch email notification failed")
 
                 _threading.Thread(target=_post_batch_pipeline, daemon=True).start()
 

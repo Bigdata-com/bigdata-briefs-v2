@@ -161,6 +161,13 @@ class Settings(BaseSettings):
     # Defaults to vendor/sentiment_tool inside the project directory.
     SENTIMENT_TOOL_PATH: str = str(PROJECT_DIRECTORY / "vendor" / "sentiment_tool")
 
+    # Optional Resend email digest after runs complete. Off by default — keys alone
+    # do not send mail. Requires ``uv sync --extra email`` (lazy-imports ``resend``).
+    BRIEFS_EMAIL_ENABLED: bool = False
+    RESEND_API_KEY: str = ""
+    BRIEFS_EMAIL_TO: str = ""
+    BRIEFS_EMAIL_FROM: str = "onboarding@resend.dev"
+
     @classmethod
     def load_from_env(cls) -> "Settings":
         return cls()

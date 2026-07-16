@@ -342,6 +342,66 @@ def run_scan_worker(
     logger.info("scan_worker_finished", scan_id=scan_id, entity_id=entity_id)
     db_finish_scan(engine, scan_id)
 
+    try:
+        from bigdata_briefs.notifications.assemble import digest_from_stateful_runs
+        from bigdata_briefs.notifications.resend_client import maybe_send_brief_email
+
+        row = db_get_scan(engine, scan_id)
+        run_ids: list[str] = []
+        if row is not None:
+            for item in json.loads(row.results_json or "[]"):
+                rid = item.get("run_id")
+                if rid and item.get("status") in ("succeeded", "failed"):
+                    run_ids.append(str(rid))
+        # Prefer the last run_id for the entity section; include failures via that log.
+        run_id_by_entity = {entity_id: run_ids[-1] if run_ids else None}
+        # If multiple windows succeeded, attach all active bullets by merging run digests.
+        if len(run_ids) <= 1:
+            digest = digest_from_stateful_runs(
+                engine,
+                entity_ids=[entity_id],
+                run_id_by_entity=run_id_by_entity,
+            )
+        else:
+            from bigdata_briefs.notifications.email_digest import (
+                BriefDigest,
+                DigestBullet,
+                DigestEntity,
+            )
+
+            merged_bullets: list[DigestBullet] = []
+            name = entity_id
+            window_start = windows[0][0] if windows else None
+            window_end = windows[-1][1] if windows else None
+            error: str | None = None
+            for rid in run_ids:
+                part = digest_from_stateful_runs(
+                    engine,
+                    entity_ids=[entity_id],
+                    run_id_by_entity={entity_id: rid},
+                )
+                if part.entities:
+                    ent = part.entities[0]
+                    name = ent.entity_name or name
+                    if ent.error and not merged_bullets:
+                        error = ent.error
+                    merged_bullets.extend(ent.bullets)
+            digest = BriefDigest(
+                entities=(
+                    DigestEntity(
+                        entity_id=entity_id,
+                        entity_name=name,
+                        bullets=tuple(merged_bullets),
+                        error=None if merged_bullets else error,
+                    ),
+                ),
+                window_start=window_start,
+                window_end=window_end,
+            )
+        maybe_send_brief_email(digest)
+    except Exception:
+        logger.exception("scan_email_notification_failed", scan_id=scan_id, entity_id=entity_id)
+
 
 # ── REST endpoint ─────────────────────────────────────────────────────────────
 

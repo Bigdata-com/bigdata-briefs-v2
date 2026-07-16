@@ -332,6 +332,27 @@ def _ui_run_batch(
             if done_count[0] == total:
                 _db_finish_batch(engine, batch_id)
                 logger.info("ui_batch_finished", batch_id=batch_id, entity_count=total)
+                try:
+                    from bigdata_briefs.notifications.assemble import digest_from_stateful_runs
+                    from bigdata_briefs.notifications.resend_client import maybe_send_brief_email
+
+                    row = _db_get_batch(engine, batch_id)
+                    run_id_by_entity: dict[str, str | None] = {
+                        eid: None for eid in entity_ids
+                    }
+                    if row is not None:
+                        for item in json.loads(row.results_json or "[]"):
+                            eid = item.get("entity_id")
+                            if eid:
+                                run_id_by_entity[eid] = item.get("run_id")
+                    digest = digest_from_stateful_runs(
+                        engine,
+                        entity_ids=entity_ids,
+                        run_id_by_entity=run_id_by_entity,
+                    )
+                    maybe_send_brief_email(digest)
+                except Exception:
+                    logger.exception("ui_batch_email_notification_failed", batch_id=batch_id)
 
     _ENTITY_STAGGER_SECONDS = 0.5
     for idx, entity_id in enumerate(entity_ids):

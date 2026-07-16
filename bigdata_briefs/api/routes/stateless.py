@@ -72,6 +72,9 @@ def stateless_briefs(
         "errors": {},
         "progress": {eid: "queued" for eid in body.entity_ids},
         "lock": Lock(),
+        "entity_ids": list(body.entity_ids),
+        "window_start": body.window_start,
+        "window_end": body.window_end,
     }
     registry[job_id] = entry
 
@@ -104,6 +107,26 @@ def stateless_briefs(
                 entry["done"] += 1
                 if entry["done"] >= entry["total"]:
                     entry["status"] = "finished"
+                    try:
+                        from bigdata_briefs.notifications.assemble import (
+                            digest_from_stateless_job,
+                        )
+                        from bigdata_briefs.notifications.resend_client import (
+                            maybe_send_brief_email,
+                        )
+
+                        digest = digest_from_stateless_job(
+                            entity_ids=list(entry["entity_ids"]),
+                            results=dict(entry["results"]),
+                            errors=dict(entry["errors"]),
+                            window_start=entry["window_start"],
+                            window_end=entry["window_end"],
+                        )
+                        maybe_send_brief_email(digest)
+                    except Exception:
+                        logger.exception(
+                            "stateless_email_notification_failed", job_id=job_id
+                        )
 
     for eid in body.entity_ids:
         executor.submit(_one, eid)
