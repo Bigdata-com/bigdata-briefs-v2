@@ -8,6 +8,34 @@
 .section-nav .live-status { white-space: nowrap; }
 .dateline { white-space: nowrap; }
 
+/* ── "← Home" button in the masthead top-right: exits the desk SPA back to the
+   landing page (/app). Mirrors the landing's primary "Open the app →" button
+   (ink fill, paper text, accent on hover). Sits next to the theme toggle. */
+.masthead-home-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: var(--ink);
+  color: var(--paper);
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.masthead-home-btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--paper);
+  text-decoration: none;
+}
+
 /* ── Masthead lockup ────────────────────────────────────────────
    Three variants, switched via headerStyle Tweak:
    - is-paren    (default): "The Briefs" big LEFT + (powered by / [logo]) RIGHT in parens
