@@ -21,3 +21,6 @@ old_metadata_runs/
 *.md
 !briefs_mcp_skill.md
 jira_log/
+# Local cost/latency experiments (large artifacts, live-run outputs; not versioned)
+cost_analysis/
+time_analysis/
