@@ -3,6 +3,8 @@ Routes: utilities
 
     POST /api/v1/utilities/reset-db          → drop and recreate all tables (DESTRUCTIVE)
     POST /api/v1/utilities/clear-stale-runs  → reset stuck ``running`` rows to ``failed``
+    POST /api/v1/utilities/delete-date       → delete all pipeline data for a calendar date
+    POST /api/v1/utilities/prune-retention   → rolling-month prune of heavy history tables
 """
 
 from __future__ import annotations
@@ -14,10 +16,15 @@ from sqlmodel import SQLModel, Session, select
 
 from bigdata_briefs.api.auth import require_api_key
 from bigdata_briefs.api.dependencies import get_engine
-from bigdata_briefs.api.schemas import ClearStaleRunsResponse, DeleteDateResponse, ResetDatabaseResponse
+from bigdata_briefs.api.schemas import (
+    ClearStaleRunsResponse,
+    DeleteDateResponse,
+    PruneRetentionResponse,
+    ResetDatabaseResponse,
+)
 from bigdata_briefs.orchestration.db import ensure_orchestration_schema
 from bigdata_briefs.orchestration.models import SQLEntityPipelineRunLog
-from bigdata_briefs.settings import settings
+from bigdata_briefs.orchestration.retention import default_keep_days, prune_live_database
 
 router = APIRouter(tags=["utilities"])
 
@@ -143,3 +150,52 @@ def delete_date(date: str = Query(..., description="Calendar date to delete (YYY
     engine = get_engine()
     runs_deleted = _delete_date_data(engine, date)
     return DeleteDateResponse(date=date, runs_deleted=runs_deleted)
+
+
+@router.post(
+    "/utilities/prune-retention",
+    response_model=PruneRetentionResponse,
+    dependencies=[Depends(require_api_key)],
+    summary="Prune pipeline history older than a rolling retention window",
+    description=(
+        "Removes heavy history older than ``keep_days`` (default aligned with "
+        "``NOVELTY_LOOKBACK_DAYS``, minimum 30): embeddings, chunk hashes, bullet/"
+        "pipeline run logs, generated bullets, metrics, narratives, checkpoints, "
+        "signal history, and step wall timings.\n\n"
+        "Does **not** delete portfolio briefs, orchestration KG cache, earnings "
+        "calendar, or user portfolio.\n\n"
+        "Defaults to ``dry_run=true`` (counts only). Pass ``dry_run=false`` to "
+        "delete. Pass ``vacuum=true`` after a real prune to reclaim SQLite pages."
+    ),
+)
+def prune_retention(
+    keep_days: int | None = Query(
+        default=None,
+        ge=1,
+        description="Retention window in days. Default: max(30, NOVELTY_LOOKBACK_DAYS).",
+    ),
+    dry_run: bool = Query(
+        default=True,
+        description="If true (default), report counts without deleting.",
+    ),
+    vacuum: bool = Query(
+        default=False,
+        description="Run SQLite VACUUM after prune (ignored when dry_run=true).",
+    ),
+) -> PruneRetentionResponse:
+    days = keep_days if keep_days is not None else default_keep_days()
+    engine = get_engine()
+    result = prune_live_database(
+        engine,
+        keep_days=days,
+        dry_run=dry_run,
+        vacuum=vacuum and not dry_run,
+    )
+    return PruneRetentionResponse(
+        cutoff_utc=result.cutoff_utc,
+        keep_days=result.keep_days,
+        dry_run=result.dry_run,
+        vacuum=result.vacuum,
+        deleted=result.deleted,
+        total_deleted=result.total_deleted(),
+    )
