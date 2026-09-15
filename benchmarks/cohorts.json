@@ -1,0 +1,218 @@
+{
+  "large": [
+    {
+      "entity_id": "E09E2B",
+      "name": "NVIDIA Corporation",
+      "rank": 1,
+      "universes": "dow_30|top_us_100|top_us_500",
+      "volume_chunks": 350348
+    },
+    {
+      "entity_id": "D8442A",
+      "name": "Apple Inc.",
+      "rank": 2,
+      "universes": "dow_30|top_us_100|top_us_500",
+      "volume_chunks": 174013
+    },
+    {
+      "entity_id": "228D42",
+      "name": "Microsoft Corporation",
+      "rank": 3,
+      "universes": "dow_30|top_us_100|top_us_500",
+      "volume_chunks": 250164
+    },
+    {
+      "entity_id": "0157B1",
+      "name": "Amazon.com, Inc.",
+      "rank": 4,
+      "universes": "dow_30|top_us_100|top_us_500",
+      "volume_chunks": 259072
+    },
+    {
+      "entity_id": "4A6F00",
+      "name": "Alphabet Inc.",
+      "rank": 5,
+      "universes": "top_us_100|top_us_500",
+      "volume_chunks": 455326
+    },
+    {
+      "entity_id": "09DE1F",
+      "name": "Broadcom Inc.",
+      "rank": 6,
+      "universes": "top_us_100|top_us_500",
+      "volume_chunks": 37714
+    },
+    {
+      "entity_id": "12E454",
+      "name": "Meta Platforms Inc",
+      "rank": 8,
+      "universes": "top_us_100|top_us_500",
+      "volume_chunks": 280350
+    },
+    {
+      "entity_id": "DD3BB1",
+      "name": "Tesla Inc.",
+      "rank": 9,
+      "universes": "top_us_100|top_us_500",
+      "volume_chunks": 80292
+    },
+    {
+      "entity_id": "168A5D",
+      "name": "Berkshire Hathaway Inc.",
+      "rank": 10,
+      "universes": "top_us_100|top_us_500",
+      "volume_chunks": 31156
+    },
+    {
+      "entity_id": "F30508",
+      "name": "Eli Lilly and Company",
+      "rank": 11,
+      "universes": "top_us_100|top_us_500",
+      "volume_chunks": 49857
+    }
+  ],
+  "mid": [
+    {
+      "entity_id": "7A3633",
+      "name": "Block, Inc.",
+      "rank": 290,
+      "universes": "top_us_500",
+      "volume_chunks": 17651
+    },
+    {
+      "entity_id": "885758",
+      "name": "Bloom Energy Corporation",
+      "rank": 292,
+      "universes": "top_us_500",
+      "volume_chunks": 10198
+    },
+    {
+      "entity_id": "FD39EB",
+      "name": "NRG Energy, Inc.",
+      "rank": 293,
+      "universes": "top_us_500",
+      "volume_chunks": 14481
+    },
+    {
+      "entity_id": "C9E107",
+      "name": "Huntington Bancshares Incorporated",
+      "rank": 294,
+      "universes": "top_us_500",
+      "volume_chunks": 11834
+    },
+    {
+      "entity_id": "190B91",
+      "name": "Fiserv, Inc.",
+      "rank": 295,
+      "universes": "top_us_500",
+      "volume_chunks": 11345
+    },
+    {
+      "entity_id": "D1AE3B",
+      "name": "M&T Bank Corporation",
+      "rank": 296,
+      "universes": "top_us_500",
+      "volume_chunks": 9970
+    },
+    {
+      "entity_id": "2B7A40",
+      "name": "Archer-Daniels-Midland Company",
+      "rank": 297,
+      "universes": "top_us_500",
+      "volume_chunks": 9273
+    },
+    {
+      "entity_id": "A247F5",
+      "name": "Fair Isaac Corporation",
+      "rank": 298,
+      "universes": "top_us_500",
+      "volume_chunks": 13094
+    },
+    {
+      "entity_id": "E15736",
+      "name": "Diamondback Energy, Inc.",
+      "rank": 299,
+      "universes": "top_us_500",
+      "volume_chunks": 10997
+    },
+    {
+      "entity_id": "BB0787",
+      "name": "Tapestry, Inc.",
+      "rank": 300,
+      "universes": "top_us_500",
+      "volume_chunks": 5571
+    }
+  ],
+  "small": [
+    {
+      "entity_id": "6B236C",
+      "name": "Invitation Homes, Inc.",
+      "rank": 492,
+      "universes": "top_us_500",
+      "volume_chunks": 6623
+    },
+    {
+      "entity_id": "87B81A",
+      "name": "CDW Corporation",
+      "rank": 493,
+      "universes": "top_us_500",
+      "volume_chunks": 5291
+    },
+    {
+      "entity_id": "1F43A1",
+      "name": "W. P. Carey Inc.",
+      "rank": 494,
+      "universes": "top_us_500",
+      "volume_chunks": 8571
+    },
+    {
+      "entity_id": "61E975",
+      "name": "CF Industries Holdings, Inc.",
+      "rank": 495,
+      "universes": "top_us_500",
+      "volume_chunks": 8987
+    },
+    {
+      "entity_id": "64CEBB",
+      "name": "Aptiv PLC",
+      "rank": 496,
+      "universes": "top_eu_500|top_us_500",
+      "volume_chunks": 8747
+    },
+    {
+      "entity_id": "D93A25",
+      "name": "Alcoa Corporation",
+      "rank": 497,
+      "universes": "top_us_500",
+      "volume_chunks": 13735
+    },
+    {
+      "entity_id": "D4AC65",
+      "name": "Trimble Inc.",
+      "rank": 498,
+      "universes": "top_us_500",
+      "volume_chunks": 6027
+    },
+    {
+      "entity_id": "0B4D10",
+      "name": "Annaly Capital Management, Inc.",
+      "rank": 499,
+      "universes": "top_us_500",
+      "volume_chunks": 5610
+    },
+    {
+      "entity_id": "E8B21D",
+      "name": "IDEX Corporation",
+      "rank": 500,
+      "universes": "top_us_500",
+      "volume_chunks": 5587
+    },
+    {
+      "entity_id": "E0207A",
+      "name": "SS&C Technologies Holdings, Inc.",
+      "rank": 501,
+      "universes": "top_us_500",
+      "volume_chunks": 5785
+    }
+  ]
+}

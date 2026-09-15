@@ -247,6 +247,9 @@ def start_briefs_run(
         "errors": {},
         "finished_at": None,
         "lock": Lock(),
+        "entity_ids": list(ids),
+        "window_start": ws,
+        "window_end": we,
     }
     with _jobs_lock:
         _jobs[job_id] = entry
@@ -280,6 +283,26 @@ def start_briefs_run(
                 if entry["done"] >= entry["total"]:
                     entry["status"] = "finished"
                     entry["finished_at"] = time.monotonic()
+                    try:
+                        from bigdata_briefs.notifications.assemble import (
+                            digest_from_stateless_job,
+                        )
+                        from bigdata_briefs.notifications.resend_client import (
+                            maybe_send_brief_email,
+                        )
+
+                        digest = digest_from_stateless_job(
+                            entity_ids=list(entry["entity_ids"]),
+                            results=dict(entry["results"]),
+                            errors=dict(entry["errors"]),
+                            window_start=entry["window_start"],
+                            window_end=entry["window_end"],
+                        )
+                        maybe_send_brief_email(digest)
+                    except Exception:
+                        logging.getLogger(__name__).exception(
+                            "stateless MCP email notification failed job_id=%s", job_id
+                        )
 
     for eid in ids:
         _executor.submit(_one, eid)

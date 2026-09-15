@@ -46,6 +46,7 @@ All three run the **same pipeline**. The web app and MCP (stateful server) are j
 - [Pre-defined universes](#pre-defined-universes)
 - [Configuration reference](#configuration-reference)
 - [Troubleshooting](#troubleshooting)
+- [Optional email integration](#optional-email-integration)
 
 ---
 
@@ -295,6 +296,20 @@ This server has **no separate service and no database**: the long-lived MCP proc
   }
 }
 ```
+
+#### Latency (24h briefs)
+
+Benchmark run on 2026-07-15: **30/30 entities, 0 errors**, ~**27 minutes** total (sequential, one entity at a time). Window: `2026-07-14T12:01Z` → `2026-07-15T12:01Z`.
+
+| Cohort | Mean | Median | P95 | Min | Max |
+|--------|------|--------|-----|-----|-----|
+| Large (top 10) | 89.2s | 90.8s | 129.3s | 51.9s | 147.8s |
+| Mid | 43.1s | 34.9s | 77.5s | 24.3s | 88.0s |
+| Small | 27.7s | 24.5s | 61.4s | 2.2s | 64.4s |
+
+Large companies take roughly 2× mid and 3× small on average. Slowest: NVIDIA (147.8s, 10 bullets), Apple (106.7s), Meta (97.5s). Fastest: CDW, Aptiv, IDEX (~2.2s) — sparse 24h news, pipeline exits early. Outlier: Alphabet ran in 51.9s despite the highest news volume (455k chunks), likely because fewer bullets survived novelty filtering (4 saved).
+
+Reproduce with `uv run benchmark-stateless-latency` (see `benchmarks/README.md`).
 
 ### MCP tools reference
 
@@ -803,6 +818,10 @@ This is the mode used by the app's built-in update button. It is well suited for
 | `PIPELINE_API_KEY` | Protects all API write endpoints: callers must pass this value in the `X-Api-Key` request header. When empty, auth is skipped (safe for local dev). **Required when `PUBLIC_MODE=true`** — the app will refuse to start if `PUBLIC_MODE` is on and this is not set. | |
 | `PUBLIC_MODE` | When `true`, disables write actions in the UI (run, portfolio add/remove). Intended for shared or external deployments. Requires `PIPELINE_API_KEY` to be set or the app will not start. | `false` |
 | `ENABLE_DOCS` | When `true`, exposes `/docs`, `/redoc`, and `/openapi.json` | `false` |
+| `BRIEFS_EMAIL_ENABLED` | When `true`, send an HTML digest email after each completed run (batch, UI, scan, CLI, stateless). Off by default — having keys in `.env` alone does not send mail. Requires `uv sync --extra email`. | `false` |
+| `RESEND_API_KEY` | Resend API key used when email notifications are enabled | |
+| `BRIEFS_EMAIL_TO` | Recipient address for brief digests | |
+| `BRIEFS_EMAIL_FROM` | Verified Resend sender address | `onboarding@resend.dev` |
 
 See `.env.example` for the full list with descriptions.
 
@@ -857,3 +876,41 @@ Expected when the entity has no materially new information in the requested wind
 
 **Need to reprocess a specific date**  
 Call `POST /api/v1/utilities/delete-date` with the target date, then re-submit via `run-parallel` with `force_window_start` / `force_window_end` set to that day.
+
+---
+
+## Optional email integration
+
+For **demo purposes**, Bigdata Briefs can send an HTML digest email after a run finishes. The shipped example uses [Resend](https://resend.com); other providers such as **Gmail SMTP** or **Amazon SES** are also options. Email is **off by default** and never required for the pipeline to work.
+
+### What you get
+
+One digest per completion event (not one email per company in a batch), covering:
+
+- companies with published bullets (text + up to 3 source links)
+- companies with no material developments
+- failed entities (error line)
+
+Emails fire after: API batch, UI batch, historical scan, CLI `run-entity`, and stateless jobs (API + MCP).
+
+### Setup (Resend example)
+
+1. Create a [Resend](https://resend.com) account and API key.
+2. Install the optional dependency:
+
+```bash
+uv sync --extra email
+```
+
+3. Add to `.env`:
+
+```bash
+BRIEFS_EMAIL_ENABLED=true
+RESEND_API_KEY=re_xxxxxxxx
+BRIEFS_EMAIL_TO=you@company.com
+BRIEFS_EMAIL_FROM=onboarding@resend.dev   # Resend test sender
+```
+
+Having `RESEND_API_KEY` / `BRIEFS_EMAIL_TO` in `.env` alone does **not** send mail — you must set `BRIEFS_EMAIL_ENABLED=true`.
+
+The `resend` package is imported only when a send is attempted. If email is enabled but the package is missing, the pipeline still completes and logs an install hint (`uv sync --extra email`).

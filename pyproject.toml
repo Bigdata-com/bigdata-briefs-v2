@@ -32,6 +32,11 @@ dependencies = [
     "mcp>=1.27.0",
 ]
 
+[project.optional-dependencies]
+email = [
+    "resend>=2.0.0",
+]
+
 [dependency-groups]
 dev = [
     "pytest==8.1.1",
@@ -44,6 +49,7 @@ dev = [
 run-entity = "bigdata_briefs.run_entity:main"
 briefs-mcp = "bigdata_briefs.mcp_server:main"
 briefs-mcp-stateless = "bigdata_briefs.mcp_server_stateless:main"
+benchmark-stateless-latency = "bigdata_briefs.benchmarks.stateless_latency:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["bigdata_briefs"]
