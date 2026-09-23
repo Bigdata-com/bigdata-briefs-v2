@@ -88,11 +88,8 @@ function Masthead({ view, setView, theme, setTheme, headerStyle, setHeaderStyle,
           <a href="/app" style={{ textDecoration: "none", color: "inherit" }}>
             <MastheadLockup style={headerStyle || "paren-lockup"} theme={theme} />
           </a>
-          <div className="masthead-actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button className="btn-ghost btn-sm" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "var(--sans)", fontSize: 12, fontWeight: 600, color: "var(--ink-soft)" }}
-            onClick={() => setTheme(theme === "light" ? "dark" : "light")}>
-              {theme === "light" ? "◐ Dark" : "◑ Light"}
-            </button>
+          <div className="masthead-actions" style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+            <a href="/app" className="masthead-home-btn" title="Back to the landing page">← Home</a>
           </div>
         </div>
       </div>
