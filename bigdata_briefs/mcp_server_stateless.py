@@ -39,6 +39,7 @@ import structlog
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
+from bigdata_briefs import key_health
 from bigdata_briefs.orchestration.config_load import (
     load_pipeline_config_dict,
     resolve_config_path,
@@ -226,6 +227,15 @@ def start_briefs_run(
     cfg = load_pipeline_config_dict(resolve_config_path(None))
     if categories:
         cfg["categories"] = categories
+
+    # Fail fast on a revoked/mistyped key before launching in-process workers —
+    # otherwise every entity fails deep in the pipeline after retries. The run is
+    # fire-and-forget (we return a job_id below), so this is the only spot the
+    # caller still sees the error synchronously. Cached (TTL): probes once.
+    rejected = key_health.rejected_keys()
+    if rejected:
+        names = "; ".join(f"{s.name} {s.detail}" for s in rejected)
+        return f"ERROR: {names}. Calls using this key would fail; fix it in .env / secrets."
 
     job_id = str(uuid.uuid4())
     entry = {

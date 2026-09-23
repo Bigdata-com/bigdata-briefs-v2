@@ -519,6 +519,22 @@ def _start_one_scan(
     )
 
 
+def _preflight_or_503() -> None:
+    """Abort with 503 if an outbound key is provably rejected.
+
+    Called after request validation so a malformed request still gets its own
+    4xx, and only right before work is submitted. Results come from the
+    key_health TTL cache, so this probes upstream at most once per minute.
+    """
+    from bigdata_briefs import key_health
+    from bigdata_briefs.exceptions import InvalidAPIKeyError
+
+    try:
+        key_health.preflight_keys()
+    except InvalidAPIKeyError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
 @router.post(
     "/scan",
     dependencies=[Depends(require_api_key)],
@@ -570,12 +586,15 @@ def start_scan(
                 status_code=404,
                 detail=f"Universe '{body.universe}' not found. Available: {list(_UNIVERSES)}",
             )
+        _preflight_or_503()
         scans: list[ScanResponse] = []
         for eid in entity_ids:
             resp = _start_one_scan(eid, requested_start, end, engine, executor, rate_limiter, connection_sem, http_client, source_categories=body.source_categories, boundary_time=boundary_t)
             if resp:
                 scans.append(resp)
         return UniverseScanResponse(scans=scans, total_entities=len(entity_ids), universe=body.universe)
+
+    _preflight_or_503()
 
     resp = _start_one_scan(body.entity_id, requested_start, end, engine, executor, rate_limiter, connection_sem, http_client, source_categories=body.source_categories, boundary_time=boundary_t)
     if resp is None:

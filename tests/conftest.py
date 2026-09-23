@@ -18,3 +18,20 @@ os.environ.update(
         "LOG_LEVEL": "ERROR",
     }
 )
+
+import pytest
+
+from bigdata_briefs import key_health
+
+
+@pytest.fixture(autouse=True)
+def _no_outbound_key_probes(monkeypatch):
+    """Keep key_health from making real network calls during tests.
+
+    conftest sets BIGDATA_API_KEY/OPENAI_API_KEY to "fake-key", so an
+    unpatched preflight would actually call OpenAI and Bigdata, get a
+    401/403 back and turn every route that guards on it into a 503.
+    Tests that exercise the checks themselves patch these explicitly.
+    """
+    monkeypatch.setattr(key_health, "check_all_keys", lambda force=False: [])
+    monkeypatch.setattr(key_health, "log_key_health", list)

@@ -220,6 +220,17 @@ def batch_run_parallel(
 
     _assert_no_running_entities(entity_ids)
 
+    # Fail fast on a revoked/mistyped outbound key before fanning out the batch,
+    # instead of every entity failing deep in the pipeline. Ordered after the
+    # local guards so a 409/422 request never spends an upstream probe. Cached
+    # (TTL), so this probes upstream at most once per minute regardless of size.
+    from bigdata_briefs import key_health
+    from bigdata_briefs.exceptions import InvalidAPIKeyError
+    try:
+        key_health.preflight_keys()
+    except InvalidAPIKeyError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
     cfg_path = resolve_config_path(None)
     pipeline_config = load_pipeline_config_dict(cfg_path)
     if body.categories:
