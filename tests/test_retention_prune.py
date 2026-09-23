@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, timezone
 
 import pytest
+from sqlalchemy import text
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from bigdata_briefs.novelty.sql_models import (
@@ -23,7 +24,12 @@ from bigdata_briefs.orchestration.models import (
     SQLRunMetrics,
     SQLRunNarrative,
 )
-from bigdata_briefs.orchestration.retention import prune_live_database, retention_cutoff
+from bigdata_briefs.orchestration.retention import (
+    default_keep_days,
+    prune_live_database,
+    retention_cutoff,
+)
+from bigdata_briefs.settings import settings
 
 OLD_DATE = "2026-04-01"
 KEEP_DATE = "2026-08-20"
@@ -190,3 +196,35 @@ def test_execute_prunes_old_keeps_recent_and_portfolio(engine) -> None:
         assert len(s.exec(select(SQLPipelineStepWallTiming)).all()) == 1
         # Portfolio briefs are intentionally retained.
         assert len(s.exec(select(SQLPortfolioBrief)).all()) == 2
+
+
+def test_default_keep_days_reads_the_setting(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "RETENTION_KEEP_DAYS", 45)
+    monkeypatch.setattr(settings, "NOVELTY_LOOKBACK_DAYS", 30)
+    assert default_keep_days() == 45
+
+
+def test_default_keep_days_never_cuts_into_novelty_history(monkeypatch) -> None:
+    """A keep_days below the novelty lookback is raised, not honoured.
+
+    Pruning inside the lookback makes already-published bullets look new again
+    and nothing raises, so the floor is the only thing that catches it.
+    """
+    monkeypatch.setattr(settings, "RETENTION_KEEP_DAYS", 7)
+    monkeypatch.setattr(settings, "NOVELTY_LOOKBACK_DAYS", 30)
+    assert default_keep_days() == 30
+
+
+def test_execute_truncates_the_wal(tmp_path) -> None:
+    """A real prune leaves no -wal file behind: deleting rows alone frees no disk."""
+    db = tmp_path / "wal.db"
+    eng = create_engine(f"sqlite:///{db}")
+    with eng.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        conn.execute(text("PRAGMA journal_mode=WAL"))
+    SQLModel.metadata.create_all(eng)
+    _seed(eng)
+    assert db.with_name(db.name + "-wal").stat().st_size > 0
+
+    prune_live_database(eng, keep_days=30, dry_run=False, now=NOW)
+
+    assert db.with_name(db.name + "-wal").stat().st_size == 0

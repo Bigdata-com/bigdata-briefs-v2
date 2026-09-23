@@ -29,6 +29,7 @@ from bigdata_briefs.orchestration.models import (
     SQLRunMetrics,
     SQLRunNarrative,
 )
+from bigdata_briefs import logger
 from bigdata_briefs.settings import settings
 
 
@@ -47,8 +48,14 @@ class RetentionPruneResult:
 
 
 def default_keep_days() -> int:
-    """Prefer novelty lookback so prune does not undercut novelty history."""
-    return max(30, int(settings.NOVELTY_LOOKBACK_DAYS))
+    """Retention window: RETENTION_KEEP_DAYS, floored at the novelty lookback.
+
+    The floor matters because novelty compares each bullet against the history of
+    the NOVELTY_LOOKBACK_DAYS before its own report window. Pruning inside that
+    window makes already-published bullets look new again, with no error raised, so
+    a keep_days below the lookback is raised rather than honoured.
+    """
+    return max(int(settings.RETENTION_KEEP_DAYS), int(settings.NOVELTY_LOOKBACK_DAYS))
 
 
 def retention_cutoff(*, keep_days: int, now: datetime | None = None) -> datetime:
@@ -217,6 +224,17 @@ def prune_live_database(
             deleted[key] = planned[key]
 
         session.commit()
+
+    # Deleting rows only frees pages *inside* the database file. In WAL mode the
+    # -wal file is never shrunk by SQLite itself, it is reset and reused in place,
+    # so it stays at its high-water mark (1.9 GB on the Fly volume, against a 768 MB
+    # database) until something truncates it. Do that here: it reclaims real disk
+    # without touching data, and it is the larger win of the two on that volume.
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        row = conn.execute(text("PRAGMA wal_checkpoint(TRUNCATE)")).fetchone()
+    if row is not None and row[0] != 0:
+        # busy: a reader held the WAL open. Not an error, the next run retries.
+        logger.warning(f"retention prune: WAL checkpoint busy, not truncated ({row})")
 
     if vacuum:
         # VACUUM cannot run inside a transaction on SQLite.
