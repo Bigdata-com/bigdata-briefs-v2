@@ -518,6 +518,17 @@ class DeleteDateResponse(BaseModel):
     """Number of pipeline runs removed."""
 
 
+class PruneRetentionResponse(BaseModel):
+    """Result of POST /utilities/prune-retention."""
+
+    cutoff_utc: datetime
+    keep_days: int
+    dry_run: bool
+    vacuum: bool
+    deleted: dict[str, int]
+    total_deleted: int
+
+
 # ── Stateless API (database-less, search-only novelty) ─────────────────────────
 
 

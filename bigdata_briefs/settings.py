@@ -157,6 +157,15 @@ class Settings(BaseSettings):
     # Set ENABLE_DOCS=1 to expose /docs, /redoc and /openapi.json. Off by default.
     ENABLE_DOCS: bool = False
 
+    # Rolling retention prune of heavy pipeline history (see orchestration/retention.py).
+    # Set ENABLE_RETENTION_PRUNE=1 to let the daily cron job actually delete; off by
+    # default so an instance that wants full history (notably the /scan backfill, which
+    # reads novelty history further back than the live brief does) keeps everything.
+    ENABLE_RETENTION_PRUNE: bool = False
+    # Days of history kept when the prune runs. Floored at NOVELTY_LOOKBACK_DAYS by
+    # ``retention.default_keep_days`` so a low value can never silently starve novelty.
+    RETENTION_KEEP_DAYS: int = 45
+
     # Path to the sentiment_tool repository (used for portfolio brief ranking).
     # Defaults to vendor/sentiment_tool inside the project directory.
     SENTIMENT_TOOL_PATH: str = str(PROJECT_DIRECTORY / "vendor" / "sentiment_tool")

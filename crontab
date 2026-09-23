@@ -1,1 +1,4 @@
 1 12 * * 1-5  /code/run_daily.sh
+# Retention prune, every day. 03:30 UTC keeps it well clear of the 12:01 brief run:
+# the prune takes SQLite write locks and has no guard against an in-flight pipeline.
+30 3 * * *    /code/prune_daily.sh

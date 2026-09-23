@@ -50,6 +50,7 @@ run-entity = "bigdata_briefs.run_entity:main"
 briefs-mcp = "bigdata_briefs.mcp_server:main"
 briefs-mcp-stateless = "bigdata_briefs.mcp_server_stateless:main"
 benchmark-stateless-latency = "bigdata_briefs.benchmarks.stateless_latency:main"
+prune-retention = "bigdata_briefs.prune_retention:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["bigdata_briefs"]

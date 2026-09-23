@@ -170,6 +170,7 @@ The app can run a daily cron job alongside the server, managed by [supercronic](
 
 ```
 1 12 * * 1-5  /code/run_daily.sh
+30 3 * * *    /code/prune_daily.sh
 ```
 
 This triggers `run_daily.sh` every weekday (Monday–Friday) at **12:01 UTC (08:01 ET)**, which calls the `run-parallel` endpoint for the `my_portfolio` universe. The pipeline then runs on its own and the app updates automatically when you open it.
@@ -180,6 +181,34 @@ This triggers `run_daily.sh` every weekday (Monday–Friday) at **12:01 UTC (08:
 - `docker compose --profile cron up` → API **+ cron** (the `briefs-cron` service sets `ENABLE_CRON=1`).
 - Plain `docker run` (the [Quickstart](#quickstart)) → **no cron** unless you add `-e ENABLE_CRON=1`.
 - **uv / local** (Quickstart Option B) → **no cron**: running `uvicorn` directly bypasses `start.sh`, so `ENABLE_CRON` is ignored and supercronic never starts. To schedule runs in this mode, point your OS scheduler (e.g. system `cron`) at `run_daily.sh` — it just `curl`s `run-parallel` on `localhost:8000` — or run via Docker with the cron profile.
+
+#### Retention prune
+
+The second cron entry runs `prune_daily.sh` every day at **03:30 UTC**, deleting
+pipeline history older than `RETENTION_KEEP_DAYS` (default 45): embeddings, chunk
+hashes, run logs, generated bullets, metrics, narratives, checkpoints, signal history
+and step timings. Portfolio briefs, the KG cache, the earnings calendar and your
+portfolio are never touched. It also truncates the SQLite `-wal` file, which is
+otherwise never shrunk and can grow larger than the database itself.
+
+**It is opt-in and off by default**: without `ENABLE_RETENTION_PRUNE=1` the script
+exits immediately, so the entry is inert unless you ask for it. Turn it on for an
+instance where you only need recent history:
+
+```bash
+docker run ... -e ENABLE_CRON=1 -e ENABLE_RETENTION_PRUNE=1 -e RETENTION_KEEP_DAYS=45 ...
+```
+
+Leave it **off** if you use [`/scan`](#part-3-the-api) to regenerate briefs for past
+dates. Novelty compares each bullet against the `NOVELTY_LOOKBACK_DAYS` before its own
+report window, so a scan of an older date needs history from before the retention
+cutoff; without it, already-published bullets are re-emitted as new and nothing warns
+you. `RETENTION_KEEP_DAYS` is floored at `NOVELTY_LOOKBACK_DAYS` for the same reason,
+which protects the daily brief but not a backfill further in the past.
+
+To prune once by hand instead, call `POST /api/v1/utilities/prune-retention`
+(`dry_run=true` by default, so it reports counts until you pass `dry_run=false`) or run
+the `prune-retention` CLI.
 
 #### Disabling the cron job
 
@@ -815,6 +844,8 @@ This is the mode used by the app's built-in update button. It is well suited for
 | `DB_STRING` | SQLite connection string | `sqlite:///briefs.db` |
 | `LLM_TIMEOUT_SECONDS` | LLM call timeout | `60` |
 | `NOVELTY_LOOKBACK_DAYS` | Days of history used for novelty checks | `30` |
+| `ENABLE_RETENTION_PRUNE` | When `true`, the daily cron entry deletes pipeline history older than `RETENTION_KEEP_DAYS`. Off by default; leave it off if you use `/scan` for past dates. | `false` |
+| `RETENTION_KEEP_DAYS` | Days of history kept by the retention prune. Raised to `NOVELTY_LOOKBACK_DAYS` if set lower. | `45` |
 | `PIPELINE_API_KEY` | Protects all API write endpoints: callers must pass this value in the `X-Api-Key` request header. When empty, auth is skipped (safe for local dev). **Required when `PUBLIC_MODE=true`** — the app will refuse to start if `PUBLIC_MODE` is on and this is not set. | |
 | `PUBLIC_MODE` | When `true`, disables write actions in the UI (run, portfolio add/remove). Intended for shared or external deployments. Requires `PIPELINE_API_KEY` to be set or the app will not start. | `false` |
 | `ENABLE_DOCS` | When `true`, exposes `/docs`, `/redoc`, and `/openapi.json` | `false` |
