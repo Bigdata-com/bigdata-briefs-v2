@@ -12,7 +12,14 @@ NOTE on reasoning models (o1 / o3 / o4):
   field already includes them (the API reports total output + reasoning in usage),
   so no special handling is needed here — the output price covers both.
 """
+import time
 from dataclasses import dataclass
+from threading import Lock
+
+import httpx
+
+from bigdata_briefs import logger
+from bigdata_briefs.settings import settings
 
 
 @dataclass
@@ -107,11 +114,125 @@ def calculate_embedding_cost(model: str, tokens: int) -> float:
     return pricing.calculate_cost(tokens, 0)
 
 
-# Cost per search chunk retrieved from the Bigdata API (USD)
+# Bigdata search is billed in retrieval tokens, reported per request in the
+# response's ``usage`` block, one counter per content tier (``web_tokens``,
+# ``premium_news_tokens``, ...). Each tier has its own price, which we read
+# from GET /v1/subscription/quotas for our key, so the cost is what the API
+# actually debits from the account's credits.
+_TOKEN_PRICES_TTL_S = 6 * 3600
+
+# Used when /v1/subscription/quotas is unreachable: USD per token on our key
+# as of 2026-10-22.
+FALLBACK_TOKEN_PRICES_USD: dict[str, float] = {
+    "premium_news_tokens": 96e-6,
+    "expert_interviews_tokens": 98e-6,
+    "podcasts_tokens": 74e-6,
+    "earnings_transcripts_tokens": 66e-6,
+    "corporate_communications_tokens": 36e-6,
+    "regulatory_filings_tokens": 10e-6,
+    "web_tokens": 8e-6,
+    "private_data_tokens": 8e-6,
+}
+
+_token_prices: dict[str, float] | None = None
+_token_prices_fetched_at: float = 0.0
+_token_prices_lock = Lock()
+
+
+def _usage_key_for_unit(unit_id: str) -> str | None:
+    """Map a fast-search billing unit id to its ``usage`` counter name.
+
+    ``search:fast:content-premium-news:tokens`` -> ``premium_news_tokens``.
+    """
+    parts = unit_id.split(":")
+    if len(parts) != 4 or parts[:2] != ["search", "fast"] or not parts[2].startswith("content-"):
+        return None
+    return parts[2].removeprefix("content-").replace("-", "_") + "_tokens"
+
+
+def _fetch_token_prices() -> dict[str, float]:
+    resp = httpx.get(
+        f"{settings.API_BASE_URL}/v1/subscription/quotas",
+        headers={"X-API-KEY": str(settings.BIGDATA_API_KEY)},
+        timeout=20,
+    )
+    resp.raise_for_status()
+    prices: dict[str, float] = {}
+    for billing in resp.json()["results"].get("billing") or []:
+        for unit in billing.get("units") or []:
+            key = _usage_key_for_unit(unit.get("id", ""))
+            if key and unit.get("units_price") is not None:
+                # units_price is US cents per single token
+                prices[key] = float(unit["units_price"]) / 100
+    if not prices:
+        raise ValueError("no search token prices in /v1/subscription/quotas")
+    return prices
+
+
+def get_token_prices() -> dict[str, float]:
+    """USD price per token for each ``usage`` counter, cached for a few hours."""
+    global _token_prices, _token_prices_fetched_at
+    with _token_prices_lock:
+        if _token_prices is not None and time.monotonic() - _token_prices_fetched_at < _TOKEN_PRICES_TTL_S:
+            return _token_prices
+        try:
+            _token_prices = _fetch_token_prices()
+        except Exception as e:
+            logger.warning(f"Could not read token prices from /v1/subscription/quotas, using fallback: {e}")
+            _token_prices = _token_prices or dict(FALLBACK_TOKEN_PRICES_USD)
+        _token_prices_fetched_at = time.monotonic()
+        return _token_prices
+
+
+def retrieval_tokens_from_usage(usage: dict | None) -> dict[str, int]:
+    """Per-tier token counters (``*_tokens``) from a Bigdata search ``usage`` block."""
+    if not usage:
+        return {}
+    return {
+        k: int(v) for k, v in usage.items()
+        if k.endswith("_tokens") and isinstance(v, (int, float))
+    }
+
+
+def merge_usage(a: dict[str, int], b: dict[str, int]) -> dict[str, int]:
+    """Sum two per-tier token dicts."""
+    out = dict(a)
+    for tier, n in b.items():
+        out[tier] = out.get(tier, 0) + n
+    return out
+
+
+def calculate_retrieval_cost(tokens_by_tier: dict[str, int]) -> float:
+    """Cost in USD of per-tier retrieval tokens at our key's prices.
+
+    A tier with no price on our key costs 0 here (and is logged); its tokens
+    are still recorded so they stay visible.
+    """
+    prices = get_token_prices()
+    cost = 0.0
+    for tier, tokens in tokens_by_tier.items():
+        price = prices.get(tier)
+        if price is None:
+            logger.warning(f"No token price for usage counter {tier!r}; counted at $0")
+            continue
+        cost += tokens * price
+    return cost
+
+
+# Legacy per-chunk price, used only for runs recorded before retrieval tokens
+# were tracked (their SQLRunMetrics.retrieval_cost_usd is NULL).
 CHUNK_UNIT_PRICE_USD: float = 0.0015
 
 
 def calculate_chunk_cost(chunks: int) -> float:
-    """Calculate cost for retrieved search chunks in USD."""
+    """Calculate legacy cost for retrieved search chunks in USD."""
     return chunks * CHUNK_UNIT_PRICE_USD
+
+
+def calculate_search_cost(chunks: int, retrieval_cost_usd: float | None) -> float:
+    """Bigdata search cost for a run (or step): the token cost recorded at run
+    time when there is one, legacy per-chunk cost otherwise."""
+    if retrieval_cost_usd is not None:
+        return retrieval_cost_usd
+    return calculate_chunk_cost(chunks or 0)
 

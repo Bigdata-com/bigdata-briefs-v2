@@ -11,6 +11,7 @@ Service type: search (parallel POST /v1/search per concept)
 from __future__ import annotations
 
 import time
+from functools import partial
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
@@ -61,6 +62,10 @@ def execute_parallel_concept_queries(
     # Size the pool to the shared connection semaphore. The 450 QPM limit is
     # enforced independently by RequestsPerMinuteController; oversubscribing
     # threads beyond the connection pool just wastes thread slots.
+    on_usage = (
+        partial(deps.entity_metrics.track_search_usage, attributee_step="concept_search")
+        if deps.entity_metrics else None
+    )
     with ThreadPoolExecutor(max_workers=settings.API_SIMULTANEOUS_REQUESTS) as executor:
         all_results, results_per_concept, results_by_theme = (
             deps.query_service.run_concept_queries_raw(
@@ -74,6 +79,7 @@ def execute_parallel_concept_queries(
                 freshness_boost=freshness_boost,
                 rerank_concept_sources=rerank_concept_sources,
                 debug_logger=deps.debug_logger,
+                on_usage=on_usage,
                 headline_search=headline_search,
             )
         )

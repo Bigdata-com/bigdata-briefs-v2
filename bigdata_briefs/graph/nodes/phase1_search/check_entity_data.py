@@ -10,6 +10,7 @@ Service type: search (single POST /v1/search with chunk_limit=1)
 from __future__ import annotations
 
 import time
+from functools import partial
 from datetime import datetime, timezone
 
 from langchain_core.runnables import RunnableConfig
@@ -55,12 +56,17 @@ def verify_entity_has_search_results(
     source_filter = cfg.get("source_filter")
     categories = cfg.get("categories")
 
+    on_usage = (
+        partial(deps.entity_metrics.track_search_usage, attributee_step="initial_check")
+        if deps.entity_metrics else None
+    )
     results = deps.query_service.check_if_entity_has_results(
         entity_id=entity.id,
         report_dates=report_dates,
         source_filter=source_filter,
         categories=categories,
         debug_logger=deps.debug_logger,
+        on_usage=on_usage,
     )
 
     has_results = bool(results)

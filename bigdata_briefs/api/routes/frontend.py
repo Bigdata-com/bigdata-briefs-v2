@@ -44,7 +44,7 @@ from bigdata_briefs.orchestration.models import (
     SQLUIScanRun,
     SQLUserPortfolio,
 )
-from bigdata_briefs.pricing import calculate_chunk_cost
+from bigdata_briefs.pricing import CHUNK_UNIT_PRICE_USD, calculate_search_cost
 from bigdata_briefs.settings import settings
 
 router = APIRouter()
@@ -287,12 +287,15 @@ def _build_cost_dict_for_run(
     total_cost = (
         metrics.total_llm_cost_usd
         + metrics.total_embedding_cost_usd
-        + calculate_chunk_cost(metrics.chunks_total)
+        + calculate_search_cost(metrics.chunks_total, metrics.retrieval_cost_usd)
     )
+    token_billed = metrics.retrieval_cost_usd is not None
     for step_name, step in step_detail.items():
         ops = step.get("operational") or {}
         chunks_n = ops.get("chunks_retrieved", 0)
-        api_cost = calculate_chunk_cost(chunks_n)
+        api_cost = calculate_search_cost(
+            chunks_n, ops.get("retrieval_cost_usd", 0.0) if token_billed else None
+        )
         phase_total = step.get("total_cost_usd", 0.0) + api_cost
         phases.append({
             "id": step_name,
@@ -321,10 +324,13 @@ def _build_cost_dict_for_run(
         "summary": {
             "llm": metrics.total_llm_cost_usd,
             "embeddings": metrics.total_embedding_cost_usd,
-            "apiChunks": calculate_chunk_cost(metrics.chunks_total),
+            "apiChunks": calculate_search_cost(metrics.chunks_total, metrics.retrieval_cost_usd),
             "total": total_cost,
             "chunksTotal": metrics.chunks_total,
-            "chunkRate": 0.0015,
+            "chunkRate": CHUNK_UNIT_PRICE_USD,
+            # null for runs recorded before token billing (legacy per-chunk cost)
+            "retrievalTokens": metrics.retrieval_tokens,
+            "retrievalByTier": json.loads(metrics.retrieval_tokens_json or "{}"),
             "embeddingTokens": metrics.embedding_tokens,
             "embeddingModel": metrics.embedding_model,
         },
@@ -354,7 +360,7 @@ def _build_recent_runs_for_cost(session: Session, limit: int = 25) -> list[dict]
         total = (
             m.total_llm_cost_usd
             + m.total_embedding_cost_usd
-            + calculate_chunk_cost(m.chunks_total)
+            + calculate_search_cost(m.chunks_total, m.retrieval_cost_usd)
         )
         dur_s = 0
         if r.process_completed_at_utc and r.process_started_at_utc:
@@ -2086,7 +2092,7 @@ def get_cost_runs_for_entity(entity_id: str, limit: int = 200) -> dict:
             total = (
                 float(m.total_llm_cost_usd or 0)
                 + float(m.total_embedding_cost_usd or 0)
-                + float(calculate_chunk_cost(m.chunks_total or 0))
+                + float(calculate_search_cost(m.chunks_total or 0, m.retrieval_cost_usd))
             )
             dur_s = 0
             if r.process_completed_at_utc and r.process_started_at_utc:

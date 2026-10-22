@@ -6,6 +6,7 @@ from threading import Lock
 from time import perf_counter
 
 from bigdata_briefs import logger
+from bigdata_briefs.pricing import calculate_retrieval_cost, retrieval_tokens_from_usage
 from bigdata_briefs.models import (
     BulletPointsUsage,
     EmbeddingsUsage,
@@ -36,23 +37,6 @@ class CacheMetrics(Metrics):
 
     @classmethod
     def track_usage(cls, usage: int = 1):
-        cls.metrics_queue.put(usage)
-
-    @classmethod
-    def get_total_usage(cls) -> int:
-        with cls.lock:
-            usages = cls.metrics_queue.queue
-            if not usages:
-                return 0
-            return sum(usages)
-
-
-class QueryUnitMetrics(Metrics):
-    metrics_queue = Queue()
-    lock = Lock()
-
-    @classmethod
-    def track_usage(cls, usage: int):
         cls.metrics_queue.put(usage)
 
     @classmethod
@@ -364,7 +348,9 @@ class EntityStepMetrics:
         self._embedding_usage: EmbeddingsUsage | None = None
         self._total_chunks: int = 0
         self._total_api_calls: int = 0
-        self._total_query_units: float = 0.0
+        self._total_retrieval_tokens: int = 0
+        self._total_retrieval_cost: float = 0.0
+        self._retrieval_tokens_by_tier: dict[str, int] = {}
 
     def set_current_step(self, step_name: str | None):
         """Set the currently active step (called by track_step context manager)."""
@@ -617,22 +603,34 @@ class EntityStepMetrics:
     def track_api_call(
         self,
         n_calls: int,
-        query_units: float = 0.0,
+        usage: dict | None = None,
         *,
         attributee_step: str | None = None,
     ):
-        """Track Bigdata search API calls. Always accumulates run totals; also updates
+        """Track Bigdata search API calls and the retrieval tokens they were billed
+        (the response's ``usage`` block). Always accumulates run totals; also updates
         the step breakdown when a step name is known."""
+        tokens_by_tier = retrieval_tokens_from_usage(usage)
+        tokens = sum(tokens_by_tier.values())
+        cost = calculate_retrieval_cost(tokens_by_tier) if tokens_by_tier else 0.0
         with self.lock:
             self._total_api_calls += n_calls
-            self._total_query_units += query_units
+            self._total_retrieval_tokens += tokens
+            self._total_retrieval_cost += cost
+            for tier, n in tokens_by_tier.items():
+                self._retrieval_tokens_by_tier[tier] = self._retrieval_tokens_by_tier.get(tier, 0) + n
             step_name = attributee_step if attributee_step else self._current_step
             if not step_name:
                 return
             if step_name not in self.usage_per_step:
                 self.usage_per_step[step_name] = StepUsage(step_name=step_name)
             self.usage_per_step[step_name].api_calls += n_calls
-            self.usage_per_step[step_name].api_query_units += query_units
+            self.usage_per_step[step_name].retrieval_tokens += tokens
+            self.usage_per_step[step_name].retrieval_cost_usd += cost
+
+    def track_search_usage(self, usage: dict | None, *, attributee_step: str | None = None):
+        """Track the retrieval tokens billed by one search call (run total + step)."""
+        self.track_api_call(0, usage, attributee_step=attributee_step)
 
     def track_bullets(
         self,

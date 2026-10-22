@@ -22,6 +22,7 @@ import httpx
 from pydantic import BaseModel, Field
 
 from bigdata_briefs import logger
+from bigdata_briefs.pricing import merge_usage, retrieval_tokens_from_usage
 from bigdata_briefs.settings import settings
 from bigdata_briefs.utils import asleep_with_backoff
 
@@ -1301,13 +1302,13 @@ async def _ns_bigdata_search_slice(
     slice_start: str | None,
     api_key: str,
     request_hook,
-) -> tuple[list[dict], float]:
+) -> tuple[list[dict], dict[str, int]]:
     """
     Call Bigdata.com search for a single time slice.
 
     ``request_hook`` (optional async callable) is awaited before every POST
     so the shared 450 QPM budget is respected.
-    Returns (raw_result_dicts, query_units).
+    Returns (raw_result_dicts, retrieval_tokens_by_tier).
     """
     payload = _ns_build_search_payload(
         search_query=search_query,
@@ -1348,14 +1349,14 @@ async def _ns_bigdata_search_slice(
         else:
             raise last_exc
 
-    query_units = float(data.get("usage", {}).get("api_query_units", 0.0))
+    tokens_by_tier = retrieval_tokens_from_usage(data.get("usage"))
     logger.debug(
-        "[novelty_search] search slice query=%r end=%s units=%.3f",
+        "[novelty_search] search slice query=%r end=%s tokens=%s",
         search_query[:60],
         slice_end,
-        query_units,
+        tokens_by_tier,
     )
-    return _ns_parse_bigdata_response(data), query_units
+    return _ns_parse_bigdata_response(data), tokens_by_tier
 
 
 async def _ns_multi_query_search(
@@ -1375,7 +1376,7 @@ async def _ns_multi_query_search(
         results_per_query  — per-query results (consistent simple IDs)
         merged_all         — all results merged + deduped, oldest → newest
         duplicates_removed — chunks removed by chunk_text deduplication
-        total_query_units  — total API query units consumed
+        total_usage  — Bigdata retrieval tokens billed, per tier (``*_tokens``)
     """
     search_end = _ns_reference_date_to_search_end(reference_date)
     tasks = [
@@ -1391,11 +1392,11 @@ async def _ns_multi_query_search(
     ]
     slice_results = await asyncio.gather(*tasks)
 
-    total_query_units = 0.0
+    total_usage: dict[str, int] = {}
     raw_per_query: list[list[dict]] = []
-    for results, query_units in slice_results:
+    for results, usage in slice_results:
         raw_per_query.append(results)
-        total_query_units += query_units
+        total_usage = merge_usage(total_usage, usage)
 
     # Deduplicate within each query by chunk_text
     deduped_per_query: list[list[dict]] = []
@@ -1434,10 +1435,10 @@ async def _ns_multi_query_search(
         results_per_query.append(per_q)
 
     logger.info(
-        "[novelty_search] search done queries=%d merged=%d dups_removed=%d units=%.3f",
+        "[novelty_search] search done queries=%d merged=%d dups_removed=%d tokens=%s",
         len(search_queries),
         len(merged_all),
         duplicates_removed,
-        total_query_units,
+        total_usage,
     )
-    return results_per_query, merged_all, duplicates_removed, total_query_units
+    return results_per_query, merged_all, duplicates_removed, total_usage

@@ -294,6 +294,14 @@ class SQLRunMetrics(SQLModel, table=True):
     # Chunks retrieved across all search phases (exploratory + concept + novelty search)
     chunks_total: int = Field(default=0)
 
+    # Bigdata retrieval tokens billed across all search calls (sum of usage.*_tokens),
+    # the per-tier breakdown as JSON {tier: tokens}, and their cost at our key's
+    # per-tier prices when the run happened. NULL for runs recorded before token
+    # billing (2026-10-21); those fall back to the legacy per-chunk cost.
+    retrieval_tokens: int | None = Field(default=None)
+    retrieval_tokens_json: str | None = Field(default=None, sa_type=Text)
+    retrieval_cost_usd: float | None = Field(default=None)
+
     # Per-step breakdown: JSON dict of {step_name: {llm_cost_usd, llm_tokens, chunks_retrieved, ...}}
     step_detail_json: str = Field(default="{}", sa_type=Text)
 

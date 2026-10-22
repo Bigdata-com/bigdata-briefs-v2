@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from concurrent.futures import as_completed
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime, timedelta
@@ -9,7 +10,7 @@ import httpx
 from bigdata_briefs import logger
 from bigdata_briefs.debug_logger import DebugLogger
 from bigdata_briefs.exceptions import TooManyAPIRetriesError
-from bigdata_briefs.metrics import ContentMetrics, QueryUnitMetrics
+from bigdata_briefs.metrics import ContentMetrics
 from bigdata_briefs.models import (
     ConceptExtraction,
     Entity,
@@ -139,10 +140,14 @@ class APIQueryService(BaseQueryService):
         step: str = "api_search",
         entity_id: str | None = None,
         debug_logger: "DebugLogger | None" = None,
+        on_usage: Callable[[dict], None] | None = None,
     ):
         results = self._call_api(endpoint, method, payload, self.headers, step=step, entity_id=entity_id, debug_logger=debug_logger)
 
-        QueryUnitMetrics.track_usage(results["usage"]["api_query_units"])
+        # usage's shape depends on the account's billing model (api_query_units
+        # before 2026-10-21, per-tier *_tokens since), so never index into it.
+        if on_usage is not None:
+            on_usage(results.get("usage") or {})
 
         parsed_results = []
         for result in results["results"]:
@@ -222,6 +227,7 @@ class APIQueryService(BaseQueryService):
         chunk_limit: int | None = 1,
         rerank_threshold: float | None = None,
         debug_logger: "DebugLogger | None" = None,
+        on_usage: Callable[[dict], None] | None = None,
     ) -> list[Result]:
         """
         Make a simple query to find if the entity has results.
@@ -247,6 +253,7 @@ class APIQueryService(BaseQueryService):
             step="initial_check",
             entity_id=entity_id,
             debug_logger=debug_logger,
+            on_usage=on_usage,
         )
 
         ContentMetrics.track_usage(
@@ -277,6 +284,7 @@ class APIQueryService(BaseQueryService):
         freshness_boost: int | None = settings.API_FRESHNESS_BOOST,
         topic_index: int | None = None,
         debug_logger: "DebugLogger | None" = None,
+        on_usage: Callable[[dict], None] | None = None,
     ):
         query = build_query(
             entity_id=entity_id,
@@ -303,6 +311,7 @@ class APIQueryService(BaseQueryService):
             step=step_name,
             entity_id=entity_id,
             debug_logger=debug_logger,
+            on_usage=on_usage,
         )
 
         if topic:
@@ -334,6 +343,7 @@ class APIQueryService(BaseQueryService):
         source_rank_boost: int | None = settings.API_SOURCE_RANK_BOOST,
         freshness_boost: int | None = settings.API_FRESHNESS_BOOST,
         debug_logger: "DebugLogger | None" = None,
+        on_usage: Callable[[dict], None] | None = None,
     ) -> list[Result]:
         logger.info(
             f"Exploratory search for {entity.name}: chunk_limit={chunk_limit}"
@@ -350,6 +360,7 @@ class APIQueryService(BaseQueryService):
             freshness_boost=freshness_boost,
             topic_index=0,
             debug_logger=debug_logger,
+            on_usage=on_usage,
         )
 
     def _run_concept_single_query(
@@ -370,6 +381,7 @@ class APIQueryService(BaseQueryService):
         concept_index: int | None = None,
         debug_logger: "DebugLogger | None" = None,
         headline_search: bool = False,
+        on_usage: Callable[[dict], None] | None = None,
     ):
         """Run a single concept-based query: "{entity_name} {concept}"."""
         similarity_text = f"{entity_name} {concept}"
@@ -403,6 +415,7 @@ class APIQueryService(BaseQueryService):
             step=step_name,
             entity_id=entity_id,
             debug_logger=debug_logger,
+            on_usage=on_usage,
         )
 
         ContentMetrics.track_usage(
@@ -431,6 +444,7 @@ class APIQueryService(BaseQueryService):
         rerank_concept_sources: bool = False,
         debug_logger: "DebugLogger | None" = None,
         headline_search: bool = False,
+        on_usage: Callable[[dict], None] | None = None,
     ) -> tuple[list[Result], dict[str, dict], dict[str, list[Result]]]:
         """
         Step 4A: Run raw API queries for each concept.
@@ -451,6 +465,7 @@ class APIQueryService(BaseQueryService):
             rerank_concept_sources: Whether reranking will be applied (affects chunk_limit)
             debug_logger: Optional debug logger
             headline_search: Whether to search headlines
+            on_usage: Optional callback receiving each query's ``usage`` block
             
         Returns:
             Tuple of:
@@ -499,6 +514,7 @@ class APIQueryService(BaseQueryService):
                 concept_index=idx,
                 debug_logger=debug_logger,
                 headline_search=headline_search,
+                on_usage=on_usage,
             ): concept_info
             for idx, concept_info in enumerate(all_concepts_with_category)
         }

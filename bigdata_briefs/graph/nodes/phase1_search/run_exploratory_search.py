@@ -13,6 +13,7 @@ Service type: search (single POST /v1/search)
 from __future__ import annotations
 
 import time
+from functools import partial
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
@@ -60,6 +61,10 @@ def execute_broad_topic_search(
     categories = cfg.get("categories")
     source_rank_boost = cfg.get("source_rank_boost")
     freshness_boost = cfg.get("freshness_boost")
+    on_usage = (
+        partial(deps.entity_metrics.track_search_usage, attributee_step="exploratory_search")
+        if deps.entity_metrics else None
+    )
     with ThreadPoolExecutor(max_workers=settings.API_SIMULTANEOUS_REQUESTS) as executor:
         results = deps.query_service.run_exploratory_search(
             entity=entity,
@@ -70,6 +75,7 @@ def execute_broad_topic_search(
             source_rank_boost=source_rank_boost,
             freshness_boost=freshness_boost,
             debug_logger=deps.debug_logger,
+            on_usage=on_usage,
         )
 
     # Keep only rank-1 and rank-2 sources

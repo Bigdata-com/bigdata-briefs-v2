@@ -563,7 +563,7 @@ _FETCH_MODULE = "bigdata_briefs.graph.nodes.novelty_search.fetch_search_evidence
 
 
 class TestFetchSearchEvidence:
-    _EMPTY_SEARCH_RETURN = ([], [], 0, 0.0)
+    _EMPTY_SEARCH_RETURN = ([], [], 0, {})
 
     def _call(self, state, deps=None):
         return fetch_search_evidence(state, make_config(deps))
@@ -618,7 +618,7 @@ class TestFetchSearchEvidence:
             patch(f"{_FETCH_MODULE}.settings") as ms,
             patch(
                 f"{_FETCH_MODULE}.asyncio.run",
-                return_value=([[fake_result]], [fake_result], 0, 0.5),
+                return_value=([[fake_result]], [fake_result], 0, {"web_tokens": 500}),
             ),
         ):
             ms.NOVELTY_SEARCH_ENABLED = True
@@ -637,7 +637,7 @@ class TestFetchSearchEvidence:
 
         with (
             patch(f"{_FETCH_MODULE}.settings") as ms,
-            patch(f"{_FETCH_MODULE}.asyncio.run", return_value=([], [], 0, 0.0)),
+            patch(f"{_FETCH_MODULE}.asyncio.run", return_value=([], [], 0, {})),
         ):
             ms.NOVELTY_SEARCH_ENABLED = True
             ms.NOVELTY_SEARCH_MAX_CONCURRENT = 4
@@ -669,7 +669,7 @@ class TestFetchSearchEvidence:
         # The original bullet must still be active (not touched by fetch node)
         assert bp["is_active"] is True
 
-    def test_metrics_include_query_units(self):
+    def test_metrics_include_retrieval_tokens(self):
         deps = make_deps()
         bp = make_bullet()
         _seed_cache_for_parse(deps, bp["trace_id"])
@@ -677,14 +677,14 @@ class TestFetchSearchEvidence:
 
         with (
             patch(f"{_FETCH_MODULE}.settings") as ms,
-            patch(f"{_FETCH_MODULE}.asyncio.run", return_value=([], [], 0, 1.25)),
+            patch(f"{_FETCH_MODULE}.asyncio.run", return_value=([], [], 0, {"web_tokens": 1000, "premium_news_tokens": 250})),
         ):
             ms.NOVELTY_SEARCH_ENABLED = True
             ms.NOVELTY_SEARCH_MAX_CONCURRENT = 4
             ms.BIGDATA_API_KEY = "dummy-key"
             result = self._call(state, deps)
 
-        assert result["node_metrics"][0]["extra"]["total_query_units"] == 1.25
+        assert result["node_metrics"][0]["extra"]["total_retrieval_tokens"] == 1250
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1230,7 +1230,7 @@ class TestFetchSearchEvidenceParallel:
             with lock:
                 seen.append(threading.current_thread().name)
             barrier.wait()
-            return ([], [], 0, 0.0)
+            return ([], [], 0, {})
 
         deps = make_deps()
         bullets = [make_bullet() for _ in range(n)]
@@ -1284,7 +1284,7 @@ class TestFetchSearchEvidenceParallel:
             if my_count == 1:
                 raise RuntimeError("simulated search failure")
             barrier.wait()
-            return ([], [], 0, 0.0)
+            return ([], [], 0, {})
 
         deps = make_deps()
         bullets = [make_bullet() for _ in range(n)]

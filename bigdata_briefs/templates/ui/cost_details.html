@@ -83,14 +83,18 @@
     <div class="sub">{{ "{:,}".format(embedding_tokens) }} tokens</div>
   </div>
   <div class="cost-tile">
-    <div class="label">Grounding tokens cost</div>
+    <div class="label">Retrieval tokens cost</div>
     <div class="amount">${{ "%.4f"|format(chunk_cost) }}</div>
-    <div class="sub">{{ "{:,}".format(chunks_total) }} chunks × $0.0015</div>
+    {% if retrieval_tokens is not none %}
+    <div class="sub">{{ "{:,}".format(retrieval_tokens) }} tokens{% for tier, n in retrieval_by_tier|dictsort(by="value", reverse=true) %} · {{ tier|replace("_tokens", "")|replace("_", " ") }} {{ "{:,}".format(n) }}{% endfor %}</div>
+    {% else %}
+    <div class="sub">{{ "{:,}".format(chunks_total) }} chunks × $0.0015 (legacy)</div>
+    {% endif %}
   </div>
   <div class="cost-tile total">
     <div class="label">Total</div>
     <div class="amount">${{ "%.4f"|format(total_cost) }}</div>
-    <div class="sub">Compute + Grounding</div>
+    <div class="sub">Compute + Retrieval</div>
   </div>
 </div>
 
@@ -205,8 +209,8 @@
     <div class="group-totals">
       <span>requests: </span>{{ g.totals.api_calls }}
       &nbsp;·&nbsp;<span>chunks: </span>{{ "{:,}".format(g.totals.chunks_retrieved) }}
-      &nbsp;·&nbsp;<span>query units: </span>{{ "%.2f"|format(g.totals.api_query_units) if g.totals.api_query_units else "—" }}
-      &nbsp;·&nbsp;<span>cost: </span><b>${{ "%.4f"|format(g.totals.chunks_retrieved * 0.0015) }}</b>
+      &nbsp;·&nbsp;<span>retrieval tokens: </span>{{ "{:,}".format(g.totals.retrieval_tokens) if g.totals.retrieval_tokens else "—" }}
+      &nbsp;·&nbsp;<span>cost: </span><b>${{ "%.4f"|format(g.totals.retrieval_cost_usd if retrieval_tokens is not none else g.totals.chunks_retrieved * 0.0015) }}</b>
       {% set bar_pct = (g.totals.api_calls / api_group_max.v * 100) if api_group_max.v > 0 else 0 %}
       &nbsp;<div class="bar-bg" style="width:80px;display:inline-block;vertical-align:middle"><div class="bar-fill api" style="width:{{ bar_pct|round(1) }}%"></div></div>
     </div>
@@ -214,7 +218,7 @@
   <div class="group-card">
   <table class="dt">
     <thead><tr>
-      <th>Step</th><th class="right">Requests</th><th class="right">Chunks</th><th class="right">Query units</th><th class="right">Chunk cost</th>
+      <th>Step</th><th class="right">Requests</th><th class="right">Chunks</th><th class="right">Retrieval tokens</th><th class="right">Cost</th>
     </tr></thead>
     <tbody>
     {% for name, s in g.steps %}
@@ -224,8 +228,8 @@
       <td style="font-family:ui-monospace,monospace;font-size:.78rem">{{ name }}</td>
       <td class="right num">{% if ops.get("api_calls") %}{{ ops.api_calls }}{% else %}<span class="muted">—</span>{% endif %}</td>
       <td class="right num">{% if ops.get("chunks_retrieved") %}{{ "{:,}".format(ops.chunks_retrieved) }}{% else %}<span class="muted">—</span>{% endif %}</td>
-      <td class="right num">{% if ops.get("api_query_units") %}{{ "%.2f"|format(ops.api_query_units) }}{% else %}<span class="muted">—</span>{% endif %}</td>
-      <td class="right num">${{ "%.4f"|format(ops.get("chunks_retrieved", 0) * 0.0015) }}</td>
+      <td class="right num">{% if ops.get("retrieval_tokens") %}{{ "{:,}".format(ops.retrieval_tokens) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="right num">${{ "%.4f"|format(ops.get("retrieval_cost_usd", 0) if retrieval_tokens is not none else ops.get("chunks_retrieved", 0) * 0.0015) }}</td>
     </tr>
     {% endif %}
     {% endfor %}

@@ -413,9 +413,16 @@ function CostView({ tweaks, appCostData, appEntityRuns }) {
             <div className="cost-tile-sub">{C.summary.embeddingTokens.toLocaleString()} tokens · {C.summary.embeddingModel}</div>
           </div>
           <div className="cost-tile">
-            <div className="t-cap">Grounding tokens cost<sup className="cost-asterisk">*</sup></div>
+            <div className="t-cap">Retrieval tokens cost<sup className="cost-asterisk">*</sup></div>
             <div className="cost-tile-amt tnum">${C.summary.apiChunks.toFixed(4)}</div>
-            <div className="cost-tile-sub">{C.summary.chunksTotal} chunks × ${C.summary.chunkRate}</div>
+            <div className="cost-tile-sub">
+              {C.summary.retrievalTokens != null
+                ? <>{C.summary.retrievalTokens.toLocaleString()} tokens{Object.entries(C.summary.retrievalByTier || {})
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([tier, n]) => ` · ${tier.replace(/_tokens$/, "").replace(/_/g, " ")} ${n.toLocaleString()}`)
+                    .join("")}</>
+                : <>{C.summary.chunksTotal} chunks × ${C.summary.chunkRate} (legacy)</>}
+            </div>
           </div>
           <div className="cost-tile cost-tile-total">
             <div className="t-cap">Total</div>
@@ -427,7 +434,7 @@ function CostView({ tweaks, appCostData, appEntityRuns }) {
         {/* Disclaimer (Change 6) */}
         <div className="cost-disclaimer" role="note">
           <div className="cost-disclaimer-body">
-            <strong><sup className="cost-disclaimer-star">*</sup>Note:</strong> The Grounding Token cost does not take into account the data licences.
+            <strong><sup className="cost-disclaimer-star">*</sup>Note:</strong> Retrieval cost is what the Bigdata.com API bills for this run: tokens per content tier at each tier's price on our API key. Data licence fees agreed with content providers are not included.
           </div>
         </div>
 
@@ -486,7 +493,7 @@ function CostView({ tweaks, appCostData, appEntityRuns }) {
             <div className="cost-phase-key">
               <span><span className="cost-key cost-key-llm" />Compute tokens</span>
               <span><span className="cost-key cost-key-embed" />Embeddings</span>
-              <span><span className="cost-key cost-key-api" />Grounding tokens</span>
+              <span><span className="cost-key cost-key-api" />Retrieval tokens</span>
             </div>
           </div>
         </section>

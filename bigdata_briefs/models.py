@@ -907,7 +907,8 @@ class StepUsage(BaseModel):
     
     # Bigdata API metrics
     api_calls: int = 0
-    api_query_units: float = 0.0
+    retrieval_tokens: int = 0
+    retrieval_cost_usd: float = 0.0
 
     # Operational metrics
     chunks_retrieved: int = 0
@@ -935,7 +936,8 @@ class StepUsage(BaseModel):
         # Only include non-zero operational metrics
         ops = {}
         if self.api_calls: ops["api_calls"] = self.api_calls
-        if self.api_query_units: ops["api_query_units"] = round(self.api_query_units, 4)
+        if self.retrieval_tokens: ops["retrieval_tokens"] = self.retrieval_tokens
+        if self.retrieval_cost_usd: ops["retrieval_cost_usd"] = round(self.retrieval_cost_usd, 6)
         if self.chunks_retrieved: ops["chunks_retrieved"] = self.chunks_retrieved
         if self.bullets_generated: ops["bullets_generated"] = self.bullets_generated
         if self.bullets_discarded: ops["bullets_discarded"] = self.bullets_discarded

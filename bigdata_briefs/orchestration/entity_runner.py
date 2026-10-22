@@ -755,6 +755,9 @@ def _flush_run_metrics(
 
         with entity_metrics.lock:
             chunks_total = entity_metrics._total_chunks
+            retrieval_tokens = entity_metrics._total_retrieval_tokens
+            retrieval_by_tier = dict(entity_metrics._retrieval_tokens_by_tier)
+            retrieval_cost = round(entity_metrics._total_retrieval_cost, 6)
 
         # Use the per-entity embedding accumulator for the totals so the cost
         # is correct even when embeddings were tracked outside a named step.
@@ -771,6 +774,9 @@ def _flush_run_metrics(
             embedding_tokens=emb["tokens"],
             embedding_cost_usd=total_emb_cost,
             chunks_total=chunks_total,
+            retrieval_tokens=retrieval_tokens,
+            retrieval_tokens_json=json.dumps(retrieval_by_tier),
+            retrieval_cost_usd=retrieval_cost,
             sources_scanned=sources_scanned,
             step_detail_json=json.dumps(step_summary, default=str),
             total_llm_cost_usd=total_llm_cost,

@@ -32,6 +32,7 @@ from bigdata_briefs.graph.state import (
     NodeMetricsRecord,
     bullet_to_record,
 )
+from bigdata_briefs.pricing import merge_usage
 from bigdata_briefs.settings import settings
 
 
@@ -122,17 +123,17 @@ def fetch_search_evidence(
         }
 
     success_count = failure_count = 0
-    total_query_units = 0.0
+    total_usage: dict[str, int] = {}
     total_chunks_fetched = 0
     max_workers = max(1, settings.NOVELTY_SEARCH_MAX_CONCURRENT)
 
-    def _fetch_one(bullet_idx: int, trace_id: str) -> tuple[float, int]:
-        """Run search for one bullet; returns (query_units, chunk_count)."""
+    def _fetch_one(bullet_idx: int, trace_id: str) -> tuple[dict[str, int], int]:
+        """Run search for one bullet; returns (retrieval tokens per tier, chunk_count)."""
         sentence_parts: list[_NSSentencePart] = deps.get_search_data(trace_id, "sentence_parts")
         search_queries = [p.search_query for p in sentence_parts]
 
         # asyncio.run() creates a fresh event loop per worker thread — safe
-        results_per_part, merged_results, _, query_units = asyncio.run(
+        results_per_part, merged_results, _, usage = asyncio.run(
             _ns_multi_query_search(
                 search_queries=search_queries,
                 entity_id=entity_id,
@@ -146,12 +147,12 @@ def fetch_search_evidence(
         deps.store_search_data(trace_id, "merged_results", merged_results)
 
         logger.info(
-            "[novelty_search_fetch] bullet=%d evidence=%d units=%.3f",
+            "[novelty_search_fetch] bullet=%d evidence=%d tokens=%s",
             bullet_idx,
             len(merged_results),
-            query_units,
+            usage,
         )
-        return query_units, len(merged_results)
+        return usage, len(merged_results)
 
     with ThreadPoolExecutor(
         max_workers=max_workers,
@@ -164,8 +165,8 @@ def fetch_search_evidence(
         for future in as_completed(future_to_entry):
             bullet_idx, trace_id = future_to_entry[future]
             try:
-                units, chunk_count = future.result()
-                total_query_units += units
+                usage, chunk_count = future.result()
+                total_usage = merge_usage(total_usage, usage)
                 total_chunks_fetched += chunk_count
                 success_count += 1
             except Exception as exc:
@@ -181,7 +182,7 @@ def fetch_search_evidence(
         if total_chunks_fetched:
             deps.entity_metrics.track_chunks(total_chunks_fetched, attributee_step="novelty_search_fetch")
         deps.entity_metrics.track_api_call(
-            success_count, total_query_units, attributee_step="novelty_search_fetch"
+            success_count, total_usage, attributee_step="novelty_search_fetch"
         )
 
     wall_ms = (time.monotonic() - t0) * 1000
@@ -195,7 +196,7 @@ def fetch_search_evidence(
         extra={
             "bullets_fetched": success_count,
             "bullets_failed": failure_count,
-            "total_query_units": round(total_query_units, 4),
+            "total_retrieval_tokens": sum(total_usage.values()),
             "total_chunks_fetched": total_chunks_fetched,
         },
     )

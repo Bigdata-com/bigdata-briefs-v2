@@ -83,6 +83,15 @@ def _ensure_run_metrics_columns(engine: Engine) -> None:
         with engine.connect() as conn:
             conn.execute(text("ALTER TABLE sqlrunmetrics ADD COLUMN sources_scanned INTEGER NOT NULL DEFAULT 0"))
             conn.commit()
+    for col, definition in (
+        ("retrieval_tokens", "INTEGER"),
+        ("retrieval_tokens_json", "TEXT"),
+        ("retrieval_cost_usd", "FLOAT"),
+    ):
+        if col not in colnames:
+            with engine.connect() as conn:
+                conn.execute(text(f"ALTER TABLE sqlrunmetrics ADD COLUMN {col} {definition}"))
+                conn.commit()
 
 
 def _ensure_signal_history_columns(engine: Engine) -> None:

@@ -67,7 +67,7 @@ from bigdata_briefs.orchestration.models import (
     SQLUIBatchRun,
     SQLUIScanRun,
 )
-from bigdata_briefs.pricing import calculate_chunk_cost
+from bigdata_briefs.pricing import calculate_search_cost
 from bigdata_briefs.orchestration.windows import WindowMode, build_report_dates_for_entity_run
 from bigdata_briefs.settings import settings
 
@@ -1744,7 +1744,7 @@ def _scan_aggregate_costs(session: Session, results: list[dict]) -> tuple[float 
         if not m:
             continue
         llm += float(m.total_llm_cost_usd or 0.0) + float(m.total_embedding_cost_usd or 0.0)
-        api += float(calculate_chunk_cost(m.chunks_total or 0))
+        api += float(calculate_search_cost(m.chunks_total or 0, m.retrieval_cost_usd))
     return round(llm, 6), round(api, 6)
 
 
@@ -1866,7 +1866,7 @@ async def ui_details_page(request: Request) -> HTMLResponse:
             stats = _bullet_stats(_s, r.run_id)
         m = metrics_map.get(str(r.run_id))
         chunks = m.chunks_total if m else 0
-        chunk_cost = calculate_chunk_cost(chunks)
+        chunk_cost = calculate_search_cost(chunks, m.retrieval_cost_usd if m else None)
         llm_cost = m.total_llm_cost_usd if m else None
         emb_cost = m.total_embedding_cost_usd if m else None
         total_cost = round((llm_cost or 0) + (emb_cost or 0) + chunk_cost, 6) if m else None
@@ -2012,7 +2012,7 @@ async def ui_scan_detail_partial(request: Request, scan_id: str = "") -> HTMLRes
                     m = session.exec(select(SQLRunMetrics).where(SQLRunMetrics.run_id == uid)).first()
                     if m:
                         llm_v = float(m.total_llm_cost_usd or 0) + float(m.total_embedding_cost_usd or 0)
-                        api_v = float(calculate_chunk_cost(m.chunks_total or 0))
+                        api_v = float(calculate_search_cost(m.chunks_total or 0, m.retrieval_cost_usd))
                         llm_s = f"${llm_v:.4f}"
                         api_s = f"${api_v:.4f}"
             body_rows += (
@@ -2076,7 +2076,7 @@ def _categorize_steps(step_detail: dict) -> list[dict]:
         totals: dict = {
             "llm_cost_usd": 0.0, "llm_prompt_tokens": 0, "llm_completion_tokens": 0,
             "llm_calls": 0, "embedding_cost_usd": 0.0, "embedding_tokens": 0,
-            "api_calls": 0, "api_query_units": 0.0, "chunks_retrieved": 0,
+            "api_calls": 0, "retrieval_tokens": 0, "retrieval_cost_usd": 0.0, "chunks_retrieved": 0,
             "total_cost_usd": 0.0,
         }
         for _, data in matched:
@@ -2085,7 +2085,8 @@ def _categorize_steps(step_detail: dict) -> list[dict]:
                 totals[k] += data.get(k, 0)
             ops = data.get("operational") or {}
             totals["api_calls"] += ops.get("api_calls", 0)
-            totals["api_query_units"] += ops.get("api_query_units", 0.0)
+            totals["retrieval_tokens"] += ops.get("retrieval_tokens", 0)
+            totals["retrieval_cost_usd"] += ops.get("retrieval_cost_usd", 0.0)
             totals["chunks_retrieved"] += ops.get("chunks_retrieved", 0)
 
         groups.append({"label": label, "steps": matched, "totals": totals})
@@ -2096,7 +2097,7 @@ def _categorize_steps(step_detail: dict) -> list[dict]:
         totals = {
             "llm_cost_usd": 0.0, "llm_prompt_tokens": 0, "llm_completion_tokens": 0,
             "llm_calls": 0, "embedding_cost_usd": 0.0, "embedding_tokens": 0,
-            "api_calls": 0, "api_query_units": 0.0, "chunks_retrieved": 0,
+            "api_calls": 0, "retrieval_tokens": 0, "retrieval_cost_usd": 0.0, "chunks_retrieved": 0,
             "total_cost_usd": 0.0,
         }
         for _, data in remainder:
@@ -2105,7 +2106,8 @@ def _categorize_steps(step_detail: dict) -> list[dict]:
                 totals[k] += data.get(k, 0)
             ops = data.get("operational") or {}
             totals["api_calls"] += ops.get("api_calls", 0)
-            totals["api_query_units"] += ops.get("api_query_units", 0.0)
+            totals["retrieval_tokens"] += ops.get("retrieval_tokens", 0)
+            totals["retrieval_cost_usd"] += ops.get("retrieval_cost_usd", 0.0)
             totals["chunks_retrieved"] += ops.get("chunks_retrieved", 0)
         groups.append({"label": "Other", "steps": remainder, "totals": totals})
 
@@ -2140,6 +2142,8 @@ async def ui_cost_details_page(request: Request, run_id: str) -> HTMLResponse:
     step_detail: dict = {}
     step_groups: list[dict] = []
     chunks_total = 0
+    retrieval_tokens = None
+    retrieval_by_tier: dict = {}
     chunk_cost = 0.0
     total_llm_cost = 0.0
     total_emb_cost = 0.0
@@ -2151,7 +2155,9 @@ async def ui_cost_details_page(request: Request, run_id: str) -> HTMLResponse:
         step_detail = json.loads(metrics.step_detail_json or "{}")
         step_groups = _categorize_steps(step_detail)
         chunks_total = metrics.chunks_total
-        chunk_cost = calculate_chunk_cost(chunks_total)
+        retrieval_tokens = metrics.retrieval_tokens
+        retrieval_by_tier = json.loads(metrics.retrieval_tokens_json or "{}")
+        chunk_cost = calculate_search_cost(chunks_total, metrics.retrieval_cost_usd)
         total_llm_cost = metrics.total_llm_cost_usd
         total_emb_cost = metrics.total_embedding_cost_usd
         embedding_model = metrics.embedding_model
@@ -2174,6 +2180,8 @@ async def ui_cost_details_page(request: Request, run_id: str) -> HTMLResponse:
             "step_detail": step_detail,
             "step_groups": step_groups,
             "chunks_total": chunks_total,
+            "retrieval_tokens": retrieval_tokens,
+            "retrieval_by_tier": retrieval_by_tier,
             "chunk_cost": chunk_cost,
             "total_llm_cost": total_llm_cost,
             "total_emb_cost": total_emb_cost,
